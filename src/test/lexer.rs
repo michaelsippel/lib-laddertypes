@@ -17,8 +17,7 @@ fn test_lexer_num() {
 }
 
 #[test]
-fn test_lexer_num_error()
-{
+fn test_lexer_num_error() {
     let mut lex = LadderTypeLexer::new("123xxx".chars());
     assert_eq!( lex.next(), Some(Err(LexError::InvalidDigit)) );
 }
@@ -81,7 +80,17 @@ fn test_lexer_app_space() {
 
 #[test]
 fn test_lexer_large() {
-    let mut lex = LadderTypeLexer::new("<Seq Date~<TimeSince UnixEpoch>~<Duration Seconds>~ℕ~<PosInt 10 BigEndian>~<Seq <Digit 10>~Unicode>".chars());
+    let mut lex = LadderTypeLexer::new(
+        "<Seq Date \
+              ~<TimeSince UnixEpoch> \
+              ~<Duration Seconds> \
+              ~ℕ \
+              ~<PosInt 10 BigEndian> \
+              ~< Seq <Digit 10>~Unicode > > \
+         ~<SepSeq Unicode ':'> \
+         ~<Seq Unicode> \
+         ~UTF-8 \
+         ~<Seq Byte>".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))));
@@ -114,6 +123,26 @@ fn test_lexer_large() {
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Unicode".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("SepSeq".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Unicode".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Char(':'))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Unicode".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("UTF-8".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Byte".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+
     assert_eq!( lex.next(), None );
 }
 
