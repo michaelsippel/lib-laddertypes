@@ -1,7 +1,4 @@
-use {
-    crate::TypeID,
-    std::collections::HashMap
-};
+use crate::TypeID;
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
 
