@@ -2,7 +2,7 @@ use crate::lexer::*;
 
 #[test]
 fn test_lexer_symbol() {
-    let mut lex = LadderTypeLexer::new("symbol".chars());
+    let mut lex = LadderTypeLexer::from("symbol".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("symbol".into()))) );
     assert_eq!( lex.next(), None );
@@ -10,7 +10,7 @@ fn test_lexer_symbol() {
 
 #[test]
 fn test_lexer_num() {
-    let mut lex = LadderTypeLexer::new("1234".chars());
+    let mut lex = LadderTypeLexer::from("1234".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Num(1234))) );
     assert_eq!( lex.next(), None );
@@ -18,13 +18,13 @@ fn test_lexer_num() {
 
 #[test]
 fn test_lexer_num_error() {
-    let mut lex = LadderTypeLexer::new("123xxx".chars());
+    let mut lex = LadderTypeLexer::from("123xxx".chars());
     assert_eq!( lex.next(), Some(Err(LexError::InvalidDigit)) );
 }
 
 #[test]
 fn test_lexer_char() {
-    let mut lex = LadderTypeLexer::new("'x'".chars());
+    let mut lex = LadderTypeLexer::from("'x'".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Char('x'))) );
     assert_eq!( lex.next(), None );
@@ -32,13 +32,13 @@ fn test_lexer_char() {
 
 #[test]
 fn test_lexer_char_error() {
-    let mut lex = LadderTypeLexer::new("'xx'".chars());
+    let mut lex = LadderTypeLexer::from("'xx'".chars());
     assert_eq!( lex.next(), Some(Err(LexError::InvalidChar)) );
 }
 
 #[test]
 fn test_lexer_ladder() {
-    let mut lex = LadderTypeLexer::new("abc~def".chars());
+    let mut lex = LadderTypeLexer::from("abc~def".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("abc".into()))) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)) );
@@ -48,7 +48,7 @@ fn test_lexer_ladder() {
 
 #[test]
 fn test_lexer_ladder_space() {
-    let mut lex = LadderTypeLexer::new("abc   ~ def".chars());
+    let mut lex = LadderTypeLexer::from("abc   ~ def".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("abc".into()))) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)) );
@@ -58,7 +58,7 @@ fn test_lexer_ladder_space() {
 
 #[test]
 fn test_lexer_app() {
-    let mut lex = LadderTypeLexer::new("<Seq Char>".chars());
+    let mut lex = LadderTypeLexer::from("<Seq Char>".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))) );
@@ -69,7 +69,7 @@ fn test_lexer_app() {
 
 #[test]
 fn test_lexer_app_space() {
-    let mut lex = LadderTypeLexer::new("   <Seq      Char  >".chars());
+    let mut lex = LadderTypeLexer::from("   <Seq      Char  >".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))) );
@@ -80,7 +80,7 @@ fn test_lexer_app_space() {
 
 #[test]
 fn test_lexer_large() {
-    let mut lex = LadderTypeLexer::new(
+    let mut lex = LadderTypeLexer::from(
         "<Seq Date \
               ~<TimeSince UnixEpoch> \
               ~<Duration Seconds> \

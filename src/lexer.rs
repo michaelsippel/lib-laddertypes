@@ -49,10 +49,10 @@ where It: std::iter::Iterator<Item = char>
     chars: std::iter::Peekable<It>,
 }
 
-impl<It> LadderTypeLexer<It>
+impl<It> From<It> for LadderTypeLexer<It>
 where It: Iterator<Item = char>
 {
-    pub fn new(chars: It) -> Self {
+    fn from(chars: It) -> Self {
         LadderTypeLexer {
             chars: chars.peekable()
         }
