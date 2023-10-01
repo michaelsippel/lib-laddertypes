@@ -24,8 +24,8 @@ application domain.
 
 Trying to introduce a global type system at IPC level would result in
 naming conflicts: Abstract concepts like 'natural number' do not have
-any standard representational form, as it is the case in other more
-contained langugaes. With a simple type name like this it is not clear
+any standard representational form, as it is the case with other more
+contained languages. With a simple type name like this it is not clear
 which of the many equivalent representations is required, e.g. for an
 *integer number* variations over radices, endianness, digit encoding
 etc. exist.
