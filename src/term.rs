@@ -40,7 +40,7 @@ impl TypeTerm {
     pub fn arg(&mut self, t: impl Into<TypeTerm>) -> &mut Self {
         match self {
             TypeTerm::App(args) => {
-                args.push(t.into());                
+                args.push(t.into());
             }
 
             _ => {
@@ -62,4 +62,6 @@ impl TypeTerm {
         self.arg(TypeTerm::Char(c))
     }
 }
+
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 

@@ -1,5 +1,7 @@
 use crate::lexer::*;
 
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
+
 #[test]
 fn test_lexer_symbol() {
     let mut lex = LadderTypeLexer::from("symbol".chars());

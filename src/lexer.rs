@@ -1,5 +1,5 @@
 
-//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum LadderTypeToken {
@@ -20,7 +20,7 @@ pub enum LexError {
     InvalidChar,
 }
 
-//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 enum LexerState {
@@ -41,7 +41,7 @@ impl LexerState {
     }
 }
 
-//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 pub struct LadderTypeLexer<It>
 where It: std::iter::Iterator<Item = char>
@@ -144,4 +144,6 @@ where It: Iterator<Item = char>
         }
     }
 }
+
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
