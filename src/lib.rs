@@ -1,12 +1,13 @@
 
+
 pub mod lexer;
-//pub mod bimap;
-//pub mod dict;
-//pub mod term;
+pub mod bimap;
+pub mod dict;
+pub mod term;
 
 pub use {
-//    dict::*,
-//    term::*,
+    dict::*,
+    term::*,
 };
 
 #[cfg(test)]
