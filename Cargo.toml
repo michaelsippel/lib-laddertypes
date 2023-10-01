@@ -1,0 +1,6 @@
+[package]
+authors = ["Michael Sippel <micha@fragmental.art>"]
+edition = "2018"
+name = "laddertypes"
+version = "0.1.0"
+
