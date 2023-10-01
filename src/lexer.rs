@@ -5,7 +5,7 @@
 pub enum LadderTypeToken {
     Symbol( String ),
     Char( char ),
-    Num( u64 ),
+    Num( i64 ),
     Open,
     Close,
     Ladder,
@@ -26,7 +26,7 @@ pub enum LexError {
 enum LexerState {
     Any,
     Sym( String ),
-    Num( u64 ),
+    Num( i64 ),
     Char( Option<char> )
 }
 
@@ -124,7 +124,7 @@ where It: Iterator<Item = char>
 
                             LexerState::Num(n) => {
                                 if let Some(d) = c.to_digit(10) {
-                                    *n = (*n) * 10 + d as u64;
+                                    *n = (*n) * 10 + d as i64;
                                 } else {
                                     return Some(Err(LexError::InvalidDigit));
                                 }
