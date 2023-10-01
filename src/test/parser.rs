@@ -134,15 +134,15 @@ fn test_parser_ladder_between() {
 fn test_parser_ladder_large() {
     assert_eq!(
         TypeTerm::from_str(
-            "<Seq Date \
-                  ~<TimeSince UnixEpoch> \
-                  ~<Duration Seconds> \
-                  ~ℕ \
-                  ~<PosInt 10 BigEndian> \
-                  ~< Seq <Digit 10>~Unicode > > \
-              ~<SepSeq Unicode ':'> \
-              ~<Seq Unicode> \
-              ~UTF-8 \
+            "<Seq Date
+                  ~<TimeSince UnixEpoch>
+                  ~<Duration Seconds>
+                  ~ℕ
+                  ~<PosInt 10 BigEndian>
+                  ~< Seq <Digit 10>~Unicode > >
+              ~<SepSeq Unicode ':'>
+              ~<Seq Unicode>
+              ~UTF-8
               ~<Seq Byte>"),
 
         Ok(

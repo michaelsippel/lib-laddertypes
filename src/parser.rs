@@ -121,7 +121,7 @@ impl TypeDict {
     {
         match self.parse_partial(tokens) {
             Ok(t) => {
-                if let Some(tok) = tokens.peek() {
+                if let Some(_tok) = tokens.peek() {
                     Err(ParseError::UnexpectedToken)
                 } else {
                     Ok(t)

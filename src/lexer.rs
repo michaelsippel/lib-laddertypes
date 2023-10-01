@@ -77,9 +77,10 @@ where It: Iterator<Item = char>
                         '>' => { self.chars.next(); return Some(Ok(LadderTypeToken::Close)); },
                         '~' => { self.chars.next(); return Some(Ok(LadderTypeToken::Ladder)); },
                         '\'' => { self.chars.next(); state = LexerState::Char(None); },
-                        ' ' => { self.chars.next(); },
                         c => {
-                            if c.is_alphabetic() {
+                            if c.is_whitespace() {
+                                self.chars.next();
+                            } else if c.is_alphabetic() {
                                 state = LexerState::Sym( String::new() );
                             } else if c.is_digit(10) {
                                 state = LexerState::Num( 0 );

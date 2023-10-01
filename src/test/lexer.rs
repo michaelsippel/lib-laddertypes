@@ -83,15 +83,15 @@ fn test_lexer_app_space() {
 #[test]
 fn test_lexer_large() {
     let mut lex = LadderTypeLexer::from(
-        "<Seq Date \
-              ~<TimeSince UnixEpoch> \
-              ~<Duration Seconds> \
-              ~ℕ \
-              ~<PosInt 10 BigEndian> \
-              ~< Seq <Digit 10>~Unicode > > \
-         ~<SepSeq Unicode ':'> \
-         ~<Seq Unicode> \
-         ~UTF-8 \
+        "<Seq Date
+              ~<TimeSince UnixEpoch>
+              ~<Duration Seconds>
+              ~ℕ
+              ~<PosInt 10 BigEndian>
+              ~< Seq <Digit 10>~Unicode > >
+         ~<SepSeq Unicode ':'>
+         ~<Seq Unicode>
+         ~UTF-8
          ~<Seq Byte>".chars());
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
