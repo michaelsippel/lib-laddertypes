@@ -54,6 +54,23 @@ impl TypeTerm {
         self
     }
 
+    pub fn repr_as(&mut self, t: impl Into<TypeTerm>) -> &mut Self {
+        match self {
+            TypeTerm::Ladder(rungs) => {
+                rungs.push(t.into());                
+            }
+
+            _ => {
+                *self = TypeTerm::Ladder(vec![
+                    self.clone(),
+                    t.into()
+                ])
+            }
+        }
+
+        self
+    }
+
     pub fn num_arg(&mut self, v: i64) -> &mut Self {
         self.arg(TypeTerm::Num(v))
     }
