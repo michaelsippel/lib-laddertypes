@@ -33,6 +33,10 @@ impl std::str::FromStr for TypeTerm {
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 impl TypeDict {
+    pub fn type_from_str(&mut self, s: &str) -> Result<TypeTerm, ParseError> {
+        self.parse(&mut LadderTypeLexer::from(s.chars()).peekable())
+    }
+
     fn parse_app<It>( &mut self, tokens: &mut Peekable<LadderTypeLexer<It>> ) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>
     {
