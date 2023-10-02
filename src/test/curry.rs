@@ -1,6 +1,5 @@
 use {
-    crate::{term::*, dict::*, parser::*},
-    std::str::FromStr
+    crate::{dict::*}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\

@@ -4,7 +4,7 @@ use crate::term::*;
 
 impl TypeTerm {
     /// transform term to have at max 2 entries in Application list
-    pub fn curry(mut self) -> TypeTerm {
+    pub fn curry(self) -> TypeTerm {
         match self {
             TypeTerm::App(args) => {
                 if args.len() >= 2 {
@@ -36,11 +36,11 @@ impl TypeTerm {
     }
 
     /// summarize all curried applications into one vec
-    pub fn decurry(mut self) -> Self {
+    pub fn decurry(self) -> Self {
         match self {
             TypeTerm::App(mut args) => {
                 if args.len() > 0 {
-                    let mut a0 = args.remove(0).decurry();
+                    let a0 = args.remove(0).decurry();
                     match a0 {
                         TypeTerm::App(sub_args) => {
                             for (i,x) in sub_args.into_iter().enumerate() {
