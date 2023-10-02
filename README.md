@@ -61,6 +61,19 @@ this:
 1696093021:1696093039:1528324679:1539892301:1638141920:1688010253
 ```
 
+## How to use this crate
+
+```rust
+use laddertypes::*;
+
+let mut dict = TypeDict::new();
+
+let t1 = dict.parse("<A B~X C>").expect("couldnt parse typeterm");
+let t2 = dict.parse("<<A B~X> C>").expect("couldnt parse typeterm");
+
+assert_eq!( t1.clone().curry(), t2 );
+assert_eq!( t1, t2.clone().decurry() );
+```
 
 ### License
 [GPLv3](COPYING)
