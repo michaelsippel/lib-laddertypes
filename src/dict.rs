@@ -1,6 +1,6 @@
 use crate::bimap::Bimap;
 
-//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
 pub enum TypeID {
@@ -8,7 +8,7 @@ pub enum TypeID {
     Var(u64)
 }
 
-//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 pub struct TypeDict {
     typenames: Bimap<String, TypeID>,
@@ -16,7 +16,7 @@ pub struct TypeDict {
     type_var_counter: u64,
 }
 
-//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 impl TypeDict {
     pub fn new() -> Self {
@@ -57,4 +57,3 @@ impl TypeDict {
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
-
