@@ -90,8 +90,24 @@ where It: Iterator<Item = char>
                 }
 
                 LexerState::Char(val) => {
-                    // todo escape characters
-                    *val = self.chars.next();
+                    *val = Some(
+                        match self.chars.next() {
+                            Some('\\') => {
+                                match self.chars.next() {
+                                    Some('0') => '\0',
+                                    Some('n') => '\n',
+                                    Some('t') => '\t',
+                                    Some(c) => c,
+                                    None => {
+                                        return Some(Err(LexError::InvalidChar));
+                                    }
+                                }
+                            }
+                            Some(c) => c,
+                            None => {
+                                return Some(Err(LexError::InvalidChar));
+                            }
+                        });
 
                     match self.chars.next() {
                         Some('\'') => {

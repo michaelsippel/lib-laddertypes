@@ -30,6 +30,12 @@ fn test_lexer_char() {
 
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Char('x'))) );
     assert_eq!( lex.next(), None );
+
+    assert_eq!( LadderTypeLexer::from("'\\0'".chars()).next(), Some(Ok(LadderTypeToken::Char('\0'))) );
+    assert_eq!( LadderTypeLexer::from("'\\n'".chars()).next(), Some(Ok(LadderTypeToken::Char('\n'))) );
+    assert_eq!( LadderTypeLexer::from("'\\t'".chars()).next(), Some(Ok(LadderTypeToken::Char('\t'))) );
+    assert_eq!( LadderTypeLexer::from("'\\\''".chars()).next(), Some(Ok(LadderTypeToken::Char('\''))) );
+    assert_eq!( LadderTypeLexer::from("'\\\\'".chars()).next(), Some(Ok(LadderTypeToken::Char('\\'))) );
 }
 
 #[test]
