@@ -5,35 +5,30 @@ Rust Implementation of Ladder-Types (parsing, unification, rewriting, etc)
 
 ## Ladder Types
 
-*Ladder Types* provide a way to distinguish between multiple *concrete
-representations* of the same *abstract / conceptual type*.
+In order to implement complex datastructures and algorithms, usually
+many layers of abstraction are built ontop of each other, and
+consequently higher-level data types are encoded into lower-level data
+types, forming a chain of embeddings from concept to `rock bottom' of
+byte streams.  While a high-level type makes claims about an objects
+semantics, it is ambiguous in regard to its concrete syntactical
+representation or memory layout. However these concrete
+representational forms must be compatible for type-safe compositions.
 
-The intuition is to capture a 'represented-as' relation in the
-structure of a type term. Formally, we introduce a new type
-constructor, called the *ladder type*, written as `T1 ~ T2`, where
-`T1` and `T2` are types. The term `T1 ~ T2` can be read by `T1 is
-represented as T2`.
+For example in the unix shell, many different tools & utilities exist
+concurrently and depending on the application domain, each will
+potentially make use of different representational forms.  Abstract
+concepts like 'natural number' could exist in many representational
+forms, e.g. with variation over radices, endianness, digit encoding
+etc.
 
-
-
-This can be particularly useful in contexts where no standard
-representational forms exist, e.g. in the unix shell where many
-different tools & utilities come into contact, each making use of
-potentially different representational forms, depending on the
-application domain.
-
-Trying to introduce a global type system at IPC level would result in
-naming conflicts: Abstract concepts like 'natural number' do not have
-any standard representational form, as it is the case with other more
-contained languages. With a simple type name like this it is not clear
-which of the many equivalent representations is required, e.g. for an
-*integer number* variations over radices, endianness, digit encoding
-etc. exist.
-
-Usually, many layers of abstraction are built ontop of each other,
-where higher-level data types are encoded into lower-level data types,
-forming a chain of embeddings from concept to `rock bottom' of byte
-streams.
+Intuitively, *ladder types* provide a way to distinguish between
+multiple *concrete representations* of the same *abstract / conceptual
+type*, by capturing the *represented-as* of layered data formats in
+the structure of type-terms. Formally, we introduce a new type
+constructor, called the *ladder type*, written `T1 ~ T2`, where `T1`
+and `T2` are types. The type-term `T1 ~ T2` then expresses the
+abstract type of `T1` being represented in terms of the concrete type
+`T2`, which can be read by "`T1` represented as `T2`".
 
 
 #### Example
@@ -66,15 +61,18 @@ this:
 ```rust
 use laddertypes::*;
 
-let mut dict = TypeDict::new();
+fn main() {
+    let mut dict = TypeDict::new();
 
-let t1 = dict.parse("<A B~X C>").expect("couldnt parse typeterm");
-let t2 = dict.parse("<<A B~X> C>").expect("couldnt parse typeterm");
+    let t1 = dict.parse("<A B~X C>").expect("couldnt parse typeterm");
+    let t2 = dict.parse("<<A B~X> C>").expect("couldnt parse typeterm");
 
-assert_eq!( t1.clone().curry(), t2 );
-assert_eq!( t1, t2.clone().decurry() );
+    assert_eq!( t1.clone().curry(), t2 );
+    assert_eq!( t1, t2.clone().decurry() );
+}
 ```
 
-### License
+
+## License
 [GPLv3](COPYING)
 
