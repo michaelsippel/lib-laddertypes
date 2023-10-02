@@ -41,7 +41,7 @@ impl TypeTerm {
                 new_ladder.push( TypeTerm::App(vec![]) );
 
                 for arg in args_iter {
-                    match arg.clone() {
+                    match arg.normalize() {
                         TypeTerm::Ladder(rungs) => {
                             // duplicate last element for each rung
                             let l = new_ladder.len();

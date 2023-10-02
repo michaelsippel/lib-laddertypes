@@ -43,5 +43,15 @@ fn test_normalize() {
         dict.parse("<Seq <Digit 10>~Char>").expect("parse error").normalize(),
         dict.parse("<Seq <Digit 10>>~<Seq Char>").expect("parse errror"),
     );
+
+
+    assert_eq!(
+        dict.parse("<A <B C~D~E> F~G H H>").expect("parse error").normalize(),
+        dict.parse("<A <B C> F H H>
+                   ~<A <B D> F H H>
+                   ~<A <B E> F H H>
+                   ~<A <B E> G H H>").expect("parse errror"),
+    );
+
 }
 
