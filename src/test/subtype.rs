@@ -72,5 +72,26 @@ fn test_syntactic_subtype() {
             ),
         Err(None)
     );
+
+    assert_eq!(
+        dict.parse("<Duration Seconds>~ℕ").expect("parse error")
+            .is_syntactic_subtype_of(
+                &dict.parse("ℕ").expect("parse errror")
+            ),
+        Ok(1)
+    );
+
+    assert_eq!(
+        dict.parse("
+<Duration Seconds>
+~ℕ
+~<PosInt 10 BigEndian>
+~< Seq   <Digit 10> ~ Char >"
+        ).expect("parse error")
+            .is_syntactic_subtype_of(
+                &dict.parse("<Seq Char>").expect("parse errror")
+            ),
+        Ok(4)
+    );
 }
 

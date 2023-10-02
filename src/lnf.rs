@@ -31,7 +31,16 @@ impl TypeTerm {
         match self {
             TypeTerm::Ladder(args) => {
                 for x in args.into_iter() {
-                    new_ladder.push(x.normalize());
+                    match x.normalize() {
+                        TypeTerm::Ladder(gs) => {
+                            for g in gs {
+                                new_ladder.push(g);
+                            }
+                        }
+                        g => {
+                            new_ladder.push(g);
+                        }
+                    }
                 }
             }
 
@@ -102,9 +111,7 @@ impl TypeTerm {
             TypeTerm::Ladder( v ) => {
                 v
             },
-            _ => {
-                unreachable!();
-            }
+            flat => vec![ flat ]
         }
     }
 }
