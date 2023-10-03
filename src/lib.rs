@@ -4,6 +4,7 @@ pub mod dict;
 pub mod term;
 pub mod lexer;
 pub mod parser;
+pub mod unparser;
 pub mod curry;
 pub mod lnf;
 pub mod subtype;
