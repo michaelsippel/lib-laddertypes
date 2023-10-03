@@ -45,7 +45,7 @@ impl TypeTerm {
             }
 
             TypeTerm::App(args) => {
-                let mut args_iter = args.into_iter();
+                let args_iter = args.into_iter();
 
                 new_ladder.push( TypeTerm::App(vec![]) );
 
