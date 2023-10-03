@@ -62,7 +62,7 @@ fn test_syntactic_subtype() {
             .is_syntactic_subtype_of(
                 &dict.parse("C~G").expect("parse errror")  
             ),
-        Err(Some((2,3)))
+        Err((2,3))
     );
 
     assert_eq!(
@@ -70,7 +70,7 @@ fn test_syntactic_subtype() {
             .is_syntactic_subtype_of(
                 &dict.parse("G~F~K").expect("parse errror")  
             ),
-        Err(None)
+        Err((0,0))
     );
 
     assert_eq!(

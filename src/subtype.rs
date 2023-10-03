@@ -19,20 +19,20 @@ impl TypeTerm {
         None
     }
 
-    pub fn is_syntactic_subtype_of(&self, expected_type: &TypeTerm) -> Result<usize, Option<(usize, usize)>> {
+    pub fn is_syntactic_subtype_of(&self, expected_type: &TypeTerm) -> Result<usize, (usize, usize)> {
         if let Some((first_match, provided_type)) = self.is_semantic_subtype_of( expected_type ) {
             let provided_lnf = provided_type.get_lnf_vec();
             let expected_lnf = expected_type.clone().get_lnf_vec();
 
             for i in 0 .. usize::min( provided_lnf.len(), expected_lnf.len() ) {
                 if provided_lnf[i] != expected_lnf[i] {
-                    return Err(Some((first_match, first_match+i)))
+                    return Err((first_match, first_match+i))
                 }
             }
 
             Ok(first_match)
         } else {
-            Err(None)
+            Err((0,0))
         }
     }
 
@@ -43,7 +43,7 @@ impl TypeTerm {
         t.is_semantic_subtype_of(self)
     }
 
-    pub fn is_syntactic_supertype_of(&self, t: &TypeTerm) -> Result<usize, Option<(usize, usize)>> {
+    pub fn is_syntactic_supertype_of(&self, t: &TypeTerm) -> Result<usize, (usize, usize)> {
         t.is_syntactic_subtype_of(self)
     }
 }
