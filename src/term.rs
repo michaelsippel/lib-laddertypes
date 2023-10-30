@@ -78,6 +78,36 @@ impl TypeTerm {
     pub fn char_arg(&mut self, c: char) -> &mut Self {
         self.arg(TypeTerm::Char(c))
     }
+
+    /// recursively apply substitution to all subterms,
+    /// which will replace all occurences of variables which map
+    /// some type-term in `subst`
+    pub fn apply_substitution(
+        &mut self,
+        subst: &impl Fn(&TypeID) -> Option<TypeTerm>
+    ) -> &mut Self {
+        match self {
+            TypeTerm::TypeID(typid) => {
+                if let Some(t) = subst(typid) {
+                    *self = t;
+                }
+            }
+
+            TypeTerm::Ladder(rungs) => {
+                for r in rungs.iter_mut() {
+                    r.apply_substitution(subst);
+                }
+            }
+            TypeTerm::App(args) => {
+                for r in args.iter_mut() {
+                    r.apply_substitution(subst);
+                }
+            }
+            _ => {}
+        }
+
+        self
+    }
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
