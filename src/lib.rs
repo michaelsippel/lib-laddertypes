@@ -8,6 +8,7 @@ pub mod unparser;
 pub mod curry;
 pub mod lnf;
 pub mod subtype;
+pub mod unification;
 
 #[cfg(test)]
 mod test;
@@ -15,5 +16,6 @@ mod test;
 pub use {
     dict::*,
     term::*,
+    unification::*
 };
 

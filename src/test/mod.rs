@@ -5,4 +5,5 @@ pub mod curry;
 pub mod lnf;
 pub mod subtype;
 pub mod substitution;
+pub mod unification;
 
