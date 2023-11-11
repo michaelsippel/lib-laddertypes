@@ -75,5 +75,44 @@ fn test_unification() {
         "<Seq T~<Seq Char>>~<SepSeq Char '\n'>~<Seq Char>",
         true
     );
+
+    let mut dict = TypeDict::new();
+
+    dict.add_varname(String::from("T"));
+    dict.add_varname(String::from("U"));
+    dict.add_varname(String::from("V"));
+    dict.add_varname(String::from("W"));
+
+    assert_eq!(
+        UnificationProblem::new(vec![
+            (dict.parse("U").unwrap(), dict.parse("<Seq Char>").unwrap()),
+            (dict.parse("T").unwrap(), dict.parse("<Seq U>").unwrap()),
+        ]).solve(),
+        Ok(
+            vec![
+                // T
+                (TypeID::Var(0), dict.parse("<Seq <Seq Char>>").unwrap()),
+
+                // U
+                (TypeID::Var(1), dict.parse("<Seq Char>").unwrap())
+            ].into_iter().collect()
+        )
+    );
+
+    assert_eq!(
+        UnificationProblem::new(vec![
+            (dict.parse("<Seq T>").unwrap(), dict.parse("<Seq W~<Seq Char>>").unwrap()),
+            (dict.parse("<Seq ℕ>").unwrap(), dict.parse("<Seq W>").unwrap()),
+        ]).solve(),
+        Ok(
+            vec![
+                // W
+                (TypeID::Var(3), dict.parse("ℕ").unwrap()),
+
+                // T
+                (TypeID::Var(0), dict.parse("ℕ~<Seq Char>").unwrap())
+            ].into_iter().collect()
+        )
+    );
 }
 
