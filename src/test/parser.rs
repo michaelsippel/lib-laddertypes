@@ -7,9 +7,18 @@ use {
 
 #[test]
 fn test_parser_id() {
+    let mut dict = TypeDict::new();
+
+    dict.add_varname("T".into());
+
+    assert_eq!(
+        Ok(TypeTerm::TypeID(TypeID::Var(0))),
+        dict.parse("T")
+    );
+
     assert_eq!(
         Ok(TypeTerm::TypeID(TypeID::Fun(0))),
-        TypeDict::new().parse("A")
+        dict.parse("A")
     );
 }
 
