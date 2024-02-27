@@ -153,4 +153,3 @@ fn test_lexer_large() {
 
     assert_eq!( lex.next(), None );
 }
-

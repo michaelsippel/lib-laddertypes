@@ -20,10 +20,14 @@ pub enum ParseError {
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-impl TypeDict {
+impl TypeDict {    
     pub fn parse(&mut self, s: &str) -> Result<TypeTerm, ParseError> {
-        let mut tokens = LadderTypeLexer::from(s.chars()).peekable();
+        let mut tokens = LadderTypeLexer::from(s.chars());
+        self.parse_tokens( tokens.peekable() )
+    }
 
+    pub fn parse_tokens<It>(&mut self, mut tokens: Peekable<It>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = Result<LadderTypeToken, LexError>> {
         match self.parse_ladder(&mut tokens) {
             Ok(t) => {
                 if let Some(_tok) = tokens.peek() {
@@ -36,8 +40,8 @@ impl TypeDict {
         }
     }
 
-    fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
-    where It: Iterator<Item = char>
+    fn parse_app<It>(&mut self, tokens: &mut Peekable<It>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = Result<LadderTypeToken, LexError>>
     {
         let mut args = Vec::new();
         while let Some(tok) = tokens.peek() {
@@ -57,8 +61,8 @@ impl TypeDict {
         Err(ParseError::UnexpectedEnd)
     }
 
-    fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
-    where It: Iterator<Item = char>
+    fn parse_rung<It>(&mut self, tokens: &mut Peekable<It>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = Result<LadderTypeToken, LexError>>
     {
         match tokens.next() {
             Some(Ok(LadderTypeToken::Open)) => self.parse_app(tokens),
@@ -79,8 +83,8 @@ impl TypeDict {
         }
     }
 
-    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
-    where It: Iterator<Item = char>
+    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<It>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = Result<LadderTypeToken, LexError>>
     {
         let mut rungs = Vec::new();
 

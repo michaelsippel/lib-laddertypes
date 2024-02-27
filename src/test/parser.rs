@@ -143,7 +143,7 @@ fn test_parser_ladder_large() {
     assert_eq!(
         TypeDict::new().parse(
             "<Seq Date
-                  ~<TimeSince UnixEpoch>
+                   ~<TimeSince UnixEpoch>
                   ~<Duration Seconds>
                   ~ℕ
                   ~<PosInt 10 BigEndian>
@@ -202,5 +202,56 @@ fn test_parser_ladder_large() {
             ])
         )
     );
+}
+
+macro_rules! lt_tokenize {
+    ($symbol:ident) => {
+        crate::lexer::LadderTypeToken::Symbol( "$symbol".into() )
+    }
+    (< $rest::tt) => {
+        crate::lexer::LadderTypeToken::Open,
+        lt_tokenize!($rest)
+    }
+    (> $rest::tt) => {
+        crate::lexer::LadderTypeToken::Close,
+        lt_tokenize!($rest)
+    }
+    (~ $rest::tt) => {
+        crate::lexer::LadderTypeToken::Ladder,
+        lt_tokenize!($rest)
+    }
+}
+
+macro_rules! lt_parse {
+    ($dict:ident, $tokens:tt*) => {
+        $dict.parse_tokens(
+            vec![
+                lt_tokenize!($tokens)
+            ].into_iter().peekable()
+        )
+    }
+}
+
+
+#[test]
+fn test_proc_macro() {
+    use laddertype_macro::laddertype;
+    use crate::lexer::LadderTypeToken;
+
+    let mut dict = TypeDict::new();
+
+    let t1 = dict.parse_tokens(vec![
+        Ok(crate::lexer::LadderTypeToken::Open),
+        Ok(crate::lexer::LadderTypeToken::Symbol("Seq".into())),
+        Ok(crate::lexer::LadderTypeToken::Symbol("Char".into())),
+        Ok(crate::lexer::LadderTypeToken::Close)
+    ].into_iter().peekable());
+
+    let t2 = dict.parse_tokens(vec![
+        lt_tokenize!{ <Seq Char> }
+    ].into_iter().peekable());
+        //lt_parse!( dict, <Seq Char> );
+
+    assert_eq!(t1, t2);
 }
 

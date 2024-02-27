@@ -4,3 +4,9 @@ edition = "2018"
 name = "laddertypes"
 version = "0.1.0"
 
+#[lib]
+#proc-macro = true
+
+[dependencies]
+laddertype-macro = { path = "./laddertype-macro" }
+
