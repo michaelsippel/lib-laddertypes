@@ -5,6 +5,8 @@ Rust Implementation of Ladder-Types (parsing, unification, rewriting, etc)
 
 ## Ladder Types
 
+### Motivation
+
 In order to implement complex datastructures and algorithms, usually
 many layers of abstraction are built ontop of each other.
 Consequently higher-level data types are encoded into lower-level data
@@ -57,6 +59,48 @@ this:
 1696093021:1696093039:1528324679:1539892301:1638141920:1688010253
 ```
 
+### Syntax
+
+In their core form, type-terms can be one of the following:
+- (**Atomic Type**)        |   `SomeTypeName`
+- (**Literal Integer**)    |   `0` | `1` | `2` | ...
+- (**Literal Character**)  |   `'a'` | `'b'` | `'c'` | ...
+- (**Literal String**)     |   `"abc"`
+- (**Parameter Application**) | `<T1 T2>` given `T1` and `T2` are type-terms
+- (**Ladder**)                | `T1 ~ T2` given `T1` and `T2` are type-terms
+
+Ontop of that, the following syntax-sugar is defined:
+
+#### Complex Types
+- `[ T ]` <===> `<Seq T>`
+- `{ a:A b:B }` <===> `<Struct <"a" A> <"b" B>>`
+- `a:A | b:B` <===> `<Enum <"a" A> <"b" B>>`
+
+#### Function Types
+- `A -> B` <===> `<Fn A B>`
+
+#### Reference Types
+- `*A`  <===> `<Ptr A>`
+- `&A`  <===> `<ConstRef A>`
+- `&!A` <===> `<MutRef A>`
+
+
+### Equivalences
+
+#### Currying
+`<<A B> C>` <===> `<A B C>`
+
+#### Ladder-Normal-Form
+exhaustively apply `<A B~C>` ===> `<A B>~<A C>`
+
+e.g. `[<Digit 10>]~[Char]~[Ascii]` is in **LNF**
+
+#### Parameter-Normal-Form
+exhaustively apply `<A B>~<A C>` ===> `<A B~C>`
+
+e.g. `[<Digit 10>~Char~Ascii]` is in **PNF**
+
+
 ## How to use this crate
 
 ```rust
@@ -73,6 +117,19 @@ fn main() {
 }
 ```
 
+## Roadmap
+
+- [x] (Un-)Parsing
+- [x] (De-)Currying
+- [x] Unification
+- [x] Ladder-Normal-Form
+- [x] Parameter-Normal-Form
+- [ ] (De)-Sugaring
+  - [ ] Seq
+  - [ ] Enum
+  - [ ] Struct
+  - [ ] References
+  - [ ] Function
 
 ## License
 [GPLv3](COPYING)
