@@ -6,9 +6,9 @@ pub enum LadderTypeToken {
     Symbol( String ),
     Char( char ),
     Num( i64 ),
-    Open,
-    Close,
-    Ladder,
+    Open, OpenSeq, OpenStruct,
+    Close, CloseSeq, CloseStruct,
+    Ladder, Enum
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -75,6 +75,11 @@ where It: Iterator<Item = char>
                     match c {
                         '<' => { self.chars.next(); return Some(Ok(LadderTypeToken::Open)); },
                         '>' => { self.chars.next(); return Some(Ok(LadderTypeToken::Close)); },
+                        '[' => { self.chars.next(); return Some(Ok(LadderTypeToken::OpenSeq)); },
+                        ']' => { self.chars.next(); return Some(Ok(LadderTypeToken::CloseSeq)); },
+                        '{' => { self.chars.next(); return Some(Ok(LadderTypeToken::OpenStruct)); },
+                        '}' => { self.chars.next(); return Some(Ok(LadderTypeToken::CloseStruct)); },
+                        '|' => { self.chars.next(); return Some(Ok(LadderTypeToken::Enum)); },
                         '~' => { self.chars.next(); return Some(Ok(LadderTypeToken::Ladder)); },
                         '\'' => { self.chars.next(); state = LexerState::Char(None); },
                         c => {

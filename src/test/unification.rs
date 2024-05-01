@@ -13,8 +13,8 @@ fn test_unify(ts1: &str, ts2: &str, expect_unificator: bool) {
     dict.add_varname(String::from("V"));
     dict.add_varname(String::from("W"));
 
-    let mut t1 = dict.parse(ts1).unwrap();
-    let mut t2 = dict.parse(ts2).unwrap();
+    let mut t1 = dict.parse(ts1).unwrap().desugar();
+    let mut t2 = dict.parse(ts2).unwrap().desugar();
     let σ = crate::unify( &t1, &t2 );
 
     if expect_unificator {

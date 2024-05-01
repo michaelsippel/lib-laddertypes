@@ -1,8 +1,11 @@
-use crate::bimap::Bimap;
+use crate::{
+    bimap::Bimap,
+    sugar::SUGARID_LIMIT
+};
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-#[derive(Eq, PartialEq, Hash, Clone, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
 pub enum TypeID {
     Fun(u64),
     Var(u64)
@@ -20,11 +23,19 @@ pub struct TypeDict {
 
 impl TypeDict {
     pub fn new() -> Self {
-        TypeDict {
+        let mut dict = TypeDict {
             typenames: Bimap::new(),
             type_lit_counter: 0,
             type_var_counter: 0,
-        }
+        };
+
+        dict.add_typename("Seq".into());
+        dict.add_typename("Enum".into());
+        dict.add_typename("Struct".into());
+
+        assert_eq!( dict.type_lit_counter, SUGARID_LIMIT );
+
+        dict
     }
 
     pub fn add_varname(&mut self, tn: String) -> TypeID {

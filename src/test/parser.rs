@@ -1,6 +1,6 @@
 
 use {
-    crate::{term::*, dict::*, parser::*}
+    crate::{term::*, dict::*, parser::*, sugar::SUGARID_LIMIT}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -17,7 +17,7 @@ fn test_parser_id() {
     );
 
     assert_eq!(
-        Ok(TypeTerm::TypeID(TypeID::Fun(0))),
+        Ok(TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0))),
         dict.parse("A")
     );
 }
@@ -43,16 +43,16 @@ fn test_parser_app() {
     assert_eq!(
         TypeDict::new().parse("<A B>"),
         Ok(TypeTerm::App(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
-            TypeTerm::TypeID(TypeID::Fun(1)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+1)),
         ]))
     );
     assert_eq!(
         TypeDict::new().parse("<A B C>"),
         Ok(TypeTerm::App(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
-            TypeTerm::TypeID(TypeID::Fun(1)),
-            TypeTerm::TypeID(TypeID::Fun(2)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+1)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+2)),
         ]))
     );
 }
@@ -78,16 +78,16 @@ fn test_parser_ladder() {
     assert_eq!(
         TypeDict::new().parse("A~B"),
         Ok(TypeTerm::Ladder(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
-            TypeTerm::TypeID(TypeID::Fun(1)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+1)),
         ]))
     );
     assert_eq!(
         TypeDict::new().parse("A~B~C"),
         Ok(TypeTerm::Ladder(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
-            TypeTerm::TypeID(TypeID::Fun(1)),
-            TypeTerm::TypeID(TypeID::Fun(2)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+1)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+2)),
         ]))
     );
 }
@@ -98,12 +98,12 @@ fn test_parser_ladder_outside() {
         TypeDict::new().parse("<A B>~C"),
         Ok(TypeTerm::Ladder(vec![
             TypeTerm::App(vec![
-                TypeTerm::TypeID(TypeID::Fun(0)),
-                TypeTerm::TypeID(TypeID::Fun(1)),
+                TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
+                TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+1)),
             ]),
-            TypeTerm::TypeID(TypeID::Fun(2)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+2)),
         ]))
-    );    
+    );
 }
 
 #[test]
@@ -111,10 +111,10 @@ fn test_parser_ladder_inside() {
     assert_eq!(
         TypeDict::new().parse("<A B~C>"),
         Ok(TypeTerm::App(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
             TypeTerm::Ladder(vec![
-                TypeTerm::TypeID(TypeID::Fun(1)),
-                TypeTerm::TypeID(TypeID::Fun(2)),
+                TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+1)),
+                TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+2)),
             ])
         ]))
     );    
@@ -125,12 +125,12 @@ fn test_parser_ladder_between() {
     assert_eq!(
         TypeDict::new().parse("<A B~<C D>>"),
         Ok(TypeTerm::App(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
+            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
             TypeTerm::Ladder(vec![
-                TypeTerm::TypeID(TypeID::Fun(1)),
+                TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+1)),
                 TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(2)),
-                    TypeTerm::TypeID(TypeID::Fun(3)),
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+2)),
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+3)),
                 ])
             ])
         ]))
@@ -156,48 +156,48 @@ fn test_parser_ladder_large() {
         Ok(
             TypeTerm::Ladder(vec![
                 TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(0)),
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
                     TypeTerm::Ladder(vec![
-                        TypeTerm::TypeID(TypeID::Fun(1)),
+                        TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+1)),
                         TypeTerm::App(vec![
-                            TypeTerm::TypeID(TypeID::Fun(2)),
-                            TypeTerm::TypeID(TypeID::Fun(3))
+                            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+2)),
+                            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+3))
                         ]),
                         TypeTerm::App(vec![
-                            TypeTerm::TypeID(TypeID::Fun(4)),
-                            TypeTerm::TypeID(TypeID::Fun(5))
+                            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+4)),
+                            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+5))
                         ]),
-                        TypeTerm::TypeID(TypeID::Fun(6)),
+                        TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+6)),
                         TypeTerm::App(vec![
-                            TypeTerm::TypeID(TypeID::Fun(7)),
+                            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+7)),
                             TypeTerm::Num(10),
-                            TypeTerm::TypeID(TypeID::Fun(8))
+                            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+8))
                         ]),
                         TypeTerm::App(vec![
-                            TypeTerm::TypeID(TypeID::Fun(0)),
+                            TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
                             TypeTerm::Ladder(vec![
                                 TypeTerm::App(vec![
-                                    TypeTerm::TypeID(TypeID::Fun(9)),
+                                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+9)),
                                     TypeTerm::Num(10)
                                 ]),
-                                TypeTerm::TypeID(TypeID::Fun(10))
+                                TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+10))
                             ])
                         ])
                     ])
                 ]),
                 TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(11)),
-                    TypeTerm::TypeID(TypeID::Fun(10)),
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+11)),
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+10)),
                     TypeTerm::Char(':')
                 ]),
                 TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(0)),
-                    TypeTerm::TypeID(TypeID::Fun(10))
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+10))
                 ]),
-                TypeTerm::TypeID(TypeID::Fun(12)),
+                TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+12)),
                 TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(0)),
-                    TypeTerm::TypeID(TypeID::Fun(13))
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+0)),
+                    TypeTerm::TypeID(TypeID::Fun(SUGARID_LIMIT+13))
                 ])
             ])
         )
