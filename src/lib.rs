@@ -7,6 +7,7 @@ pub mod parser;
 pub mod unparser;
 pub mod curry;
 pub mod lnf;
+pub mod pnf;
 pub mod subtype;
 pub mod unification;
 
