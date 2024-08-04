@@ -32,12 +32,10 @@ impl MorphismType {
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 impl<Morphism: Clone> MorphismBase<Morphism> {
-    pub fn new() -> Self {
+    pub fn new(list_typeid: TypeID) -> Self {
         MorphismBase {
             morphisms: Vec::new(),
-
-            // FIXME: magic number
-            list_typeid: TypeID::Fun(10)
+            list_typeid
         }
     }
 
