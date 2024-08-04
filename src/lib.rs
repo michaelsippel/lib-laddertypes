@@ -13,6 +13,7 @@ pub mod lnf;
 pub mod pnf;
 pub mod subtype;
 pub mod unification;
+pub mod morphism;
 
 #[cfg(test)]
 mod test;
