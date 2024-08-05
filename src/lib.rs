@@ -27,4 +27,5 @@ pub use {
     substitution::*,
     sugar::*,
     unification::*,
+    morphism::*
 };
