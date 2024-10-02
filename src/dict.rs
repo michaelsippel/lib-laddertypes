@@ -54,6 +54,10 @@ impl TypeDict {
     pub fn get_typeid(&self, tn: &String) -> Option<TypeID> {
         self.typenames.mλ.get(tn).cloned()
     }
+
+    pub fn get_varname(&self, var_id: u64) -> Option<String> {
+        self.typenames.my.get(&TypeID::Var(var_id)).cloned()
+    }
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
