@@ -1,7 +1,8 @@
 use {
-    crate::{TypeTerm, TypeID}
+    crate::{TypeTerm, TypeID, parser::ParseLadderType}
 };
 
+#[derive(Clone)]
 pub enum SugaredTypeTerm {
     TypeID(TypeID),
     Num(i64),
@@ -17,7 +18,7 @@ pub enum SugaredTypeTerm {
 }
 
 impl TypeTerm {
-    pub fn sugar(self: TypeTerm, dict: &mut crate::TypeDict) -> SugaredTypeTerm {
+    pub fn sugar(self: TypeTerm, dict: &mut impl crate::TypeDict) -> SugaredTypeTerm {
         match self {
             TypeTerm::TypeID(id) => SugaredTypeTerm::TypeID(id),
             TypeTerm::Num(n) => SugaredTypeTerm::Num(n),
@@ -61,7 +62,7 @@ impl TypeTerm {
 }
 
 impl SugaredTypeTerm {
-    pub fn desugar(self, dict: &mut crate::TypeDict) -> TypeTerm {
+    pub fn desugar(self, dict: &mut impl crate::TypeDict) -> TypeTerm {
         match self {
             SugaredTypeTerm::TypeID(id) => TypeTerm::TypeID(id),
             SugaredTypeTerm::Num(n) => TypeTerm::Num(n),

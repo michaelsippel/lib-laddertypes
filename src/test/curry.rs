@@ -1,12 +1,12 @@
 use {
-    crate::{dict::*}
+    crate::{dict::*, parser::*}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[test]
 fn test_curry() {
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
 
     assert_eq!(
         dict.parse("<A B C>").unwrap().curry(),
@@ -33,7 +33,7 @@ fn test_curry() {
 
 #[test]
 fn test_decurry() {
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
 
     assert_eq!(
         dict.parse("<<A B> C>").unwrap().decurry(),
@@ -47,7 +47,7 @@ fn test_decurry() {
         dict.parse("<<<<<<<<<<A B> C> D> E> F> G> H> I> J> K>").unwrap().decurry(),
         dict.parse("<A B C D E F G H I J K>").unwrap()
     );
-    
+
     assert_eq!(
         dict.parse("<<A~X B> C>").unwrap().decurry(),
         dict.parse("<A~X B C>").unwrap()

@@ -1,13 +1,13 @@
 
 use {
-    crate::{dict::*, term::*, unification::*},
+    crate::{dict::*, parser::*, unparser::*, term::*, unification::*},
     std::iter::FromIterator
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 fn test_unify(ts1: &str, ts2: &str, expect_unificator: bool) {
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
     dict.add_varname(String::from("T"));
     dict.add_varname(String::from("U"));
     dict.add_varname(String::from("V"));
@@ -33,7 +33,7 @@ fn test_unify(ts1: &str, ts2: &str, expect_unificator: bool) {
 
 #[test]
 fn test_unification_error() {
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
     dict.add_varname(String::from("T"));
 
     assert_eq!(
@@ -89,7 +89,7 @@ fn test_unification() {
         true
     );
 
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
 
     dict.add_varname(String::from("T"));
     dict.add_varname(String::from("U"));
@@ -129,10 +129,9 @@ fn test_unification() {
     );
 }
 
-
 #[test]
 fn test_subtype_unification() {
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
 
     dict.add_varname(String::from("T"));
     dict.add_varname(String::from("U"));
