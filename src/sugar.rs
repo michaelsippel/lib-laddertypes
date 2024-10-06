@@ -92,5 +92,23 @@ impl SugaredTypeTerm {
                 ).collect()),
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            SugaredTypeTerm::TypeID(_) => false,
+            SugaredTypeTerm::Num(_) => false,
+            SugaredTypeTerm::Char(_) => false,
+            SugaredTypeTerm::Univ(t) => t.is_empty(),
+            SugaredTypeTerm::Spec(ts) |
+            SugaredTypeTerm::Ladder(ts) |
+            SugaredTypeTerm::Func(ts) |
+            SugaredTypeTerm::Morph(ts) |
+            SugaredTypeTerm::Struct(ts) |
+            SugaredTypeTerm::Enum(ts) |
+            SugaredTypeTerm::Seq(ts) => {
+                ts.iter().fold(true, |s,t|s&&t.is_empty())
+            }
+        }
+    }
 }
 
