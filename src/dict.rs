@@ -8,7 +8,7 @@ pub enum TypeID {
     Var(u64)
 }
 
-pub trait TypeDict {
+pub trait TypeDict : Send + Sync {
     fn insert(&mut self, name: String, id: TypeID);
     fn add_varname(&mut self, vn: String) -> TypeID;
     fn add_typename(&mut self, tn: String) -> TypeID;
