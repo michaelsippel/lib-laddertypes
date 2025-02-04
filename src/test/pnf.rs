@@ -30,6 +30,11 @@ fn test_param_normalize() {
     );
 
     assert_eq!(
+        dict.parse("<A~Y B>").expect("parse error"),
+        dict.parse("<A B>~<Y B>").expect("parse error").param_normalize(),
+    );
+
+    assert_eq!(
         dict.parse("<A <B C~D~E> F~G H H>").expect("parse error"),
         dict.parse("<A <B C> F H H>
                    ~<A <B D> F H H>
