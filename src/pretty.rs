@@ -17,7 +17,11 @@ impl SugaredTypeTerm {
             }
 
             SugaredTypeTerm::Char(c) => {
-                format!("'{}'", c)
+                match c {
+                    '\0' => format!("'\\0'"),
+                    '\n' => format!("'\\n'"),
+                    _ => format!("'{}'", c)
+                }
             }
 
             SugaredTypeTerm::Univ(t) => {
@@ -116,7 +120,7 @@ impl SugaredTypeTerm {
                         s.push('\n');
                         for x in 0..(indent*indent_width) {
                             s.push(' ');
-                        }                
+                        }
                         s.push_str(&"-->  ".bright_yellow());
                     } else {
 //                        s.push_str("   ");
@@ -144,5 +148,3 @@ impl SugaredTypeTerm {
         }
     }
 }
-
-
