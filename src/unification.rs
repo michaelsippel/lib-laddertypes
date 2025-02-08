@@ -67,10 +67,6 @@ impl UnificationProblem {
                 }
             }
 
-            (TypeTerm::Ladder(l1), TypeTerm::Ladder(l2)) => {
-                Err(UnificationError{ addr, t1: lhs, t2: rhs })
-            }
-
             _ => Err(UnificationError{ addr, t1: lhs, t2: rhs})
         }
     }
