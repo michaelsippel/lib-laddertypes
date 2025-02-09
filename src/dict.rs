@@ -2,7 +2,7 @@ use crate::bimap::Bimap;
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-#[derive(Eq, PartialEq, Hash, Clone, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
 pub enum TypeID {
     Fun(u64),
     Var(u64)
@@ -53,6 +53,10 @@ impl TypeDict {
 
     pub fn get_typeid(&self, tn: &String) -> Option<TypeID> {
         self.typenames.mλ.get(tn).cloned()
+    }
+
+    pub fn get_varname(&self, var_id: u64) -> Option<String> {
+        self.typenames.my.get(&TypeID::Var(var_id)).cloned()
     }
 }
 

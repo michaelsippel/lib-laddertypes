@@ -57,7 +57,7 @@ impl TypeTerm {
     pub fn repr_as(&mut self, t: impl Into<TypeTerm>) -> &mut Self {
         match self {
             TypeTerm::Ladder(rungs) => {
-                rungs.push(t.into());                
+                rungs.push(t.into());
             }
 
             _ => {

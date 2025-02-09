@@ -4,3 +4,8 @@ edition = "2018"
 name = "laddertypes"
 version = "0.1.0"
 
+[dependencies]
+tiny-ansi = { version = "0.1.0", optional = true }
+
+[features]
+pretty = ["dep:tiny-ansi"]
