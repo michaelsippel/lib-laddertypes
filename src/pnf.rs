@@ -2,6 +2,20 @@ use crate::term::TypeTerm;
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
+pub fn splice_ladders( mut upper: Vec< TypeTerm >, mut lower: Vec< TypeTerm >  ) -> Vec< TypeTerm > {
+    for i in 0 .. upper.len() {
+        if upper[i] == lower[0] {
+            let mut result_ladder = Vec::<TypeTerm>::new();
+            result_ladder.append(&mut upper[0..i].iter().cloned().collect());
+            result_ladder.append(&mut lower);
+            return result_ladder;
+        }
+    }
+
+    upper.append(&mut lower);
+    upper
+}
+
 impl TypeTerm {
     /// transmute type into Parameter-Normal-Form (PNF)
     ///
@@ -10,88 +24,99 @@ impl TypeTerm {
     /// <Seq <Digit 10>>~<Seq Char>
     /// ⇒ <Seq <Digit 10>~Char>
     /// ```
-    pub fn param_normalize(self) -> Self {
+    pub fn param_normalize(mut self) -> Self {
         match self {
             TypeTerm::Ladder(mut rungs) => {
                 if rungs.len() > 0 {
-                    // normalize all rungs separately
-                    for r in rungs.iter_mut() {
-                        *r = r.clone().param_normalize();
-                    }
+                    let mut new_rungs = Vec::new();
+                    while let Some(bottom) = rungs.pop() {
+                        if let Some(last_but) = rungs.last_mut() {
+                            match (bottom, last_but) {
+                                (TypeTerm::App(bot_args), TypeTerm::App(last_args)) => {
+                                    if bot_args.len() == last_args.len() {
+                                        let mut new_rung_params = Vec::new();
+                                        let mut require_break = false;
 
-                    // take top-rung
-                    match rungs.remove(0) {
-                        TypeTerm::App(params_top) => {
-                            let mut params_ladders = Vec::new();
-                            let mut tail : Vec<TypeTerm> = Vec::new();
+                                        if bot_args.len() > 0 {
+                                            if let Ok(_idx) =  last_args[0].is_syntactic_subtype_of(&bot_args[0]) {
+                                                for i in 0 .. bot_args.len() {
 
-                            // append all other rungs to ladders inside
-                            // the application
-                            for p in params_top {
-                                params_ladders.push(vec![ p ]);
-                            }
+                                                    let spliced_type_ladder = splice_ladders(
+                                                        last_args[i].clone().get_lnf_vec(),
+                                                        bot_args[i].clone().get_lnf_vec()
+                                                    );
+                                                    let spliced_type =
+                                                        if spliced_type_ladder.len() == 1 {
+                                                            spliced_type_ladder[0].clone()
+                                                        } else if spliced_type_ladder.len() > 1 {
+                                                            TypeTerm::Ladder(spliced_type_ladder)
+                                                        } else {
+                                                            TypeTerm::unit()
+                                                        };
 
-                            for r in rungs {
-                                match r {
-                                    TypeTerm::App(mut params_rung) => {
-                                        if params_rung.len() > 0 {
-                                            let mut first_param = params_rung.remove(0); 
+                                                    new_rung_params.push( spliced_type.param_normalize() );
+                                                }
 
-                                            if first_param == params_ladders[0][0] {
-                                               for (l, p) in params_ladders.iter_mut().skip(1).zip(params_rung) {
-                                                   l.push(p.param_normalize());
-                                               }
                                             } else {
-                                               params_rung.insert(0, first_param);
-                                               tail.push(TypeTerm::App(params_rung));
+                                                new_rung_params.push(
+                                                    TypeTerm::Ladder(vec![
+                                                        last_args[0].clone(),
+                                                        bot_args[0].clone()
+                                                    ]).normalize()
+                                                );
+
+                                                for i in 1 .. bot_args.len() {
+                                                    if let Ok(_idx) = last_args[i].is_syntactic_subtype_of(&bot_args[i]) {
+                                                        let spliced_type_ladder = splice_ladders(
+                                                            last_args[i].clone().get_lnf_vec(),
+                                                            bot_args[i].clone().get_lnf_vec()
+                                                        );
+                                                        let spliced_type =
+                                                            if spliced_type_ladder.len() == 1 {
+                                                                spliced_type_ladder[0].clone()
+                                                            } else if spliced_type_ladder.len() > 1 {
+                                                                TypeTerm::Ladder(spliced_type_ladder)
+                                                            } else {
+                                                                TypeTerm::unit()
+                                                            };
+
+                                                        new_rung_params.push( spliced_type.param_normalize() );
+                                                    } else {
+                                                        new_rung_params.push( bot_args[i].clone() );
+                                                        require_break = true;
+                                                    }
+                                                }
                                             }
                                         }
-                                    }
 
-                                    TypeTerm::Ladder(mut rs) => {
-                                        for r in rs {
-                                            tail.push(r.param_normalize());
+                                        if require_break {
+                                            new_rungs.push( TypeTerm::App(new_rung_params) );
+                                        } else {
+                                            rungs.pop();
+                                            rungs.push(TypeTerm::App(new_rung_params));
                                         }
-                                    }
 
-                                    atomic => {
-                                        tail.push(atomic);
+                                    } else {
+                                        new_rungs.push( TypeTerm::App(bot_args) );
                                     }
                                 }
+                                (bottom, last_buf) => {
+                                    new_rungs.push( bottom );
+                                }
                             }
-
-                            let head = TypeTerm::App(
-                                params_ladders.into_iter()
-                                    .map(
-                                        |mut l| {
-                                            l.dedup();
-                                            match l.len() {
-                                                0 => TypeTerm::unit(),
-                                                1 => l.remove(0),
-                                                _ => TypeTerm::Ladder(l).param_normalize()
-                                            }
-                                        }
-                                    )
-                                    .collect()
-                            );
-
-                            if tail.len() > 0 {
-                                tail.insert(0, head);
-                                TypeTerm::Ladder(tail)
-                            } else {
-                                head
-                            }
+                        } else {
+                            new_rungs.push( bottom );
                         }
+                    }
 
-                        TypeTerm::Ladder(mut r) => {
-                            r.append(&mut rungs);
-                            TypeTerm::Ladder(r)
-                        }
+                    new_rungs.reverse();
 
-                        atomic => {
-                            rungs.insert(0, atomic);
-                            TypeTerm::Ladder(rungs)
-                        }
+                    if new_rungs.len() > 1 {
+                        TypeTerm::Ladder(new_rungs)
+                    } else if new_rungs.len() == 1 {
+                        new_rungs[0].clone()
+                    } else {
+                        TypeTerm::unit()
                     }
                 } else {
                     TypeTerm::unit()
