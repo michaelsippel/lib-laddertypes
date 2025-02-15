@@ -79,6 +79,22 @@ impl TypeTerm {
         self.arg(TypeTerm::Char(c))
     }
 
+    pub fn contains_var(&self, var_id: u64) -> bool {
+        match self {
+            TypeTerm::TypeID(TypeID::Var(v)) => (&var_id == v),
+            TypeTerm::App(args) |
+            TypeTerm::Ladder(args) => {
+                for a in args.iter() {
+                    if a.contains_var(var_id) {
+                        return true;
+                    }
+                }
+                false
+            }
+            _ => false
+        }
+    }
+
     /// recursively apply substitution to all subterms,
     /// which will replace all occurences of variables which map
     /// some type-term in `subst`

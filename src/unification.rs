@@ -42,19 +42,15 @@ impl UnificationProblem {
         match (lhs.clone(), rhs.clone()) {
             (TypeTerm::TypeID(TypeID::Var(varid)), t) |
             (t, TypeTerm::TypeID(TypeID::Var(varid))) => {
-                self.σ.insert(TypeID::Var(varid), t.clone());
-
-                // update all values in substitution
-                let mut new_σ = HashMap::new();
-                for (v, tt) in self.σ.iter() {
-                    let mut tt = tt.clone().normalize();
-                    tt.apply_substitution(&|v| self.σ.get(v).cloned());
-                    eprintln!("update σ : {:?} --> {:?}", v, tt);
-                    new_σ.insert(v.clone(), tt);
+                if ! t.contains_var( varid ) {
+                    self.σ.insert(TypeID::Var(varid), t.clone());
+                    self.reapply_subst();
+                    Ok(vec![])
+                } else if t == TypeTerm::TypeID(TypeID::Var(varid)) {
+                    Ok(vec![])
+                } else {
+                    Err(UnificationError{ addr, t1: TypeTerm::TypeID(TypeID::Var(varid)), t2: t })
                 }
-                self.σ = new_σ;
-
-                Ok(())
             }
 
             (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
@@ -153,20 +149,15 @@ impl UnificationProblem {
         match (lhs.clone(), rhs.clone()) {
             (TypeTerm::TypeID(TypeID::Var(varid)), t) |
             (t, TypeTerm::TypeID(TypeID::Var(varid))) => {
-                self.σ.insert(TypeID::Var(varid), t.clone());
-
-                // update all values in substitution
-                let mut new_σ = HashMap::new();
-                for (v, tt) in self.σ.iter() {
-                    let mut tt = tt.clone();
-                    tt.apply_substitution(&|v| self.σ.get(v).cloned());
-                    new_σ.insert(v.clone(), tt);
+                if ! t.contains_var( varid ) {
+                    self.σ.insert(TypeID::Var(varid), t.clone());
+                    self.reapply_subst();
+                    Ok(())
+                } else if t == TypeTerm::TypeID(TypeID::Var(varid)) {
+                    Ok(())
+                } else {
+                    Err(UnificationError{ addr, t1: TypeTerm::TypeID(TypeID::Var(varid)), t2: t })
                 }
-
-                self.σ.insert(TypeID::Var(varid), t.clone());
-                self.reapply_subst();
-
-                Ok(())
             }
 
             (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
@@ -182,7 +173,7 @@ impl UnificationProblem {
             (TypeTerm::Ladder(a1), TypeTerm::Ladder(a2)) |
             (TypeTerm::App(a1), TypeTerm::App(a2)) => {
                 if a1.len() == a2.len() {
-                    for (i, (x, y)) in a1.iter().cloned().zip(a2.iter().cloned()).enumerate() {
+                    for (i, (x, y)) in a1.iter().cloned().zip(a2.iter().cloned()).enumerate().rev() {
                         let mut new_addr = addr.clone();
                         new_addr.push(i);
                         self.eqs.push((x, y, new_addr));
@@ -263,6 +254,7 @@ impl UnificationProblem {
         halo_type = halo_type.apply_substitution(&|k| self.σ.get(k).cloned()).clone();
 
         Ok((halo_type.param_normalize(), self.σ))
+    }
 }
 
 pub fn unify(

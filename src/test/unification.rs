@@ -61,6 +61,19 @@ fn test_unification_error() {
             t2: dict.parse("B").unwrap()
         })
     );
+
+    assert_eq!(
+        crate::unify(
+            &dict.parse("T").unwrap(),
+            &dict.parse("<Seq T>").unwrap()
+        ),
+
+        Err(UnificationError {
+            addr: vec![],
+            t1: dict.parse("T").unwrap(),
+            t2: dict.parse("<Seq T>").unwrap()
+        })
+    );
 }
 
 #[test]
@@ -131,12 +144,13 @@ fn test_subtype_unification() {
             (dict.parse("<Seq~T <Digit 10> ~ Char>").unwrap(),
                 dict.parse("<Seq~<LengthPrefix x86.UInt64> Char ~ Ascii>").unwrap()),
         ]).solve_subtype(),
-        Ok(
+        Ok((
+            dict.parse("<Seq <Digit 10>>").unwrap(),
             vec![
                 // T
                 (TypeID::Var(0), dict.parse("<LengthPrefix x86.UInt64>").unwrap())
             ].into_iter().collect()
-        )
+        ))
     );
 
     assert_eq!(
@@ -144,7 +158,8 @@ fn test_subtype_unification() {
             (dict.parse("U").unwrap(), dict.parse("<Seq Char>").unwrap()),
             (dict.parse("T").unwrap(), dict.parse("<Seq U>").unwrap()),
         ]).solve_subtype(),
-        Ok(
+        Ok((
+            TypeTerm::unit(),
             vec![
                 // T
                 (TypeID::Var(0), dict.parse("<Seq <Seq Char>>").unwrap()),
@@ -152,7 +167,7 @@ fn test_subtype_unification() {
                 // U
                 (TypeID::Var(1), dict.parse("<Seq Char>").unwrap())
             ].into_iter().collect()
-        )
+        ))
     );
 
     assert_eq!(
@@ -162,7 +177,10 @@ fn test_subtype_unification() {
             (dict.parse("<Seq ℕ~<PosInt 10 BigEndian>>").unwrap(),
                 dict.parse("<Seq~<LengthPrefix x86.UInt64> W>").unwrap()),
         ]).solve_subtype(),
-        Ok(
+        Ok((
+            dict.parse("
+                <Seq~<LengthPrefix x86.UInt64> ℕ~<PosInt 10 BigEndian>>
+            ").unwrap(),
             vec![
                 // W
                 (TypeID::Var(3), dict.parse("ℕ~<PosInt 10 BigEndian>").unwrap()),
@@ -170,6 +188,6 @@ fn test_subtype_unification() {
                 // T
                 (TypeID::Var(0), dict.parse("ℕ~<PosInt 10 BigEndian>~<Seq Char>").unwrap())
             ].into_iter().collect()
-        )
+        ))
     );
 }
