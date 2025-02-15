@@ -1,5 +1,5 @@
 use {
-    crate::{dict::*, term::*}, std::{collections::HashMap, env::consts::ARCH}
+    crate::{dict::*, term::*}, std::{collections::HashMap}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
