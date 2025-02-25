@@ -174,12 +174,12 @@ fn test_subtype_unification() {
         UnificationProblem::new(vec![
             (dict.parse("<Seq T>").unwrap(),
                 dict.parse("<Seq W~<Seq Char>>").unwrap()),
-            (dict.parse("<Seq ℕ~<PosInt 10 BigEndian>>").unwrap(),
-                dict.parse("<Seq~<LengthPrefix x86.UInt64> W>").unwrap()),
+            (dict.parse("<Seq~<LengthPrefix x86.UInt64> ℕ~<PosInt 10 BigEndian>>").unwrap(),
+                dict.parse("<<LengthPrefix x86.UInt64> W>").unwrap()),
         ]).solve_subtype(),
         Ok((
             dict.parse("
-                <Seq~<LengthPrefix x86.UInt64> ℕ~<PosInt 10 BigEndian>>
+                <Seq ℕ~<PosInt 10 BigEndian>>
             ").unwrap(),
             vec![
                 // W
