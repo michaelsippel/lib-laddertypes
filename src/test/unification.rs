@@ -97,11 +97,12 @@ fn test_unification() {
     dict.add_varname(String::from("W"));
 
     assert_eq!(
-        UnificationProblem::new(vec![
+        UnificationProblem::new_eq(vec![
             (dict.parse("U").unwrap(), dict.parse("<Seq Char>").unwrap()),
             (dict.parse("T").unwrap(), dict.parse("<Seq U>").unwrap()),
         ]).solve(),
-        Ok(
+        Ok((
+            vec![],
             vec![
                 // T
                 (TypeID::Var(0), dict.parse("<Seq <Seq Char>>").unwrap()),
@@ -109,15 +110,16 @@ fn test_unification() {
                 // U
                 (TypeID::Var(1), dict.parse("<Seq Char>").unwrap())
             ].into_iter().collect()
-        )
+        ))
     );
 
     assert_eq!(
-        UnificationProblem::new(vec![
+        UnificationProblem::new_eq(vec![
             (dict.parse("<Seq T>").unwrap(), dict.parse("<Seq W~<Seq Char>>").unwrap()),
             (dict.parse("<Seq ℕ>").unwrap(), dict.parse("<Seq W>").unwrap()),
         ]).solve(),
-        Ok(
+        Ok((
+            vec![],
             vec![
                 // W
                 (TypeID::Var(3), dict.parse("ℕ").unwrap()),
@@ -125,7 +127,7 @@ fn test_unification() {
                 // T
                 (TypeID::Var(0), dict.parse("ℕ~<Seq Char>").unwrap())
             ].into_iter().collect()
-        )
+        ))
     );
 }
 
@@ -139,12 +141,14 @@ fn test_subtype_unification() {
     dict.add_varname(String::from("W"));
 
     assert_eq!(
-        UnificationProblem::new(vec![
+        UnificationProblem::new_sub(vec![
             (dict.parse("<Seq~T <Digit 10> ~ Char>").unwrap(),
                 dict.parse("<Seq~<LengthPrefix x86.UInt64> Char ~ Ascii>").unwrap()),
-        ]).solve_subtype(),
+        ]).solve(),
         Ok((
-            dict.parse("<Seq <Digit 10>>").unwrap(),
+            vec![
+                dict.parse("<Seq <Digit 10>>").unwrap()
+            ],
             vec![
                 // T
                 (TypeID::Var(0), dict.parse("<LengthPrefix x86.UInt64>").unwrap())
@@ -153,12 +157,15 @@ fn test_subtype_unification() {
     );
 
     assert_eq!(
-        UnificationProblem::new(vec![
+        UnificationProblem::new_sub(vec![
             (dict.parse("U").unwrap(), dict.parse("<Seq Char>").unwrap()),
             (dict.parse("T").unwrap(), dict.parse("<Seq U>").unwrap()),
-        ]).solve_subtype(),
+        ]).solve(),
         Ok((
-            TypeTerm::unit(),
+            vec![
+                TypeTerm::unit(),
+                TypeTerm::unit(),
+            ],
             vec![
                 // T
                 (TypeID::Var(0), dict.parse("<Seq <Seq Char>>").unwrap()),
@@ -170,22 +177,100 @@ fn test_subtype_unification() {
     );
 
     assert_eq!(
-        UnificationProblem::new(vec![
+        UnificationProblem::new_sub(vec![
             (dict.parse("<Seq T>").unwrap(),
                 dict.parse("<Seq W~<Seq Char>>").unwrap()),
             (dict.parse("<Seq~<LengthPrefix x86.UInt64> ℕ~<PosInt 10 BigEndian>>").unwrap(),
                 dict.parse("<<LengthPrefix x86.UInt64> W>").unwrap()),
-        ]).solve_subtype(),
+        ]).solve(),
         Ok((
-            dict.parse("
-                <Seq ℕ~<PosInt 10 BigEndian>>
-            ").unwrap(),
+            vec![
+                TypeTerm::unit(),
+                dict.parse("<Seq ℕ>").unwrap(),
+            ],
             vec![
                 // W
                 (TypeID::Var(3), dict.parse("ℕ~<PosInt 10 BigEndian>").unwrap()),
 
                 // T
                 (TypeID::Var(0), dict.parse("ℕ~<PosInt 10 BigEndian>~<Seq Char>").unwrap())
+            ].into_iter().collect()
+        ))
+    );
+
+    assert_eq!(
+        subtype_unify(
+            &dict.parse("<Seq~List~Vec <Digit 16>~Char>").expect(""),
+            &dict.parse("<List~Vec Char>").expect("")
+        ),
+        Ok((
+            dict.parse("<Seq~List <Digit 16>>").expect(""),
+            vec![].into_iter().collect()
+        ))
+    );
+
+    assert_eq!(
+        subtype_unify(
+            &dict.parse("ℕ ~ <PosInt 16 BigEndian> ~ <Seq~List~Vec <Digit 16>~Char>").expect(""),
+            &dict.parse("<List~Vec Char>").expect("")
+        ),
+        Ok((
+            dict.parse("ℕ ~ <PosInt 16 BigEndian> ~ <Seq~List <Digit 16>>").expect(""),
+            vec![].into_iter().collect()
+        ))
+    );
+}
+
+
+#[test]
+pub fn test_subtype_delim() {
+    let mut dict = BimapTypeDict::new();
+
+    dict.add_varname(String::from("T"));
+    dict.add_varname(String::from("Delim"));
+
+    assert_eq!(
+        UnificationProblem::new_sub(vec![
+
+            (
+                //given type
+                dict.parse("
+                  < Seq <Seq <Digit 10>~Char~Ascii~UInt8> >
+                ~ < ValueSep ':' Char~Ascii~UInt8 >
+                ~ < Seq~<LengthPrefix UInt64> Char~Ascii~UInt8 >
+                ").expect(""),
+
+                //expected type
+                dict.parse("
+                  < Seq <Seq T> >
+                ~ < ValueSep Delim T >
+                ~ < Seq~<LengthPrefix UInt64> T >
+                ").expect("")
+            ),
+
+            // subtype bounds
+            (
+                dict.parse("T").expect(""),
+                dict.parse("UInt8").expect("")
+            ),
+            /* todo
+            (
+                dict.parse("<TypeOf Delim>").expect(""),
+                dict.parse("T").expect("")
+            ),
+            */
+        ]).solve(),
+        Ok((
+            // halo types for each rhs in the sub-equations
+            vec![
+                dict.parse("<Seq <Seq <Digit 10>>>").expect(""),
+                dict.parse("Char~Ascii").expect(""),
+            ],
+
+            // variable substitution
+            vec![
+                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("Char~Ascii~UInt8").expect("")),
+                (dict.get_typeid(&"Delim".into()).unwrap(), TypeTerm::Char(':')),
             ].into_iter().collect()
         ))
     );
