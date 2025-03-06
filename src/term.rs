@@ -14,7 +14,7 @@ pub enum TypeTerm {
     Num(i64),
     Char(char),
 
-    
+
 
     /* Complex Terms */
 
@@ -47,7 +47,7 @@ impl TypeTerm {
                 *self = TypeTerm::App(vec![
                     self.clone(),
                     t.into()
-                ])                
+                ])
             }
         }
 
@@ -123,6 +123,46 @@ impl TypeTerm {
         }
 
         self
+    }
+
+    /* strip away empty ladders
+     * & unwrap singletons
+     */
+    pub fn strip(self) -> Self {
+        match self {
+            TypeTerm::Ladder(rungs) => {
+                let mut rungs :Vec<_> = rungs.into_iter()
+                    .filter_map(|mut r| {
+                        r = r.strip();
+                        if r != TypeTerm::unit() {
+                            Some(match r {
+                                TypeTerm::Ladder(r) => r,
+                                a => vec![ a ]
+                            })
+                        }
+                        else { None }
+                    })
+                .flatten()
+                .collect();
+
+                if rungs.len() == 1 {
+                    rungs.pop().unwrap()
+                } else {
+                    TypeTerm::Ladder(rungs)
+                }
+            },
+            TypeTerm::App(args) => {
+                let mut args :Vec<_> = args.into_iter().map(|arg| arg.strip()).collect();
+                if args.len() == 0 {
+                    TypeTerm::unit()
+                } else if args.len() == 1 {
+                    args.pop().unwrap()
+                } else {
+                    TypeTerm::App(args)
+                }
+            }
+            atom => atom
+        }
     }
 }
 
