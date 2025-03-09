@@ -149,15 +149,58 @@ impl UnificationProblem {
              Variables
             */
 
+            (t, TypeTerm::TypeID(TypeID::Var(varid))) => {
+//                eprintln!("t <= variable");
+                if ! t.contains_var( varid ) {
+                   // let x = self.σ.get(&TypeID::Var(varid)).cloned();
+                    if let Some(lower_bound) = self.lower_bounds.get(&varid).cloned() {
+//                        eprintln!("var already exists. check max. type");
+                        if let Ok(halo) = self.eval_subtype(
+                            UnificationPair {
+                                lhs: lower_bound.clone(),
+                                rhs: t.clone(),
+                                halo: TypeTerm::unit(),
+                                addr: vec![]
+                            }
+                        ) {
+//                            eprintln!("found more general lower bound");
+//                            eprintln!("set var {}'s lowerbound to {:?}", varid, t.clone());
+                            // generalize variable type to supertype
+                            self.lower_bounds.insert(varid, t.clone());
+                        } else if let Ok(halo) = self.eval_subtype(
+                            UnificationPair{
+                                lhs: t.clone(),
+                                rhs: lower_bound.clone(),
+                                halo: TypeTerm::unit(),
+                                addr: vec![]
+                            }
+                        ) {
+//                            eprintln!("OK, is already larger type");
+                        } else {
+//                            eprintln!("violated subtype restriction");
+                            return Err(UnificationError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(varid)), t2: t });
+                        }
+                    } else {
+//                        eprintln!("set var {}'s lowerbound to {:?}", varid, t.clone());
+                        self.lower_bounds.insert(varid, t.clone());
+                    }
+                    self.reapply_subst();
+                    Ok(TypeTerm::unit())
+                } else if t == TypeTerm::TypeID(TypeID::Var(varid)) {
+                    Ok(TypeTerm::unit())
+                } else {
+                    Err(UnificationError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(varid)), t2: t })
+                }
+            }
+
             (TypeTerm::TypeID(TypeID::Var(varid)), t) => {
-                eprintln!("variable <= t");
+//                eprintln!("variable <= t");
 
                 if let Some(upper_bound) = self.upper_bounds.get(&varid).cloned() {
                     if let Ok(_halo) = self.eval_subtype(
                         UnificationPair {
                             lhs: t.clone(),
                             rhs: upper_bound,
-
                             halo: TypeTerm::unit(),
                             addr: vec![]
                         }
@@ -171,49 +214,6 @@ impl UnificationProblem {
                 Ok(TypeTerm::unit())
             }
 
-            (t, TypeTerm::TypeID(TypeID::Var(varid))) => {
-                eprintln!("t <= variable");
-                if ! t.contains_var( varid ) {
-                   // let x = self.σ.get(&TypeID::Var(varid)).cloned();
-                    if let Some(lower_bound) = self.lower_bounds.get(&varid).cloned() {
-                        eprintln!("var already exists. check max. type");
-                        if let Ok(halo) = self.eval_subtype(
-                            UnificationPair {
-                                lhs: lower_bound.clone(),
-                                rhs: t.clone(),
-                                halo: TypeTerm::unit(),
-                                addr: vec![]
-                            }
-                        ) {
-                            eprintln!("found more general lower bound");
-                            eprintln!("set var {}'s lowerbound to {:?}", varid, t.clone());
-                            // generalize variable type to supertype
-                            self.lower_bounds.insert(varid, t.clone());
-                        } else if let Ok(halo) = self.eval_subtype(
-                            UnificationPair{
-                                lhs: t.clone(),
-                                rhs: lower_bound.clone(),
-                                halo: TypeTerm::unit(),
-                                addr: vec![]
-                            }
-                        ) {
-                            eprintln!("OK, is already larger type");
-                        } else {
-                            eprintln!("violated subtype restriction");
-                            return Err(UnificationError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(varid)), t2: t });
-                        }
-                    } else {
-                        eprintln!("set var {}'s lowerbound to {:?}", varid, t.clone());
-                        self.lower_bounds.insert(varid, t.clone());
-                    }
-                    self.reapply_subst();
-                    Ok(TypeTerm::unit())
-                } else if t == TypeTerm::TypeID(TypeID::Var(varid)) {
-                    Ok(TypeTerm::unit())
-                } else {
-                    Err(UnificationError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(varid)), t2: t })
-                }
-            }
 
 
             /*
@@ -247,7 +247,7 @@ impl UnificationProblem {
                         halo: TypeTerm::unit(),
                         addr: new_addr
                     }) {
-                        eprintln!("unified ladders at {}, r_halo = {:?}", i, r_halo);
+//                        eprintln!("unified ladders at {}, r_halo = {:?}", i, r_halo);
 
                         for j in 0..a2.len() {
                             if i+j < a1.len() {
@@ -320,7 +320,6 @@ impl UnificationProblem {
             */
 
             (TypeTerm::App(a1), TypeTerm::App(a2)) => {
-                eprintln!("sub unify {:?}, {:?}", a1, a2);
                 if a1.len() == a2.len() {
                     let mut halo_args = Vec::new();
                     let mut n_halos_required = 0;
@@ -331,11 +330,10 @@ impl UnificationProblem {
 
                         x = x.strip();
 
-                        eprintln!("before strip: {:?}", y);
+//                        eprintln!("before strip: {:?}", y);
                         y = y.strip();
-                        eprintln!("after strip: {:?}", y);
-
-                        eprintln!("APP<> eval {:?} \n ?<=? {:?} ", x, y);
+//                        eprintln!("after strip: {:?}", y);
+//                        eprintln!("APP<> eval {:?} \n ?<=? {:?} ", x, y);
 
                         if let Ok(halo) = self.eval_subtype(
                             UnificationPair {
@@ -351,9 +349,9 @@ impl UnificationProblem {
                                 y = y.strip();
                                 let mut top = y.get_lnf_vec().first().unwrap().clone();
                                 halo_args.push(top.clone());
-                                eprintln!("add top {:?}", top);
+//                                eprintln!("add top {:?}", top);
                             } else {
-                                eprintln!("add halo {:?}", halo);
+//                                eprintln!("add halo {:?}", halo);
                                 if n_halos_required > 0 {
                                     let x = &mut halo_args[n_halos_required-1];
                                     if let TypeTerm::Ladder(argrs) = x {
@@ -380,7 +378,7 @@ impl UnificationProblem {
                     }
 
                     if n_halos_required > 0 {
-                        eprintln!("halo args : {:?}", halo_args);
+//                        eprintln!("halo args : {:?}", halo_args);
                         Ok(TypeTerm::App(halo_args))
                     } else {
                         Ok(TypeTerm::unit())
@@ -404,7 +402,7 @@ impl UnificationProblem {
         }
 
         // solve subtypes
-        eprintln!("------ SOLVE SUBTYPES ---- ");
+//        eprintln!("------ SOLVE SUBTYPES ---- ");
         for mut subtype_pair in self.subtype_pairs.clone().into_iter() {
             subtype_pair.lhs.apply_substitution(&|v| self.σ.get(v).cloned());
             subtype_pair.rhs.apply_substitution(&|v| self.σ.get(v).cloned());
@@ -413,18 +411,18 @@ impl UnificationProblem {
 
         // add variables from subtype bounds
         for (var_id, t) in self.upper_bounds.iter() {
-            eprintln!("VAR {} upper bound {:?}", var_id, t);
+//            eprintln!("VAR {} upper bound {:?}", var_id, t);
             self.σ.insert(TypeID::Var(*var_id), t.clone().strip());
         }
 
         for (var_id, t) in self.lower_bounds.iter() {
-            eprintln!("VAR {} lower bound {:?}", var_id, t);
+//            eprintln!("VAR {} lower bound {:?}", var_id, t);
             self.σ.insert(TypeID::Var(*var_id), t.clone().strip());
         }
 
         self.reapply_subst();
 
-        eprintln!("------ MAKE HALOS -----");
+//        eprintln!("------ MAKE HALOS -----");
         let mut halo_types = Vec::new();
         for mut subtype_pair in self.subtype_pairs.clone().into_iter() {
             subtype_pair.lhs = subtype_pair.lhs.apply_substitution(&|v| self.σ.get(v).cloned()).clone().strip();
