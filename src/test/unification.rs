@@ -223,6 +223,55 @@ fn test_subtype_unification() {
 
 
 #[test]
+fn test_trait_not_subtype() {
+    let mut dict = BimapTypeDict::new();
+
+    assert_eq!(
+        subtype_unify(
+            &dict.parse("A ~ B").expect(""),
+            &dict.parse("A ~ B ~ C").expect("")
+        ),
+        Err(UnificationError {
+            addr: vec![],
+            t1: dict.parse("A ~ B").expect(""),
+            t2: dict.parse("A ~ B ~ C").expect("")
+        })
+    );
+
+    assert_eq!(
+        subtype_unify(
+            &dict.parse("<Seq~List~Vec <Digit 10>~Char>").expect(""),
+            &dict.parse("<Seq~List~Vec Char~ReprTree>").expect("")
+        ),
+        Err(UnificationError {
+            addr: vec![1],
+            t1: dict.parse("<Digit 10> ~ Char").expect(""),
+            t2: dict.parse("Char ~ ReprTree").expect("")
+        })
+    );
+}
+
+#[test]
+fn test_reprtree_list_subtype() {
+    let mut dict = BimapTypeDict::new();
+
+    dict.add_varname("Item".into());
+
+    assert_eq!(
+        subtype_unify(
+            &dict.parse("<List~Vec <Digit 10>~Char~ReprTree>").expect(""),
+            &dict.parse("<List~Vec Item~ReprTree>").expect("")
+        ),
+        Ok((
+            TypeTerm::unit(),
+            vec![
+                (dict.get_typeid(&"Item".into()).unwrap(), dict.parse("<Digit 10>~Char").unwrap())
+            ].into_iter().collect()
+        ))
+    );
+}
+
+#[test]
 pub fn test_subtype_delim() {
     let mut dict = BimapTypeDict::new();
 
