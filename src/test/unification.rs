@@ -132,7 +132,61 @@ fn test_unification() {
 }
 
 #[test]
-fn test_subtype_unification() {
+fn test_subtype_unification1() {
+    let mut dict = BimapTypeDict::new();
+    dict.add_varname(String::from("T"));
+
+    assert_eq!(
+        UnificationProblem::new_sub(vec![
+            (dict.parse("A ~ B").unwrap(),
+                dict.parse("B").unwrap()),
+        ]).solve(),
+        Ok((
+            vec![ dict.parse("A").unwrap() ],
+            vec![].into_iter().collect()
+        ))
+    );
+
+    assert_eq!(
+        UnificationProblem::new_sub(vec![
+            (dict.parse("A ~ B ~ C ~ D").unwrap(),
+                dict.parse("C ~ D").unwrap()),
+        ]).solve(),
+        Ok((
+            vec![ dict.parse("A ~ B").unwrap() ],
+            vec![].into_iter().collect()
+        ))
+    );
+
+    assert_eq!(
+        UnificationProblem::new_sub(vec![
+            (dict.parse("A ~ B ~ C ~ D").unwrap(),
+                dict.parse("T ~ D").unwrap()),
+        ]).solve(),
+        Ok((
+            vec![ TypeTerm::unit() ],
+            vec![
+                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("A ~ B ~ C").unwrap())
+            ].into_iter().collect()
+        ))
+    );
+
+    assert_eq!(
+        UnificationProblem::new_sub(vec![
+            (dict.parse("A ~ B ~ C ~ D").unwrap(),
+                dict.parse("B ~ T ~ D").unwrap()),
+        ]).solve(),
+        Ok((
+            vec![ dict.parse("A").unwrap() ],
+            vec![
+                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("C").unwrap())
+            ].into_iter().collect()
+        ))
+    );
+}
+
+#[test]
+fn test_subtype_unification2() {
     let mut dict = BimapTypeDict::new();
 
     dict.add_varname(String::from("T"));
@@ -142,7 +196,7 @@ fn test_subtype_unification() {
 
     assert_eq!(
         UnificationProblem::new_sub(vec![
-            (dict.parse("<Seq~T <Digit 10> ~ Char>").unwrap(),
+            (dict.parse("<Seq~T <Digit 10> ~ Char ~ Ascii>").unwrap(),
                 dict.parse("<Seq~<LengthPrefix x86.UInt64> Char ~ Ascii>").unwrap()),
         ]).solve(),
         Ok((
@@ -232,9 +286,9 @@ fn test_trait_not_subtype() {
             &dict.parse("A ~ B ~ C").expect("")
         ),
         Err(UnificationError {
-            addr: vec![],
-            t1: dict.parse("A ~ B").expect(""),
-            t2: dict.parse("A ~ B ~ C").expect("")
+            addr: vec![1],
+            t1: dict.parse("B").expect(""),
+            t2: dict.parse("C").expect("")
         })
     );
 
@@ -244,9 +298,9 @@ fn test_trait_not_subtype() {
             &dict.parse("<Seq~List~Vec Char~ReprTree>").expect("")
         ),
         Err(UnificationError {
-            addr: vec![1],
-            t1: dict.parse("<Digit 10> ~ Char").expect(""),
-            t2: dict.parse("Char ~ ReprTree").expect("")
+            addr: vec![1,1],
+            t1: dict.parse("Char").expect(""),
+            t2: dict.parse("ReprTree").expect("")
         })
     );
 }
