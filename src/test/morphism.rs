@@ -4,6 +4,37 @@ use {
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
+fn print_subst(m: &std::collections::HashMap<TypeID, TypeTerm>, dict: &mut impl TypeDict) {
+    eprintln!("{{");
+
+    for (k,v) in m.iter() {
+        eprintln!("    {} --> {}",
+            dict.get_typename(k).unwrap(),
+            dict.unparse(v)
+        );
+    }
+
+    eprintln!("}}");
+}
+
+fn print_path(dict: &mut impl TypeDict, path: &Vec<MorphismInstance<DummyMorphism>>) {
+    for n in path.iter() {
+        eprintln!("
+ψ = {}
+morph {}
+--> {}
+with
+        ",
+        n.halo.clone().sugar(dict).pretty(dict, 0),
+        n.m.get_type().src_type.sugar(dict).pretty(dict, 0),
+        n.m.get_type().dst_type.sugar(dict).pretty(dict, 0),
+        );
+        print_subst(&n.σ, dict)
+    }
+}
+
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
+
 #[derive(Clone, Debug, PartialEq)]
 struct DummyMorphism(MorphismType);
 
@@ -134,33 +165,8 @@ fn test_morphism_path3() {
         dst_type: dict.parse("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ ℤ_2^64 ~ machine.UInt64>").unwrap(),
     });
 
-    fn print_subst(m: &std::collections::HashMap<TypeID, TypeTerm>, dict: &mut impl TypeDict) {
-        eprintln!("{{");
-
-        for (k,v) in m.iter() {
-            eprintln!("    {} --> {}",
-                dict.get_typename(k).unwrap(),
-                dict.unparse(v)
-            );
-        }
-
-        eprintln!("}}");
-    }
-
     if let Some(path) = path.as_ref() {
-        for n in path.iter() {
-            eprintln!("
-ψ = {}
-morph {}
-  --> {}
-with
-            ",
-            n.halo.clone().sugar(&mut dict).pretty(&mut dict, 0),
-            n.m.get_type().src_type.sugar(&mut dict).pretty(&mut dict, 0),
-            n.m.get_type().dst_type.sugar(&mut dict).pretty(&mut dict, 0),
-            );
-            print_subst(&n.σ, &mut dict)
-        }
+        print_path(&mut dict, path);
     }
 
     assert_eq!(
@@ -204,33 +210,8 @@ fn test_morphism_path4() {
         dst_type: dict.parse("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ Char>").unwrap()
     });
 
-    fn print_subst(m: &std::collections::HashMap<TypeID, TypeTerm>, dict: &mut impl TypeDict) {
-        eprintln!("{{");
-
-        for (k,v) in m.iter() {
-            eprintln!("    {} --> {}",
-                dict.get_typename(k).unwrap(),
-                dict.unparse(v)
-            );
-        }
-
-        eprintln!("}}");
-    }
-
     if let Some(path) = path.as_ref() {
-        for n in path.iter() {
-            eprintln!("
-ψ = {}
-morph {}
-  --> {}
-with
-            ",
-            n.halo.clone().sugar(&mut dict).pretty(&mut dict, 0),
-            n.m.get_type().src_type.sugar(&mut dict).pretty(&mut dict, 0),
-            n.m.get_type().dst_type.sugar(&mut dict).pretty(&mut dict, 0),
-            );
-            print_subst(&n.σ, &mut dict)
-        }
+        print_path(&mut dict, path);
     }
 
     assert_eq!(
@@ -287,33 +268,8 @@ fn test_morphism_path_posint() {
         dst_type: dict.parse("ℕ ~ <PosInt 16 BigEndian> ~ <Seq <Digit 16> ~ Char>").unwrap(),
     });
 
-    fn print_subst(m: &std::collections::HashMap<TypeID, TypeTerm>, dict: &mut impl TypeDict) {
-        eprintln!("{{");
-
-        for (k,v) in m.iter() {
-            eprintln!("    {} --> {}",
-                dict.get_typename(k).unwrap(),
-                dict.unparse(v)
-            );
-        }
-
-        eprintln!("}}");
-    }
-
     if let Some(path) = path.as_ref() {
-        for n in path.iter() {
-            eprintln!("
-ψ = {}
-morph {}
-  --> {}
-with
-            ",
-            n.halo.clone().sugar(&mut dict).pretty(&mut dict, 0),
-            n.m.get_type().src_type.sugar(&mut dict).pretty(&mut dict, 0),
-            n.m.get_type().dst_type.sugar(&mut dict).pretty(&mut dict, 0),
-            );
-            print_subst(&n.σ, &mut dict)
-        }
+        print_path(&mut dict, path);
     }
 
     assert_eq!(
@@ -418,4 +374,98 @@ with
         ))
     );
     */
+}
+
+use std::collections::HashMap;
+
+#[test]
+fn test_morphism_path_listedit()
+{
+    let mut dict = BimapTypeDict::new();
+    let mut base = MorphismBase::<DummyMorphism>::new( vec![ dict.parse("List").expect("") ] );
+
+    base.add_morphism(
+        DummyMorphism(MorphismType{
+            src_type: dict.parse("Char").unwrap(),
+            dst_type: dict.parse("Char ~ EditTree").unwrap()
+        })
+    );
+    base.add_morphism(
+        DummyMorphism(MorphismType{
+            src_type: dict.parse("<List~Vec Char>").unwrap(),
+            dst_type: dict.parse("<List Char>").unwrap()
+        })
+    );
+    base.add_morphism(
+        DummyMorphism(MorphismType{
+            src_type: dict.parse("<List Char>").unwrap(),
+            dst_type: dict.parse("<List Char~ReprTree>").unwrap()
+        })
+    );
+    base.add_morphism(
+        DummyMorphism(MorphismType{
+            src_type: dict.parse("<List ReprTree>").unwrap(),
+            dst_type: dict.parse("<List~Vec ReprTree>").unwrap()
+        })
+    );
+    base.add_morphism(
+        DummyMorphism(MorphismType{
+            src_type: dict.parse("<List~Vec Char~ReprTree>").unwrap(),
+            dst_type: dict.parse("<List Char> ~ EditTree").unwrap()
+        })
+    );
+    base.add_morphism(
+        DummyMorphism(MorphismType{
+            src_type: dict.parse("<List~Vec Char~ReprTree>").unwrap(),
+            dst_type: dict.parse("<List Char> ~ EditTree").unwrap()
+        })
+    );
+
+
+    let path = base.find_morphism_path(MorphismType {
+        src_type: dict.parse("<Seq~List~Vec <Digit 10>~Char>").unwrap(),
+        dst_type: dict.parse("<Seq~List <Digit 10>~Char> ~ EditTree").unwrap(),
+    });
+
+    if let Some(path) = path.as_ref() {
+        print_path(&mut dict, path);
+    }
+
+    assert_eq!(
+        path,
+        Some(vec![
+            MorphismInstance {
+                m: DummyMorphism(MorphismType{
+                    src_type: dict.parse("<List~Vec Char>").unwrap(),
+                    dst_type: dict.parse("<List Char>").unwrap()
+                }),
+                halo: dict.parse("<Seq~List <Digit 10>>").unwrap(),
+                σ: HashMap::new()
+            },
+            MorphismInstance {
+                m: DummyMorphism(MorphismType{
+                    src_type: dict.parse("<List Char>").unwrap(),
+                    dst_type: dict.parse("<List Char~ReprTree>").unwrap()
+                }),
+                halo: dict.parse("<Seq~List <Digit 10>>").unwrap(),
+                σ: HashMap::new()
+            },
+            MorphismInstance {
+                m: DummyMorphism(MorphismType{
+                    src_type: dict.parse("<List ReprTree>").unwrap(),
+                    dst_type: dict.parse("<List~Vec ReprTree>").unwrap()
+                }),
+                halo: dict.parse("<Seq~List <Digit 10>~Char>").unwrap(),
+                σ: HashMap::new()
+            },
+            MorphismInstance {
+                m: DummyMorphism(MorphismType{
+                    src_type: dict.parse("<List~Vec Char~ReprTree>").unwrap(),
+                    dst_type: dict.parse("<List Char> ~ EditTree").unwrap()
+                }),
+                halo: dict.parse("<Seq~List <Digit 10>>").unwrap(),
+                σ: HashMap::new()
+            },
+        ])
+    );
 }
