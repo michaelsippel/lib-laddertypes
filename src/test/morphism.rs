@@ -1,5 +1,5 @@
 use {
-    crate::{dict::*, morphism::*, parser::*, unparser::*, TypeTerm}
+    crate::{dict::*, morphism::*, parser::*, unparser::*, TypeTerm, morphism_base::*, morphism_path::*}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -104,10 +104,10 @@ fn morphism_test_setup() -> ( BimapTypeDict, MorphismBase<DummyMorphism> ) {
 fn test_morphism_path1() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = base.find_morphism_path(MorphismType {
+    let path = ShortestPathProblem::new(&base, MorphismType {
         src_type: dict.parse("<Digit 10> ~ Char").unwrap(),
         dst_type: dict.parse("<Digit 10> ~ ℤ_2^64 ~ machine.UInt64").unwrap(),
-    });
+    }).solve();
 
     assert_eq!(
         path,
@@ -132,10 +132,10 @@ fn test_morphism_path1() {
 fn test_morphism_path2() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = base.find_morphism_path(MorphismType {
+    let path = ShortestPathProblem::new(&base, MorphismType {
         src_type: dict.parse("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ Char>").unwrap(),
         dst_type: dict.parse("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ ℤ_2^64 ~ machine.UInt64>").unwrap(),
-    });
+    }).solve();
 
     assert_eq!(
         path,
@@ -160,10 +160,10 @@ fn test_morphism_path2() {
 fn test_morphism_path3() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = base.find_morphism_path(MorphismType {
+    let path = ShortestPathProblem::new(&base, MorphismType {
         src_type: dict.parse("ℕ ~ <PosInt 10 LittleEndian> ~ <Seq <Digit 10> ~ Char>").unwrap(),
         dst_type: dict.parse("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ ℤ_2^64 ~ machine.UInt64>").unwrap(),
-    });
+    }).solve();
 
     if let Some(path) = path.as_ref() {
         print_path(&mut dict, path);
@@ -205,10 +205,10 @@ fn test_morphism_path3() {
 fn test_morphism_path4() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = base.find_morphism_path(MorphismType {
+    let path = ShortestPathProblem::new(&base, MorphismType {
         src_type: dict.parse("ℕ ~ <PosInt 10 LittleEndian> ~ <Seq <Digit 10> ~ Char>").unwrap(),
         dst_type: dict.parse("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ Char>").unwrap()
-    });
+    }).solve();
 
     if let Some(path) = path.as_ref() {
         print_path(&mut dict, path);
@@ -263,10 +263,10 @@ fn test_morphism_path4() {
 fn test_morphism_path_posint() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = base.find_morphism_path(MorphismType {
+    let path = ShortestPathProblem::new(&base, MorphismType {
         src_type: dict.parse("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ Char>").unwrap(),
         dst_type: dict.parse("ℕ ~ <PosInt 16 BigEndian> ~ <Seq <Digit 16> ~ Char>").unwrap(),
-    });
+    }).solve();
 
     if let Some(path) = path.as_ref() {
         print_path(&mut dict, path);
@@ -422,10 +422,10 @@ fn test_morphism_path_listedit()
     );
 
 
-    let path = base.find_morphism_path(MorphismType {
+    let path = ShortestPathProblem::new(&base, MorphismType {
         src_type: dict.parse("<Seq~List~Vec <Digit 10>~Char>").unwrap(),
         dst_type: dict.parse("<Seq~List <Digit 10>~Char> ~ EditTree").unwrap(),
-    });
+    }).solve();
 
     if let Some(path) = path.as_ref() {
         print_path(&mut dict, path);

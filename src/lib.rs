@@ -14,6 +14,8 @@ pub mod pnf;
 pub mod subtype;
 pub mod unification;
 pub mod morphism;
+pub mod morphism_base;
+pub mod morphism_path;
 
 #[cfg(test)]
 mod test;

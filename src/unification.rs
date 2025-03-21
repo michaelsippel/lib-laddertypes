@@ -224,7 +224,7 @@ impl UnificationProblem {
         // error
         UnificationError
     > {
-        eprintln!("eval_subtype {:?} <=? {:?}", unification_pair.lhs, unification_pair.rhs);
+        // eprintln!("eval_subtype {:?} <=? {:?}", unification_pair.lhs, unification_pair.rhs);
         match (unification_pair.lhs.clone(), unification_pair.rhs.clone()) {
 
             /*
