@@ -1,8 +1,19 @@
 use {
-    crate::{TypeDict, dict::TypeID},
-    crate::sugar::SugaredTypeTerm,
+    crate::{dict::TypeID, sugar::SugaredTypeTerm, SugaredStructMember, SugaredEnumVariant, TypeDict},
     tiny_ansi::TinyAnsi
 };
+
+
+impl SugaredStructMember {
+    pub fn pretty(&self, dict: &TypeDict, indent: u64) -> String {
+        format!("{}: {}", self.symbol, self.ty.pretty(dict, indent+1))
+    }
+}
+impl SugaredEnumVariant {
+    pub fn pretty(&self, dict: &TypeDict, indent: u64) -> String {
+        format!("{}: {}", self.symbol, self.ty.pretty(dict, indent+1))
+    }
+}
 
 impl SugaredTypeTerm {
     pub fn pretty(&self, dict: &TypeDict, indent: u64) -> String {
