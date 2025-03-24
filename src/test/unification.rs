@@ -23,8 +23,8 @@ fn test_unify(ts1: &str, ts2: &str, expect_unificator: bool) {
         let σ = σ.unwrap();
 
         assert_eq!(
-            t1.apply_substitution(&|v| σ.get(v).cloned()),
-            t2.apply_substitution(&|v| σ.get(v).cloned())
+            t1.apply_subst(&σ),
+            t2.apply_subst(&σ)
         );
     } else {
         assert!(! σ.is_ok());

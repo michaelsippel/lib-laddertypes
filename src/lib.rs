@@ -2,6 +2,8 @@
 pub mod bimap;
 pub mod dict;
 pub mod term;
+pub mod substitution;
+
 pub mod lexer;
 pub mod parser;
 pub mod unparser;
@@ -21,6 +23,7 @@ mod pretty;
 pub use {
     dict::*,
     term::*,
+    substitution::*,
     sugar::*,
     unification::*,
 };
