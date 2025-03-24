@@ -24,6 +24,14 @@ pub trait TypeDict : Send + Sync {
             self.insert(new, tyid);
         }
     }
+
+    fn get_typeid_creat(&mut self, tn: &String) -> TypeID {
+        if let Some(id) = self.get_typeid(tn) {
+            id
+        } else {
+            self.add_typename(tn.clone())
+        }
+    }
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
