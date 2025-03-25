@@ -164,6 +164,24 @@ impl TypeTerm {
             atom => atom
         }
     }
+
+
+
+    pub fn get_interface_type(&self) -> TypeTerm {
+        match self {
+            TypeTerm::Ladder(rungs) => {
+                if let Some(top) = rungs.first() {
+                    top.get_interface_type()
+                } else {
+                    TypeTerm::unit()
+                }
+            }
+            TypeTerm::App(args) => {
+                TypeTerm::App(args.iter().map(|a| a.get_interface_type()).collect())
+            }
+            atom => atom.clone()
+        }
+    }
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
