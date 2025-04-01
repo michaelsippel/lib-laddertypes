@@ -25,16 +25,19 @@ pub struct UnificationProblem {
     σ: HashMap<TypeID, TypeTerm>,
     upper_bounds: HashMap< u64, TypeTerm >,
     lower_bounds: HashMap< u64, TypeTerm >,
+
     equal_pairs: Vec<UnificationPair>,
     subtype_pairs: Vec<UnificationPair>,
-    trait_pairs: Vec<UnificationPair>
+    trait_pairs: Vec<UnificationPair>,
+    parallel_pairs: Vec<UnificationPair>
 }
 
 impl UnificationProblem {
     pub fn new(
         equal_pairs: Vec<(TypeTerm, TypeTerm)>,
         subtype_pairs: Vec<(TypeTerm, TypeTerm)>,
-        trait_pairs: Vec<(TypeTerm, TypeTerm)>
+        trait_pairs: Vec<(TypeTerm, TypeTerm)>,
+        parallel_pairs: Vec<(TypeTerm, TypeTerm)>
     ) -> Self {
         UnificationProblem {
             σ: HashMap::new(),
@@ -60,17 +63,24 @@ impl UnificationProblem {
                     addr: Vec::new()
                 }).collect(),
 
+            parallel_pairs: parallel_pairs.into_iter().map(|(lhs,rhs)|
+                UnificationPair{
+                    lhs,rhs,
+                    halo: TypeTerm::unit(),
+                    addr: Vec::new()
+                }).collect(),
+
             upper_bounds: HashMap::new(),
             lower_bounds: HashMap::new(),
         }
     }
 
     pub fn new_eq(eqs: Vec<(TypeTerm, TypeTerm)>) -> Self {
-        UnificationProblem::new( eqs, Vec::new(), Vec::new() )
+        UnificationProblem::new( eqs, Vec::new(), Vec::new(), Vec::new() )
     }
 
     pub fn new_sub(subs: Vec<(TypeTerm, TypeTerm)>) -> Self {
-        UnificationProblem::new( Vec::new(), subs, Vec::new() )
+        UnificationProblem::new( Vec::new(), subs, Vec::new(), Vec::new() )
     }
 
 
@@ -523,6 +533,14 @@ pub fn subtype_unify(
     t2: &TypeTerm
 ) -> Result<(TypeTerm, HashMap<TypeID, TypeTerm>), UnificationError> {
     let unification = UnificationProblem::new_sub(vec![ (t1.clone(), t2.clone()) ]);
+    unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
+}
+
+pub fn parallel_unify(
+    t1: &TypeTerm,
+    t2: &TypeTerm
+) -> Result<(TypeTerm, HashMap<TypeID, TypeTerm>), UnificationError> {
+    let unification = UnificationProblem::new(vec![], vec![], vec![], vec![ (t1.clone(), t2.clone()) ]);
     unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
 }
 

@@ -1,6 +1,13 @@
 use {
     crate::{
-        subtype_unify, sugar::SugaredTypeTerm, unification::UnificationProblem, unparser::*, TypeDict, TypeID, TypeTerm
+        pnf::splice_ladders,
+        substitution_sugared::SugaredSubstitution,
+        subtype_unify,
+        sugar::{SugaredStructMember, SugaredTypeTerm},
+        unification::UnificationProblem,
+        unification_sugared::SugaredUnificationProblem,
+        unparser::*,
+        TypeDict, TypeID, TypeTerm
     },
     std::{collections::HashMap, u64}
 };
@@ -16,8 +23,8 @@ pub struct MorphismType {
 impl MorphismType {
     pub fn normalize(self) -> Self {
         MorphismType {
-            src_type: self.src_type.normalize().param_normalize(),
-            dst_type: self.dst_type.normalize().param_normalize()
+            src_type: self.src_type.strip().param_normalize(),
+            dst_type: self.dst_type.strip().param_normalize(),
         }
     }
 }
@@ -59,5 +66,3 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
         }.normalize()
     }
 }
-
-//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\

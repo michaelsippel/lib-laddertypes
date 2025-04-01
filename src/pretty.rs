@@ -5,18 +5,18 @@ use {
 
 
 impl SugaredStructMember {
-    pub fn pretty(&self, dict: &TypeDict, indent: u64) -> String {
+    pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
         format!("{}: {}", self.symbol, self.ty.pretty(dict, indent+1))
     }
 }
 impl SugaredEnumVariant {
-    pub fn pretty(&self, dict: &TypeDict, indent: u64) -> String {
+    pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
         format!("{}: {}", self.symbol, self.ty.pretty(dict, indent+1))
     }
 }
 
 impl SugaredTypeTerm {
-    pub fn pretty(&self, dict: &TypeDict, indent: u64) -> String {
+    pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
         let indent_width = 4;
         match self {
             SugaredTypeTerm::TypeID(id) => {
@@ -64,15 +64,20 @@ impl SugaredTypeTerm {
                 s
             }
 
-            SugaredTypeTerm::Struct(args) => {
+            SugaredTypeTerm::Struct{ struct_repr, members } => {
                 let mut s = String::new();
                 s.push_str(&"{".yellow().bold());
-                for arg in args {
+
+                if let Some(struct_repr) = struct_repr {
+                    s.push_str(&format!("{}{} ", "~".yellow(), struct_repr.pretty(dict, indent+1)));
+                }
+
+                for member in members {
                     s.push('\n');
                     for x in 0..(indent+1)*indent_width {
                         s.push(' ');
                     }
-                    s.push_str(&arg.pretty(dict, indent + 1));
+                    s.push_str(&member.pretty(dict, indent + 1));
                     s.push_str(&";\n".bright_yellow());
                 }
 
@@ -84,11 +89,16 @@ impl SugaredTypeTerm {
                 s
             }
 
-            SugaredTypeTerm::Enum(args) => {
+            SugaredTypeTerm::Enum{ enum_repr, variants } => {
                 let mut s = String::new();
                 s.push_str(&"(".yellow().bold());
-                for i in 0..args.len() {
-                    let arg = &args[i];
+
+                if let Some(enum_repr) = enum_repr {
+                    s.push_str(&format!("{}{} ", "~".yellow(), enum_repr.pretty(dict, indent+1)));
+                }
+
+
+                for (i,variant) in variants.iter().enumerate() {
                     s.push('\n');
                     for x in 0..(indent+1)*indent_width {
                         s.push(' ');
@@ -96,7 +106,7 @@ impl SugaredTypeTerm {
                     if i > 0 {
                         s.push_str(&"| ".yellow().bold());
                     }
-                    s.push_str(&arg.pretty(dict, indent + 1));
+                    s.push_str(&variant.pretty(dict, indent + 1));
                 }
 
                 s.push('\n');
@@ -107,15 +117,20 @@ impl SugaredTypeTerm {
                 s
             }
 
-            SugaredTypeTerm::Seq(args) => {
+            SugaredTypeTerm::Seq{ seq_repr, items } => {
                 let mut s = String::new();
-                s.push_str(&"[ ".yellow().bold());
-                for i in 0..args.len() {
-                    let arg = &args[i];
+                s.push_str(&"[".yellow().bold());
+
+                if let Some(seq_repr) = seq_repr {
+                    s.push_str(&format!("{}{}", "~".yellow(), seq_repr.pretty(dict, indent+1)));
+                }
+                s.push(' ');
+
+                for (i, item) in items.iter().enumerate() {
                     if i > 0 {
                         s.push(' ');
                     }
-                    s.push_str(&arg.pretty(dict, indent+1));
+                    s.push_str(&item.pretty(dict, indent+1));
                 }
                 s.push_str(&" ]".yellow().bold());
                 s

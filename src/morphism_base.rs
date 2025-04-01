@@ -1,9 +1,7 @@
 use {
     crate::{
-        subtype_unify, sugar::SugaredTypeTerm, unification::UnificationProblem, unparser::*, TypeDict, TypeID, TypeTerm,
-        morphism::{MorphismType, Morphism, MorphismInstance}
-    },
-    std::{collections::HashMap, u64}
+        morphism::{Morphism, MorphismInstance, MorphismType}, morphism_path_sugared::SugaredShortestPathProblem, morphism_sugared::{MorphismInstance2, SugaredMorphismType}, subtype_unify, sugar::SugaredTypeTerm, unification::UnificationProblem, TypeDict, TypeID, TypeTerm
+    }
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -101,29 +99,29 @@ impl<M: Morphism + Clone> MorphismBase<M> {
         ty: &MorphismType,
         dict: &mut impl TypeDict
     ) -> Option< MorphismInstance<M> > {
-        eprintln!("find direct morph");
+        //eprintln!("find direct morph");
         for m in self.morphisms.iter() {
             let ty = ty.clone().normalize();
             let morph_type = m.get_type().normalize();
-
+            /*
             eprintln!("find direct morph:\n   {}  <=   {}",
                             dict.unparse(&ty.src_type), dict.unparse(&morph_type.src_type),
                         );
-
+*/
             if let Ok((halo, σ)) = subtype_unify(&ty.src_type, &morph_type.src_type) {
-                eprintln!("halo: {}", dict.unparse(&halo));
+                //eprintln!("halo: {}", dict.unparse(&halo));
 
                 let dst_type = TypeTerm::Ladder(vec![
                     halo.clone(),
                     morph_type.dst_type.clone()
                 ]).normalize().param_normalize();
-
+/*
                 eprintln!("----------->   {}  <=   {}",
                     dict.unparse(&dst_type), dict.unparse(&ty.dst_type)
                 );
-
+*/
                 if let Ok((halo2, σ2)) = subtype_unify(&dst_type, &ty.dst_type) {
-                    eprintln!("match. halo2 = {}", dict.unparse(&halo2));
+                   //eprintln!("match. halo2 = {}", dict.unparse(&halo2));
                     return Some(MorphismInstance {
                         m: m.clone(),
                         halo,

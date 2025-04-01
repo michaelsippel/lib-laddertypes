@@ -39,10 +39,14 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
 
     pub fn solve(&mut self) -> Option< Vec<MorphismInstance<M>> > {
         while ! self.queue.is_empty() {
+            /* take the shortest partial path and try to advance it by one step */
             self.queue.sort_by( |p1,p2| p2.weight.cmp(&p1.weight));
 
             if let Some(mut cur_path) = self.queue.pop() {
-                if let Ok((halo, σ)) = crate::unification::subtype_unify( &cur_path.cur_type, &self.goal ) {
+
+                /* 1. Check if goal is already reached by the current path */
+
+                if let Ok((ψ, σ)) = crate::unification::subtype_unify( &cur_path.cur_type, &self.goal ) {
                     /* found path,
                      * now apply substitution and trim to variables in terms of each step
                      */
@@ -81,6 +85,9 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
 
                     return Some(cur_path.morphisms);
                 }
+
+                /* 2. Try to advance the path */
+                /* 2.1. Direct Morphisms */
 
                 //eprintln!("cur path (w ={}) : @ {:?}", cur_path.weight, cur_path.cur_type);//.clone().sugar(type_dict).pretty(type_dict, 0) );
                 for mut next_morph_inst in self.morphism_base.enum_morphisms(&cur_path.cur_type) {
@@ -127,6 +134,12 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
                         self.queue.push(new_path);
                     }
                 }
+
+                /* 2.2. Try to decompose */
+                /* 2.2.1.  Seq - Map */
+                /* 2.2.2.  Struct - Map */
+                /* 2.2.3.  Enum - Map */
+
             }
         }
         None

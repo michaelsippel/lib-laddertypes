@@ -81,7 +81,14 @@ fn test_unification() {
     test_unify("A", "A", true);
     test_unify("A", "B", false);
     test_unify("<Seq T>", "<Seq Ascii~Char>", true);
+
     test_unify("<Seq T>", "<U Char>", true);
+
+    // this worked easily with desugared terms,
+    // but is a weird edge case with sugared terms
+    // not relevant now
+
+    //test_unify("<Seq T>", "<U Char>", true);
 
     test_unify(
         "<Seq Path~<Seq Char>>~<SepSeq Char '\n'>~<Seq Char>",
@@ -336,14 +343,14 @@ pub fn test_subtype_delim() {
         UnificationProblem::new_sub(vec![
 
             (
-                //given type
+                // given type
                 dict.parse("
                   < Seq <Seq <Digit 10>~Char~Ascii~UInt8> >
                 ~ < ValueSep ':' Char~Ascii~UInt8 >
                 ~ < Seq~<LengthPrefix UInt64> Char~Ascii~UInt8 >
                 ").expect(""),
 
-                //expected type
+                // expected type
                 dict.parse("
                   < Seq <Seq T> >
                 ~ < ValueSep Delim T >
@@ -374,6 +381,81 @@ pub fn test_subtype_delim() {
             vec![
                 (dict.get_typeid(&"T".into()).unwrap(), dict.parse("Char~Ascii~UInt8").expect("")),
                 (dict.get_typeid(&"Delim".into()).unwrap(), TypeTerm::Char(':')),
+            ].into_iter().collect()
+        ))
+    );
+}
+
+
+
+use crate::{sugar::*, unification_sugared::{SugaredUnificationPair, SugaredUnificationProblem}};
+
+#[test]
+fn test_list_subtype_sugared() {
+    let mut dict = BimapTypeDict::new();
+
+    dict.add_varname("Item".into());
+
+    let subtype_constraints = vec![
+        SugaredUnificationPair::new(
+            dict.parse("<List~Vec <Digit 10>~Char~ReprTree>").expect("").sugar(&mut dict),
+            dict.parse("<List~Vec Item~ReprTree>").expect("").sugar(&mut dict)
+        )
+    ];
+
+    assert_eq!(
+        SugaredUnificationProblem::new_sub(subtype_constraints).solve(),
+        Ok((
+            vec![ SugaredTypeTerm::Ladder(vec![]) ],
+            vec![
+                (dict.get_typeid(&"Item".into()).unwrap(),
+                    dict.parse("<Digit 10>~Char").unwrap().sugar(&mut dict))
+            ].into_iter().collect()
+        ))
+    );
+}
+
+
+#[test]
+pub fn test_subtype_delim_sugared() {
+    let mut dict = BimapTypeDict::new();
+
+    dict.add_varname(String::from("T"));
+    dict.add_varname(String::from("Delim"));
+
+    let subtype_constraints = vec![
+        SugaredUnificationPair::new(
+            dict.parse("
+              < Seq <Seq <Digit 10>~Char~Ascii~UInt8> >
+            ~ < ValueSep ':' Char~Ascii~UInt8 >
+            ~ < Seq~<LengthPrefix UInt64> Char~Ascii~UInt8 >
+            ").expect("").sugar(&mut dict),
+
+            dict.parse("
+              < Seq <Seq T> >
+            ~ < ValueSep Delim T >
+            ~ < Seq~<LengthPrefix UInt64> T >
+            ").expect("").sugar(&mut dict),
+        ),
+        SugaredUnificationPair::new(
+            dict.parse("T").expect("").sugar(&mut dict),
+            dict.parse("UInt8").expect("").sugar(&mut dict),
+        ),
+    ];
+
+    assert_eq!(
+        SugaredUnificationProblem::new_sub(subtype_constraints).solve(),
+        Ok((
+            // halo types for each rhs in the sub-equations
+            vec![
+                dict.parse("<Seq <Seq <Digit 10>>>").expect("").sugar(&mut dict),
+                dict.parse("Char~Ascii").expect("").sugar(&mut dict),
+            ],
+
+            // variable substitution
+            vec![
+                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("Char~Ascii~UInt8").expect("").sugar(&mut dict)),
+                (dict.get_typeid(&"Delim".into()).unwrap(), SugaredTypeTerm::Char(':')),
             ].into_iter().collect()
         ))
     );

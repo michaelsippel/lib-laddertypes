@@ -2,7 +2,7 @@ use crate::term::TypeTerm;
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-impl TypeTerm {    
+impl TypeTerm {
     // returns ladder-step of first match and provided representation-type
     pub fn is_semantic_subtype_of(&self, expected_type: &TypeTerm) -> Option<(usize, TypeTerm)> {
         let provided_lnf = self.clone().get_lnf_vec();
@@ -49,3 +49,28 @@ impl TypeTerm {
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
+
+use crate::sugar::*;
+
+impl SugaredTypeTerm {
+    pub fn is_compatible(&self, supertype: SugaredTypeTerm) -> bool {
+        match (self, supertype) {
+            (SugaredTypeTerm::TypeID(idl), SugaredTypeTerm::TypeID(idr)) => {
+                if *idl == idr {
+                    true
+                } else {
+                    false
+                }
+            }
+
+
+            (SugaredTypeTerm::Ladder(l_rungs), SugaredTypeTerm::Ladder(r_rungs)) => {
+                false
+            }
+
+            _ => {
+                false
+            }
+        }
+    }
+}

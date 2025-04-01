@@ -25,11 +25,11 @@ pub trait TypeDict : Send + Sync {
         }
     }
 
-    fn get_typeid_creat(&mut self, tn: &String) -> TypeID {
-        if let Some(id) = self.get_typeid(tn) {
+    fn get_typeid_creat(&mut self, tn: &str) -> TypeID {
+        if let Some(id) = self.get_typeid(&tn.to_string()) {
             id
         } else {
-            self.add_typename(tn.clone())
+            self.add_typename(tn.to_string())
         }
     }
 }
