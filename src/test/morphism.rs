@@ -1,6 +1,7 @@
 use {
     crate::{dict::*, morphism::*, parser::*, unparser::*, TypeTerm, morphism_base::*, morphism_path::*, morphism_base_sugared::SugaredMorphismBase, morphism_path::*,
-    morphism_path_sugared::SugaredShortestPathProblem, morphism_sugared::{MorphismInstance2, SugaredMorphism, SugaredMorphismType}, SugaredTypeTerm}
+    morphism_path_sugared::SugaredShortestPathProblem, morphism_sugared::{MorphismInstance2, SugaredMorphism, SugaredMorphismType}, SugaredTypeTerm},
+    std::collections::HashMap
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -386,6 +387,37 @@ fn test_morphism_path_posint() {
     );
     */
 }
+
+#[test]
+fn morphism_test_seq_repr() {
+    let mut dict = BimapTypeDict::new();
+    let mut base = SugaredMorphismBase::<DummyMorphism>::new();
+
+    base.add_morphism(
+        DummyMorphism(SugaredMorphismType{
+            src_type: dict.parse("<Seq~<ValueTerminated 0> native.UInt8>").unwrap().sugar(&mut dict),
+            dst_type: dict.parse("<Seq~<LengthPrefix native.UInt64> native.UInt8>").unwrap().sugar(&mut dict)
+        })
+    );
+
+    assert_eq!(
+        base.get_morphism_instance(&SugaredMorphismType {
+            src_type: dict.parse("<Seq~<ValueTerminated 0> Char~Ascii~native.UInt8>").expect("parse").sugar(&mut dict),
+            dst_type: dict.parse("<Seq~<LengthPrefix native.UInt64> Char~Ascii~native.UInt8>").expect("parse").sugar(&mut dict)
+        }),
+        Some(
+            MorphismInstance2::Primitive {
+                ψ: dict.parse("<Seq Char~Ascii>").expect("").sugar(&mut dict),
+                σ: HashMap::new(),
+                morph: DummyMorphism(SugaredMorphismType{
+                    src_type: dict.parse("<Seq~<ValueTerminated 0> native.UInt8>").unwrap().sugar(&mut dict),
+                    dst_type: dict.parse("<Seq~<LengthPrefix native.UInt64> native.UInt8>").unwrap().sugar(&mut dict)
+                })
+            }
+        )
+    );
+}
+
 /*
 use std::collections::HashMap;
 
