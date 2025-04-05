@@ -11,6 +11,7 @@ pub struct SugaredUnificationError {
     pub t2: SugaredTypeTerm
 }
 
+// todo : rename -> ConstraintPair
 #[derive(Clone)]
 pub struct SugaredUnificationPair {
     addr: Vec<usize>,
@@ -26,6 +27,7 @@ impl SugaredUnificationPair {
     }
 }
 
+// todo : Rename -> ConstraintSystem
 pub struct SugaredUnificationProblem {
    // dict: &'a Dict,
 
@@ -351,9 +353,13 @@ impl SugaredUnificationProblem {
                 new_addr.push(0);
 
                 if let Some(rhs_seq_repr) = rhs_seq_repr.as_ref() {
+                    //eprintln!("subtype unify: rhs has seq-repr: {:?}", rhs_seq_repr);
                     if let Some(lhs_seq_repr) = lhs_seq_repr.as_ref() {
+                        //eprintln!("check if it maches lhs seq-repr: {:?}", lhs_seq_repr);
                         let _seq_repr_ψ = self.eval_subtype(SugaredUnificationPair { addr: new_addr.clone(), lhs: *lhs_seq_repr.clone(), rhs: *rhs_seq_repr.clone() })?;
+                        //eprintln!("..yes!");
                     } else {
+                        //eprintln!("...but lhs has none.");
                         return Err(SugaredUnificationError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
                 }

@@ -25,6 +25,13 @@ impl SugaredMorphismType {
             dst_type: self.dst_type.clone().apply_subst(σ).clone()
         }
     }
+
+    pub fn normalize(&self) -> SugaredMorphismType {
+        SugaredMorphismType {
+            src_type: self.src_type.clone().normalize(),
+            dst_type: self.dst_type.clone().normalize(),
+        }
+    }
 }
 
 pub trait SugaredMorphism : Sized {
@@ -86,9 +93,9 @@ impl<M: SugaredMorphism + Clone> MorphismInstance2<M> {
                 if path.len() > 0 {
                     let s = self.get_subst();
                     SugaredMorphismType {
-                        src_type: path.first().unwrap().get_type().src_type.clone().apply_subst(&s).clone(),
-                        dst_type: path.last().unwrap().get_type().dst_type.clone().apply_subst(&s).clone()
-                    }
+                        src_type: path.first().unwrap().get_type().src_type.clone(),
+                        dst_type: path.last().unwrap().get_type().dst_type.clone()
+                    }.apply_subst(&s)
                 } else {
                     SugaredMorphismType {
                         src_type: SugaredTypeTerm::TypeID(TypeID::Fun(45454)),
@@ -102,12 +109,12 @@ impl<M: SugaredMorphism + Clone> MorphismInstance2<M> {
                         ψ.clone(),
                         SugaredTypeTerm::Seq{ seq_repr: seq_repr.clone(),
                             items: vec![ item_morph.get_type().src_type ]}
-                    ]).strip(),
+                    ]),
                     dst_type: SugaredTypeTerm::Ladder(vec![
                         ψ.clone(),
                         SugaredTypeTerm::Seq{ seq_repr: seq_repr.clone(),
                             items: vec![ item_morph.get_type().dst_type ]}
-                    ]).strip()
+                    ])
                 }
             }
             MorphismInstance2::MapStruct { ψ, src_struct_repr, dst_struct_repr, member_morph } => {
@@ -120,7 +127,7 @@ impl<M: SugaredMorphism + Clone> MorphismInstance2<M> {
                                        SugaredStructMember{ symbol:symbol.clone(), ty: morph.get_type().src_type }
                                     }).collect()
                             }
-                        ]).strip(),
+                        ]),
                     dst_type: SugaredTypeTerm::Ladder(vec![ ψ.clone(),
                             SugaredTypeTerm::Struct{
                                 struct_repr: dst_struct_repr.clone(),
@@ -128,7 +135,7 @@ impl<M: SugaredMorphism + Clone> MorphismInstance2<M> {
                                     SugaredStructMember { symbol: symbol.clone(), ty: morph.get_type().dst_type}
                                 }).collect()
                             }
-                        ]).strip()
+                        ])
                 }
             }
             MorphismInstance2::MapEnum { ψ, enum_repr, variant_morph } => {
@@ -141,7 +148,7 @@ impl<M: SugaredMorphism + Clone> MorphismInstance2<M> {
                                        SugaredStructMember{ symbol:symbol.clone(), ty: morph.get_type().src_type }
                                     }).collect()
                             }
-                        ]).strip(),
+                        ]),
                     dst_type: SugaredTypeTerm::Ladder(vec![ ψ.clone(),
                             SugaredTypeTerm::Struct{
                                 struct_repr: enum_repr.clone(),
@@ -149,10 +156,10 @@ impl<M: SugaredMorphism + Clone> MorphismInstance2<M> {
                                     SugaredStructMember { symbol: symbol.clone(), ty: morph.get_type().dst_type}
                                 }).collect()
                             }
-                        ]).strip()
+                        ])
                 }
             }
-        }
+        }.normalize()
     }
 
     pub fn get_subst(&self) -> std::collections::HashMap< TypeID, SugaredTypeTerm > {

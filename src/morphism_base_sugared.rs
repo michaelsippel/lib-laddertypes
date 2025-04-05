@@ -127,11 +127,14 @@ impl<M: SugaredMorphism + Clone> SugaredMorphismBase<M> {
             // morphisms source type,
             // i.e. check if `src_type` is a subtype of `m_src_type`
             if let Ok((ψ, σ)) = crate::unification_sugared::subtype_unify(src_type, &m_src_type) {
-                morphs.push(MorphismInstance2::Primitive { ψ, σ, morph: m.clone() });
+                let morph_inst = MorphismInstance2::Primitive { ψ, σ, morph: m.clone() };
+                //eprintln!("..found direct morph to {:?}", morph_inst.get_type().dst_type);
+                morphs.push(morph_inst);
             }
 
             /* 2. check complex types */
-            if let Some(complex_morph) = self.complex_morphism_decomposition(src_type, &m_src_type) {
+            else if let Some(complex_morph) = self.complex_morphism_decomposition(src_type, &m_src_type) {
+                //eprintln!("found complex morph to {:?}", complex_morph.get_type().dst_type);
                 morphs.push(complex_morph);
             }
         }
