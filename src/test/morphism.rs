@@ -1,12 +1,16 @@
 use {
-    crate::{dict::*, morphism::*, parser::*, unparser::*, TypeTerm, morphism_base::*, morphism_path::*, morphism_base_sugared::SugaredMorphismBase, morphism_path::*,
-    morphism_path_sugared::SugaredShortestPathProblem, morphism_sugared::{MorphismInstance2, SugaredMorphism, SugaredMorphismType}, SugaredTypeTerm},
+    crate::{dict::*, morphism_base::MorphismBase,
+        morphism_path::ShortestPathProblem,
+        morphism::{MorphismInstance, Morphism, MorphismType},
+        parser::*, TypeTerm,
+        DesugaredTypeTerm
+    },
     std::collections::HashMap
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-fn print_subst(m: &std::collections::HashMap<TypeID, SugaredTypeTerm>, dict: &mut impl TypeDict) {
+fn print_subst(m: &std::collections::HashMap<TypeID, TypeTerm>, dict: &mut impl TypeDict) {
     eprintln!("{{");
 
     for (k,v) in m.iter() {
@@ -19,7 +23,7 @@ fn print_subst(m: &std::collections::HashMap<TypeID, SugaredTypeTerm>, dict: &mu
     eprintln!("}}");
 }
 
-fn print_path(dict: &mut impl TypeDict, path: &Vec<MorphismInstance2<DummyMorphism>>) {
+fn print_path(dict: &mut impl TypeDict, path: &Vec<MorphismInstance<DummyMorphism>>) {
     for n in path.iter() {
         eprintln!("
 morph {}
@@ -36,49 +40,49 @@ with
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct DummyMorphism(SugaredMorphismType);
-impl SugaredMorphism for DummyMorphism {
-    fn get_type(&self) -> SugaredMorphismType {
+struct DummyMorphism(MorphismType);
+impl Morphism for DummyMorphism {
+    fn get_type(&self) -> MorphismType {
         self.0.clone()
     }
 }
 
-fn morphism_test_setup() -> ( BimapTypeDict, SugaredMorphismBase<DummyMorphism> ) {
+fn morphism_test_setup() -> ( BimapTypeDict, MorphismBase<DummyMorphism> ) {
     let mut dict = BimapTypeDict::new();
-    let mut base = SugaredMorphismBase::<DummyMorphism>::new();
+    let mut base = MorphismBase::<DummyMorphism>::new();
 
     dict.add_varname("Radix".into());
     dict.add_varname("SrcRadix".into());
     dict.add_varname("DstRadix".into());
 
     base.add_morphism(
-        DummyMorphism(SugaredMorphismType{
-            src_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
-            dst_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
+        DummyMorphism(MorphismType{
+            src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
+            dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
         })
     );
     base.add_morphism(
-        DummyMorphism(SugaredMorphismType{
-            src_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
-            dst_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
+        DummyMorphism(MorphismType{
+            src_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
+            dst_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
         })
     );
     base.add_morphism(
-        DummyMorphism(SugaredMorphismType{
-            src_type: dict.parse("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
-            dst_type: dict.parse("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
+        DummyMorphism(MorphismType{
+            src_type: dict.parse_desugared("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
+            dst_type: dict.parse_desugared("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
         })
     );
     base.add_morphism(
-        DummyMorphism(SugaredMorphismType{
-            src_type: dict.parse("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
-            dst_type: dict.parse("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
+        DummyMorphism(MorphismType{
+            src_type: dict.parse_desugared("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
+            dst_type: dict.parse_desugared("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
         })
     );
     base.add_morphism(
-        DummyMorphism(SugaredMorphismType{
-            src_type: dict.parse("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
-            dst_type: dict.parse("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
+        DummyMorphism(MorphismType{
+            src_type: dict.parse_desugared("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
+            dst_type: dict.parse_desugared("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
         })
     );
 
@@ -89,23 +93,23 @@ fn morphism_test_setup() -> ( BimapTypeDict, SugaredMorphismBase<DummyMorphism> 
 fn test_morphism_path1() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = SugaredShortestPathProblem::new(&base, SugaredMorphismType {
-        src_type: dict.parse("<Digit 10> ~ Char").unwrap().sugar(&mut dict),
-        dst_type: dict.parse("<Digit 10> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
+    let path = ShortestPathProblem::new(&base, MorphismType {
+        src_type: dict.parse_desugared("<Digit 10> ~ Char").unwrap().sugar(&mut dict),
+        dst_type: dict.parse_desugared("<Digit 10> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
     }).solve();
 
     assert_eq!(
         path,
         Some(
             vec![
-                MorphismInstance2::Primitive {
+                MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(10)),
+                        (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
                     ].into_iter().collect(),
-                    ψ: SugaredTypeTerm::unit(),
-                    morph: DummyMorphism(SugaredMorphismType {
-                        src_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
-                        dst_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
+                    ψ: TypeTerm::unit(),
+                    morph: DummyMorphism(MorphismType {
+                        src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
+                        dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                     }),
                 }
             ]
@@ -117,26 +121,26 @@ fn test_morphism_path1() {
 fn test_morphism_path2() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = SugaredShortestPathProblem::new(&base, SugaredMorphismType {
-        src_type: dict.parse("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
-        dst_type: dict.parse("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
+    let path = ShortestPathProblem::new(&base, MorphismType {
+        src_type: dict.parse_desugared("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
+        dst_type: dict.parse_desugared("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
     }).solve();
 
     assert_eq!(
         path,
         Some(
             vec![
-                MorphismInstance2::MapSeq {
-                    ψ: dict.parse("ℕ ~ <PosInt 10 BigEndian>").expect("").sugar(&mut dict),
+                MorphismInstance::MapSeq {
+                    ψ: dict.parse_desugared("ℕ ~ <PosInt 10 BigEndian>").expect("").sugar(&mut dict),
                     seq_repr: None,
-                    item_morph: Box::new(MorphismInstance2::Primitive {
+                    item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(10)),
+                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
                         ].into_iter().collect(),
-                        ψ: SugaredTypeTerm::unit(),
-                        morph: DummyMorphism(SugaredMorphismType {
-                            src_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
-                            dst_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
+                        ψ: TypeTerm::unit(),
+                        morph: DummyMorphism(MorphismType {
+                            src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
+                            dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                         }),
                     })
                 }
@@ -149,9 +153,9 @@ fn test_morphism_path2() {
 fn test_morphism_path3() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = SugaredShortestPathProblem::new(&base, SugaredMorphismType {
-        src_type: dict.parse("ℕ ~ <PosInt 10 LittleEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
-        dst_type: dict.parse("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
+    let path = ShortestPathProblem::new(&base, MorphismType {
+        src_type: dict.parse_desugared("ℕ ~ <PosInt 10 LittleEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
+        dst_type: dict.parse_desugared("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
     }).solve();
 
     if let Some(path) = path.as_ref() {
@@ -162,30 +166,30 @@ fn test_morphism_path3() {
         path,
         Some(
             vec![
-                MorphismInstance2::MapSeq {
-                    ψ: dict.parse("ℕ ~ <PosInt 10 LittleEndian>").expect("").sugar(&mut dict),
+                MorphismInstance::MapSeq {
+                    ψ: dict.parse_desugared("ℕ ~ <PosInt 10 LittleEndian>").expect("").sugar(&mut dict),
                     seq_repr: None,
-                    item_morph: Box::new(MorphismInstance2::Primitive {
+                    item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(10)),
+                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
                         ].into_iter().collect(),
-                        ψ: SugaredTypeTerm::unit(),
-                        morph: DummyMorphism(SugaredMorphismType {
-                            src_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
-                            dst_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
+                        ψ: TypeTerm::unit(),
+                        morph: DummyMorphism(MorphismType {
+                            src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
+                            dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                         }),
                     })
                 },
 
-                MorphismInstance2::Primitive {
+                MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), SugaredTypeTerm::Num(10)),
-                        (dict.get_typeid(&"DstRadix".into()).unwrap(), SugaredTypeTerm::Num(16)),
+                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), TypeTerm::Num(10)),
+                        (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
                     ].into_iter().collect(),
-                    ψ: SugaredTypeTerm::unit(),
-                    morph: DummyMorphism(SugaredMorphismType {
-                        src_type: dict.parse("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
-                        dst_type: dict.parse("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
+                    ψ: TypeTerm::unit(),
+                    morph: DummyMorphism(MorphismType {
+                        src_type: dict.parse_desugared("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
+                        dst_type: dict.parse_desugared("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
                     }),
                 }
             ]
@@ -198,9 +202,9 @@ fn test_morphism_path3() {
 fn test_morphism_path4() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = SugaredShortestPathProblem::new(&base, SugaredMorphismType {
-        src_type: dict.parse("ℕ ~ <PosInt 10 LittleEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
-        dst_type: dict.parse("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ Char>").unwrap().sugar(&mut dict)
+    let path = ShortestPathProblem::new(&base, MorphismType {
+        src_type: dict.parse_desugared("ℕ ~ <PosInt 10 LittleEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
+        dst_type: dict.parse_desugared("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ Char>").unwrap().sugar(&mut dict)
     }).solve();
 
     if let Some(path) = path.as_ref() {
@@ -211,45 +215,45 @@ fn test_morphism_path4() {
         path,
         Some(
             vec![
-                MorphismInstance2::MapSeq {
-                    ψ: dict.parse("ℕ ~ <PosInt 10 LittleEndian>").expect("").sugar(&mut dict),
+                MorphismInstance::MapSeq {
+                    ψ: dict.parse_desugared("ℕ ~ <PosInt 10 LittleEndian>").expect("").sugar(&mut dict),
                     seq_repr: None,
-                    item_morph: Box::new(MorphismInstance2::Primitive {
+                    item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(10)),
+                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
                         ].into_iter().collect(),
-                        ψ: SugaredTypeTerm::unit(),
-                        morph: DummyMorphism(SugaredMorphismType {
-                            src_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
-                            dst_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
+                        ψ: TypeTerm::unit(),
+                        morph: DummyMorphism(MorphismType {
+                            src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
+                            dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                         }),
                     })
                 },
 
-                MorphismInstance2::Primitive {
+                MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), SugaredTypeTerm::Num(10)),
-                        (dict.get_typeid(&"DstRadix".into()).unwrap(), SugaredTypeTerm::Num(16)),
+                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), TypeTerm::Num(10)),
+                        (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
                     ].into_iter().collect(),
-                    ψ: SugaredTypeTerm::unit(),
-                    morph: DummyMorphism(SugaredMorphismType {
-                        src_type: dict.parse("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
-                        dst_type: dict.parse("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
+                    ψ: TypeTerm::unit(),
+                    morph: DummyMorphism(MorphismType {
+                        src_type: dict.parse_desugared("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
+                        dst_type: dict.parse_desugared("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
                     }),
                 },
 
-                MorphismInstance2::MapSeq {
-                    ψ: dict.parse("ℕ ~ <PosInt 16 LittleEndian>").expect("").sugar(&mut dict),
+                MorphismInstance::MapSeq {
+                    ψ: dict.parse_desugared("ℕ ~ <PosInt 16 LittleEndian>").expect("").sugar(&mut dict),
                     seq_repr: None,
-                    item_morph: Box::new(MorphismInstance2::Primitive {
+                    item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"DstRadix".into()).unwrap(), SugaredTypeTerm::Num(16)),
-                            (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(16)),
+                            (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
+                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(16)),
                         ].into_iter().collect(),
-                        ψ: SugaredTypeTerm::unit(),
-                        morph: DummyMorphism(SugaredMorphismType {
-                            src_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
-                            dst_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
+                        ψ: TypeTerm::unit(),
+                        morph: DummyMorphism(MorphismType {
+                            src_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
+                            dst_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
                         }),
                     })
                 },
@@ -264,9 +268,9 @@ fn test_morphism_path4() {
 fn test_morphism_path_posint() {
     let (mut dict, mut base) = morphism_test_setup();
 
-    let path = SugaredShortestPathProblem::new(&base, SugaredMorphismType {
-        src_type: dict.parse("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
-        dst_type: dict.parse("ℕ ~ <PosInt 16 BigEndian> ~ <Seq <Digit 16> ~ Char>").unwrap().sugar(&mut dict),
+    let path = ShortestPathProblem::new(&base, MorphismType {
+        src_type: dict.parse_desugared("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
+        dst_type: dict.parse_desugared("ℕ ~ <PosInt 16 BigEndian> ~ <Seq <Digit 16> ~ Char>").unwrap().sugar(&mut dict),
     }).solve();
 
     if let Some(path) = path.as_ref() {
@@ -277,65 +281,65 @@ fn test_morphism_path_posint() {
         path,
         Some(
             vec![
-                MorphismInstance2::MapSeq {
-                    ψ: dict.parse("ℕ ~ <PosInt 10 BigEndian>").expect("").sugar(&mut dict),
+                MorphismInstance::MapSeq {
+                    ψ: dict.parse_desugared("ℕ ~ <PosInt 10 BigEndian>").expect("").sugar(&mut dict),
                     seq_repr: None,
-                    item_morph: Box::new(MorphismInstance2::Primitive {
+                    item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(10)),
+                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
                         ].into_iter().collect(),
-                        ψ: SugaredTypeTerm::unit(),
-                        morph: DummyMorphism(SugaredMorphismType {
-                            src_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
-                            dst_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
+                        ψ: TypeTerm::unit(),
+                        morph: DummyMorphism(MorphismType {
+                            src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
+                            dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                         }),
                     })
                 },
 
-                MorphismInstance2::Primitive {
+                MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(10)),
+                        (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
                     ].into_iter().collect(),
-                    ψ: SugaredTypeTerm::unit(),
-                    morph: DummyMorphism(SugaredMorphismType{
-                        src_type: dict.parse("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
-                        dst_type: dict.parse("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
+                    ψ: TypeTerm::unit(),
+                    morph: DummyMorphism(MorphismType{
+                        src_type: dict.parse_desugared("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
+                        dst_type: dict.parse_desugared("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
                     }),
                 },
-                MorphismInstance2::Primitive {
+                MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), SugaredTypeTerm::Num(10)),
-                        (dict.get_typeid(&"DstRadix".into()).unwrap(), SugaredTypeTerm::Num(16)),
+                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), TypeTerm::Num(10)),
+                        (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
                     ].into_iter().collect(),
-                    ψ: SugaredTypeTerm::unit(),
-                    morph: DummyMorphism(SugaredMorphismType{
-                        src_type: dict.parse("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
-                        dst_type: dict.parse("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
+                    ψ: TypeTerm::unit(),
+                    morph: DummyMorphism(MorphismType{
+                        src_type: dict.parse_desugared("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
+                        dst_type: dict.parse_desugared("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
                     }),
                 },
-                MorphismInstance2::Primitive {
+                MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"DstRadix".into()).unwrap(), SugaredTypeTerm::Num(16)),
-                        (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(16)),
+                        (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
+                        (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(16)),
                     ].into_iter().collect(),
-                    ψ: SugaredTypeTerm::unit(),
-                    morph: DummyMorphism(SugaredMorphismType{
-                        src_type: dict.parse("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
-                        dst_type: dict.parse("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
+                    ψ: TypeTerm::unit(),
+                    morph: DummyMorphism(MorphismType{
+                        src_type: dict.parse_desugared("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
+                        dst_type: dict.parse_desugared("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
                     }),
                 },
 
-                MorphismInstance2::MapSeq {
-                    ψ: dict.parse("ℕ ~ <PosInt 16 BigEndian>").expect("").sugar(&mut dict),
+                MorphismInstance::MapSeq {
+                    ψ: dict.parse_desugared("ℕ ~ <PosInt 16 BigEndian>").expect("").sugar(&mut dict),
                     seq_repr: None,
-                    item_morph: Box::new(MorphismInstance2::Primitive {
+                    item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), SugaredTypeTerm::Num(16)),
+                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(16)),
                         ].into_iter().collect(),
-                        ψ: SugaredTypeTerm::unit(),
-                        morph: DummyMorphism(SugaredMorphismType {
-                            src_type: dict.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
-                            dst_type: dict.parse("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
+                        ψ: TypeTerm::unit(),
+                        morph: DummyMorphism(MorphismType {
+                            src_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
+                            dst_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
                         }),
                     })
                 },
@@ -391,27 +395,27 @@ fn test_morphism_path_posint() {
 #[test]
 fn morphism_test_seq_repr() {
     let mut dict = BimapTypeDict::new();
-    let mut base = SugaredMorphismBase::<DummyMorphism>::new();
+    let mut base = MorphismBase::<DummyMorphism>::new();
 
     base.add_morphism(
-        DummyMorphism(SugaredMorphismType{
-            src_type: dict.parse("<Seq~<ValueTerminated 0> native.UInt8>").unwrap().sugar(&mut dict),
-            dst_type: dict.parse("<Seq~<LengthPrefix native.UInt64> native.UInt8>").unwrap().sugar(&mut dict)
+        DummyMorphism(MorphismType{
+            src_type: dict.parse_desugared("<Seq~<ValueTerminated 0> native.UInt8>").unwrap().sugar(&mut dict),
+            dst_type: dict.parse_desugared("<Seq~<LengthPrefix native.UInt64> native.UInt8>").unwrap().sugar(&mut dict)
         })
     );
 
     assert_eq!(
-        base.get_morphism_instance(&SugaredMorphismType {
-            src_type: dict.parse("<Seq~<ValueTerminated 0> Char~Ascii~native.UInt8>").expect("parse").sugar(&mut dict),
-            dst_type: dict.parse("<Seq~<LengthPrefix native.UInt64> Char~Ascii~native.UInt8>").expect("parse").sugar(&mut dict)
+        base.get_morphism_instance(&MorphismType {
+            src_type: dict.parse_desugared("<Seq~<ValueTerminated 0> Char~Ascii~native.UInt8>").expect("parse").sugar(&mut dict),
+            dst_type: dict.parse_desugared("<Seq~<LengthPrefix native.UInt64> Char~Ascii~native.UInt8>").expect("parse").sugar(&mut dict)
         }),
         Some(
-            MorphismInstance2::Primitive {
-                ψ: dict.parse("<Seq Char~Ascii>").expect("").sugar(&mut dict),
+            MorphismInstance::Primitive {
+                ψ: dict.parse_desugared("<Seq Char~Ascii>").expect("").sugar(&mut dict),
                 σ: HashMap::new(),
-                morph: DummyMorphism(SugaredMorphismType{
-                    src_type: dict.parse("<Seq~<ValueTerminated 0> native.UInt8>").unwrap().sugar(&mut dict),
-                    dst_type: dict.parse("<Seq~<LengthPrefix native.UInt64> native.UInt8>").unwrap().sugar(&mut dict)
+                morph: DummyMorphism(MorphismType{
+                    src_type: dict.parse_desugared("<Seq~<ValueTerminated 0> native.UInt8>").unwrap().sugar(&mut dict),
+                    dst_type: dict.parse_desugared("<Seq~<LengthPrefix native.UInt64> native.UInt8>").unwrap().sugar(&mut dict)
                 })
             }
         )

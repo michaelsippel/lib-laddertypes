@@ -4,33 +4,18 @@ pub mod bimap;
 pub mod dict;
 
 pub mod lexer;
-pub mod parser;
+pub mod parser; // todo sugared variant
+pub mod curry; // todo: sugared variant
+//pub mod subtype; // deprecated
 pub mod unparser;
-pub mod curry;
-
-pub mod lnf; // deprecated
-pub mod subtype; // deprecated
-
-pub mod pnf;
-pub mod pnf_sugared;
-
+pub mod desugared_term; // deprecated
 pub mod term;
-pub mod sugar;
-
+pub mod pnf;
 pub mod substitution;
-pub mod substitution_sugared;
-
-pub mod unification;
-pub mod unification_sugared;
-
+pub mod constraint_system;
 pub mod morphism;
-pub mod morphism_sugared;
-
 pub mod morphism_base;
-pub mod morphism_base_sugared;
-
 pub mod morphism_path;
-pub mod morphism_path_sugared;
 
 #[cfg(test)]
 mod test;
@@ -40,9 +25,11 @@ mod pretty;
 
 pub use {
     dict::*,
-    term::*,
+    desugared_term::*,
     substitution::*,
-    sugar::*,
-    unification::*,
-    morphism::*
+    term::*,
+    constraint_system::*,
+    morphism::*,
+    morphism_base::*,
+    morphism_path::*,
 };

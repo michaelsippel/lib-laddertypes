@@ -1,24 +1,24 @@
-use crate::{dict::*, term::*};
+use crate::{dict::*, desugared_term::*};
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 pub trait UnparseLadderType {
-    fn unparse(&self, t: &TypeTerm) -> String;
+    fn unparse(&self, t: &DesugaredTypeTerm) -> String;
 }
 
 impl<T: TypeDict> UnparseLadderType for T {
-    fn unparse(&self, t: &TypeTerm) -> String {
+    fn unparse(&self, t: &DesugaredTypeTerm) -> String {
         match t {
-            TypeTerm::TypeID(id) => self.get_typename(id).unwrap(),
-            TypeTerm::Num(n) => format!("{}", n),
-            TypeTerm::Char(c) => match c {
+            DesugaredTypeTerm::TypeID(id) => self.get_typename(id).unwrap(),
+            DesugaredTypeTerm::Num(n) => format!("{}", n),
+            DesugaredTypeTerm::Char(c) => match c {
                 '\0' => "'\\0'".into(),
                 '\n' => "'\\n'".into(),
                 '\t' => "'\\t'".into(),
                 '\'' => "'\\''".into(),
                 c => format!("'{}'", c)
             },
-            TypeTerm::Ladder(rungs) => {
+            DesugaredTypeTerm::Ladder(rungs) => {
                 let mut s = String::new();
                 let mut first = true;
                 for r in rungs.iter() {
@@ -30,7 +30,7 @@ impl<T: TypeDict> UnparseLadderType for T {
                 }
                 s
             }
-            TypeTerm::App(args) => {
+            DesugaredTypeTerm::App(args) => {
                 let mut s = String::new();
                 s.push('<');
                 let mut first = true;

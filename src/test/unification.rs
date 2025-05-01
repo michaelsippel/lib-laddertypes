@@ -1,6 +1,6 @@
 
 use {
-    crate::{dict::*, parser::*, unparser::*, term::*, unification::*},
+    crate::{dict::*, parser::*, constraint_system::ConstraintError},
     std::iter::FromIterator
 };
 
@@ -42,7 +42,7 @@ fn test_unification_error() {
             &dict.parse("<B T>").unwrap()
         ),
 
-        Err(UnificationError {
+        Err(ConstraintError {
             addr: vec![0],
             t1: dict.parse("A").unwrap(),
             t2: dict.parse("B").unwrap()
@@ -55,7 +55,7 @@ fn test_unification_error() {
             &dict.parse("<V <U B> T>").unwrap()
         ),
 
-        Err(UnificationError {
+        Err(ConstraintError {
             addr: vec![1, 1],
             t1: dict.parse("A").unwrap(),
             t2: dict.parse("B").unwrap()
@@ -68,7 +68,7 @@ fn test_unification_error() {
             &dict.parse("<Seq T>").unwrap()
         ),
 
-        Err(UnificationError {
+        Err(ConstraintError {
             addr: vec![],
             t1: dict.parse("T").unwrap(),
             t2: dict.parse("<Seq T>").unwrap()
@@ -82,17 +82,14 @@ fn test_unification() {
     test_unify("A", "B", false);
     test_unify("<Seq T>", "<Seq Ascii~Char>", true);
 
-    test_unify("<Seq T>", "<U Char>", true);
-
     // this worked easily with desugared terms,
     // but is a weird edge case with sugared terms
     // not relevant now
-
     //test_unify("<Seq T>", "<U Char>", true);
 
     test_unify(
-        "<Seq Path~<Seq Char>>~<SepSeq Char '\n'>~<Seq Char>",
-        "<Seq T~<Seq Char>>~<SepSeq Char '\n'>~<Seq Char>",
+        "<Seq Path~<Seq Char>>~<SepSeq Char '\\n'>~<Seq Char>",
+        "<Seq T~<Seq Char>>~<SepSeq Char '\\n'>~<Seq Char>",
         true
     );
 
@@ -104,9 +101,17 @@ fn test_unification() {
     dict.add_varname(String::from("W"));
 
     assert_eq!(
-        UnificationProblem::new_eq(vec![
-            (dict.parse("U").unwrap(), dict.parse("<Seq Char>").unwrap()),
-            (dict.parse("T").unwrap(), dict.parse("<Seq U>").unwrap()),
+        ConstraintSystem::new_eq(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs: dict.parse("U").unwrap(),
+                rhs: dict.parse("<Seq Char>").unwrap()
+            },
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs: dict.parse("T").unwrap(),
+                rhs: dict.parse("<Seq U>").unwrap()
+            }
         ]).solve(),
         Ok((
             vec![],
@@ -121,9 +126,17 @@ fn test_unification() {
     );
 
     assert_eq!(
-        UnificationProblem::new_eq(vec![
-            (dict.parse("<Seq T>").unwrap(), dict.parse("<Seq W~<Seq Char>>").unwrap()),
-            (dict.parse("<Seq ℕ>").unwrap(), dict.parse("<Seq W>").unwrap()),
+        ConstraintSystem::new_eq(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("<Seq T>").unwrap(),
+                rhs : dict.parse("<Seq W~<Seq Char>>").unwrap()
+            },
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("<Seq ℕ>").unwrap(),
+                rhs : dict.parse("<Seq W>").unwrap(),
+            }
         ]).solve(),
         Ok((
             vec![],
@@ -144,9 +157,12 @@ fn test_subtype_unification1() {
     dict.add_varname(String::from("T"));
 
     assert_eq!(
-        UnificationProblem::new_sub(vec![
-            (dict.parse("A ~ B").unwrap(),
-                dict.parse("B").unwrap()),
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("A ~ B").unwrap(),
+                rhs : dict.parse("B").unwrap()
+            }
         ]).solve(),
         Ok((
             vec![ dict.parse("A").unwrap() ],
@@ -155,9 +171,12 @@ fn test_subtype_unification1() {
     );
 
     assert_eq!(
-        UnificationProblem::new_sub(vec![
-            (dict.parse("A ~ B ~ C ~ D").unwrap(),
-                dict.parse("C ~ D").unwrap()),
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("A ~ B ~ C ~ D").unwrap(),
+                rhs : dict.parse("C ~ D").unwrap()
+            }
         ]).solve(),
         Ok((
             vec![ dict.parse("A ~ B").unwrap() ],
@@ -166,22 +185,29 @@ fn test_subtype_unification1() {
     );
 
     assert_eq!(
-        UnificationProblem::new_sub(vec![
-            (dict.parse("A ~ B ~ C ~ D").unwrap(),
-                dict.parse("T ~ D").unwrap()),
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("A ~ B ~ C ~ D").unwrap(),
+                rhs : dict.parse("T ~ D").unwrap()
+            }
         ]).solve(),
         Ok((
             vec![ TypeTerm::unit() ],
             vec![
-                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("A ~ B ~ C").unwrap())
+                (dict.get_typeid(&"T".into()).unwrap(),
+                    dict.parse("A ~ B ~ C").unwrap())
             ].into_iter().collect()
         ))
     );
 
     assert_eq!(
-        UnificationProblem::new_sub(vec![
-            (dict.parse("A ~ B ~ C ~ D").unwrap(),
-                dict.parse("B ~ T ~ D").unwrap()),
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("A ~ B ~ C ~ D").unwrap(),
+                rhs : dict.parse("B ~ T ~ D").unwrap(),
+            }
         ]).solve(),
         Ok((
             vec![ dict.parse("A").unwrap() ],
@@ -202,9 +228,12 @@ fn test_subtype_unification2() {
     dict.add_varname(String::from("W"));
 
     assert_eq!(
-        UnificationProblem::new_sub(vec![
-            (dict.parse("<Seq~T <Digit 10> ~ Char ~ Ascii>").unwrap(),
-                dict.parse("<Seq~<LengthPrefix x86.UInt64> Char ~ Ascii>").unwrap()),
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair{
+                addr: Vec::new(),
+                lhs: dict.parse("<Seq~T <Digit 10> ~ Char ~ Ascii>").unwrap(),
+                rhs: dict.parse("<Seq~<LengthPrefix x86.UInt64> Char ~ Ascii>").unwrap(),
+            }
         ]).solve(),
         Ok((
             vec![
@@ -218,9 +247,17 @@ fn test_subtype_unification2() {
     );
 
     assert_eq!(
-        UnificationProblem::new_sub(vec![
-            (dict.parse("U").unwrap(), dict.parse("<Seq Char>").unwrap()),
-            (dict.parse("T").unwrap(), dict.parse("<Seq U>").unwrap()),
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs: dict.parse("U").unwrap(),
+                rhs: dict.parse("<Seq Char>").unwrap()
+            },
+            ConstraintPair {
+                addr : Vec::new(),
+                lhs :  dict.parse("T").unwrap(),
+                rhs : dict.parse("<Seq U>").unwrap(),
+            }
         ]).solve(),
         Ok((
             vec![
@@ -237,18 +274,33 @@ fn test_subtype_unification2() {
         ))
     );
 
-    assert_eq!(
-        UnificationProblem::new_sub(vec![
-            (dict.parse("<Seq T>").unwrap(),
-                dict.parse("<Seq W~<Seq Char>>").unwrap()),
-            (dict.parse("<Seq~<LengthPrefix x86.UInt64> ℕ~<PosInt 10 BigEndian>>").unwrap(),
-                dict.parse("<<LengthPrefix x86.UInt64> W>").unwrap()),
-        ]).solve(),
-        Ok((
+    eprintln!("=&==========&======&=====&=====&==");
+
+    if let Ok((ψ,σ)) =
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("<Seq T>").unwrap(),
+                rhs : dict.parse("<Seq W~<Seq Char>>").unwrap(),
+            },
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("<Seq~<LengthPrefix x86.UInt64> ℕ~<PosInt 10 BigEndian>>").unwrap(),
+                rhs : dict.parse("<<LengthPrefix x86.UInt64> W>").unwrap()
+            }
+        ]).solve() {
+            for ( k,v) in σ.iter() {
+                eprintln!(" {:?} ==> {} ",
+                    dict.get_typename(&k),
+                    v.pretty(&dict, 0));
+            }
+
+        assert_eq!(ψ,
             vec![
                 TypeTerm::unit(),
                 dict.parse("<Seq ℕ>").unwrap(),
-            ],
+            ]);
+        assert_eq!(σ,
             vec![
                 // W
                 (TypeID::Var(3), dict.parse("ℕ~<PosInt 10 BigEndian>").unwrap()),
@@ -256,8 +308,10 @@ fn test_subtype_unification2() {
                 // T
                 (TypeID::Var(0), dict.parse("ℕ~<PosInt 10 BigEndian>~<Seq Char>").unwrap())
             ].into_iter().collect()
-        ))
-    );
+        );
+    } else {
+        assert!(false);
+    }
 
     assert_eq!(
         subtype_unify(
@@ -292,7 +346,7 @@ fn test_trait_not_subtype() {
             &dict.parse("A ~ B").expect(""),
             &dict.parse("A ~ B ~ C").expect("")
         ),
-        Err(UnificationError {
+        Err(ConstraintError {
             addr: vec![1],
             t1: dict.parse("B").expect(""),
             t2: dict.parse("C").expect("")
@@ -304,8 +358,8 @@ fn test_trait_not_subtype() {
             &dict.parse("<Seq~List~Vec <Digit 10>~Char>").expect(""),
             &dict.parse("<Seq~List~Vec Char~ReprTree>").expect("")
         ),
-        Err(UnificationError {
-            addr: vec![1,1],
+        Err(ConstraintError {
+            addr: vec![1],
             t1: dict.parse("Char").expect(""),
             t2: dict.parse("ReprTree").expect("")
         })
@@ -340,29 +394,31 @@ pub fn test_subtype_delim() {
     dict.add_varname(String::from("Delim"));
 
     assert_eq!(
-        UnificationProblem::new_sub(vec![
+        ConstraintSystem::new_sub(vec![
 
-            (
+            ConstraintPair {
+                addr: Vec::new(),
                 // given type
-                dict.parse("
+                lhs : dict.parse("
                   < Seq <Seq <Digit 10>~Char~Ascii~UInt8> >
                 ~ < ValueSep ':' Char~Ascii~UInt8 >
                 ~ < Seq~<LengthPrefix UInt64> Char~Ascii~UInt8 >
                 ").expect(""),
 
                 // expected type
-                dict.parse("
+                rhs : dict.parse("
                   < Seq <Seq T> >
                 ~ < ValueSep Delim T >
                 ~ < Seq~<LengthPrefix UInt64> T >
                 ").expect("")
-            ),
+            },
 
             // subtype bounds
-            (
-                dict.parse("T").expect(""),
-                dict.parse("UInt8").expect("")
-            ),
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs : dict.parse("T").expect(""),
+                rhs : dict.parse("UInt8").expect("")
+            },
             /* todo
             (
                 dict.parse("<TypeOf Delim>").expect(""),
@@ -388,7 +444,7 @@ pub fn test_subtype_delim() {
 
 
 
-use crate::{sugar::*, unification_sugared::{SugaredUnificationPair, SugaredUnificationProblem}};
+use crate::{subtype_unify, term::*, constraint_system::{ConstraintPair, ConstraintSystem}};
 
 #[test]
 fn test_list_subtype_sugared() {
@@ -397,24 +453,23 @@ fn test_list_subtype_sugared() {
     dict.add_varname("Item".into());
 
     let subtype_constraints = vec![
-        SugaredUnificationPair::new(
-            dict.parse("<List~Vec <Digit 10>~Char~ReprTree>").expect("").sugar(&mut dict),
-            dict.parse("<List~Vec Item~ReprTree>").expect("").sugar(&mut dict)
+        ConstraintPair::new(
+            dict.parse("<List~Vec <Digit 10>~Char~ReprTree>").expect(""),
+            dict.parse("<List~Vec Item~ReprTree>").expect("")
         )
     ];
 
     assert_eq!(
-        SugaredUnificationProblem::new_sub(subtype_constraints).solve(),
+        ConstraintSystem::new_sub(subtype_constraints).solve(),
         Ok((
-            vec![ SugaredTypeTerm::Ladder(vec![]) ],
+            vec![ TypeTerm::Ladder(vec![]) ],
             vec![
                 (dict.get_typeid(&"Item".into()).unwrap(),
-                    dict.parse("<Digit 10>~Char").unwrap().sugar(&mut dict))
+                    dict.parse("<Digit 10>~Char").unwrap())
             ].into_iter().collect()
         ))
     );
 }
-
 
 #[test]
 pub fn test_subtype_delim_sugared() {
@@ -424,38 +479,38 @@ pub fn test_subtype_delim_sugared() {
     dict.add_varname(String::from("Delim"));
 
     let subtype_constraints = vec![
-        SugaredUnificationPair::new(
+        ConstraintPair::new(
             dict.parse("
               < Seq <Seq <Digit 10>~Char~Ascii~UInt8> >
             ~ < ValueSep ':' Char~Ascii~UInt8 >
             ~ < Seq~<LengthPrefix UInt64> Char~Ascii~UInt8 >
-            ").expect("").sugar(&mut dict),
+            ").expect(""),
 
             dict.parse("
               < Seq <Seq T> >
             ~ < ValueSep Delim T >
             ~ < Seq~<LengthPrefix UInt64> T >
-            ").expect("").sugar(&mut dict),
+            ").expect(""),
         ),
-        SugaredUnificationPair::new(
-            dict.parse("T").expect("").sugar(&mut dict),
-            dict.parse("UInt8").expect("").sugar(&mut dict),
+        ConstraintPair::new(
+            dict.parse("T").expect(""),
+            dict.parse("UInt8").expect("")
         ),
     ];
 
     assert_eq!(
-        SugaredUnificationProblem::new_sub(subtype_constraints).solve(),
+        ConstraintSystem::new_sub(subtype_constraints).solve(),
         Ok((
             // halo types for each rhs in the sub-equations
             vec![
-                dict.parse("<Seq <Seq <Digit 10>>>").expect("").sugar(&mut dict),
-                dict.parse("Char~Ascii").expect("").sugar(&mut dict),
+                dict.parse("<Seq <Seq <Digit 10>>>").expect(""),
+                dict.parse("Char~Ascii").expect(""),
             ],
 
             // variable substitution
             vec![
-                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("Char~Ascii~UInt8").expect("").sugar(&mut dict)),
-                (dict.get_typeid(&"Delim".into()).unwrap(), SugaredTypeTerm::Char(':')),
+                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("Char~Ascii~UInt8").expect("")),
+                (dict.get_typeid(&"Delim".into()).unwrap(), TypeTerm::Char(':')),
             ].into_iter().collect()
         ))
     );

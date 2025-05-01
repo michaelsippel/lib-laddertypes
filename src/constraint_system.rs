@@ -1,56 +1,50 @@
 use {
-    crate::{dict::*, sugar::SugaredTypeTerm, term::*, SugaredEnumVariant, SugaredStructMember}, std::collections::HashMap
+    crate::{dict::*, term::TypeTerm, desugared_term::*, EnumVariant, StructMember, Substitution}, std::collections::HashMap
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct SugaredUnificationError {
+pub struct ConstraintError {
     pub addr: Vec<usize>,
-    pub t1: SugaredTypeTerm,
-    pub t2: SugaredTypeTerm
+    pub t1: TypeTerm,
+    pub t2: TypeTerm
 }
 
-// todo : rename -> ConstraintPair
 #[derive(Clone)]
-pub struct SugaredUnificationPair {
-    addr: Vec<usize>,
-    lhs: SugaredTypeTerm,
-    rhs: SugaredTypeTerm,
+pub struct ConstraintPair {
+    pub addr: Vec<usize>,
+    pub lhs: TypeTerm,
+    pub rhs: TypeTerm,
 }
 
-impl SugaredUnificationPair {
-    pub fn new(lhs: SugaredTypeTerm, rhs: SugaredTypeTerm) -> Self {
-        SugaredUnificationPair {
+impl ConstraintPair {
+    pub fn new(lhs: TypeTerm, rhs: TypeTerm) -> Self {
+        ConstraintPair {
             lhs,rhs, addr:vec![]
         }
     }
 }
 
-// todo : Rename -> ConstraintSystem
-pub struct SugaredUnificationProblem {
-   // dict: &'a Dict,
+pub struct ConstraintSystem {
+    σ: HashMap<TypeID, TypeTerm>,
+    upper_bounds: HashMap< u64, TypeTerm >,
+    lower_bounds: HashMap< u64, TypeTerm >,
 
-    σ: HashMap<TypeID, SugaredTypeTerm>,
-    upper_bounds: HashMap< u64, SugaredTypeTerm >,
-    lower_bounds: HashMap< u64, SugaredTypeTerm >,
-
-    equal_pairs: Vec<SugaredUnificationPair>,
-    subtype_pairs: Vec<SugaredUnificationPair>,
-    trait_pairs: Vec<SugaredUnificationPair>,
-    parallel_pairs: Vec<SugaredUnificationPair>
+    equal_pairs: Vec<ConstraintPair>,
+    subtype_pairs: Vec<ConstraintPair>,
+    trait_pairs: Vec<ConstraintPair>,
+    parallel_pairs: Vec<ConstraintPair>
 }
 
-impl SugaredUnificationProblem {
+impl ConstraintSystem {
     pub fn new(
-       // dict: &'a mut Dict,
-        equal_pairs: Vec<SugaredUnificationPair>,
-        subtype_pairs: Vec<SugaredUnificationPair>,
-        trait_pairs: Vec<SugaredUnificationPair>,
-        parallel_pairs: Vec<SugaredUnificationPair>
+        equal_pairs: Vec<ConstraintPair>,
+        subtype_pairs: Vec<ConstraintPair>,
+        trait_pairs: Vec<ConstraintPair>,
+        parallel_pairs: Vec<ConstraintPair>
     ) -> Self {
-        SugaredUnificationProblem {
-          //  dict,
+        ConstraintSystem {
             σ: HashMap::new(),
 
             equal_pairs,
@@ -63,20 +57,20 @@ impl SugaredUnificationProblem {
         }
     }
 
-    pub fn new_eq(eqs: Vec<SugaredUnificationPair>) -> Self {
-        SugaredUnificationProblem::new(  eqs, Vec::new(), Vec::new(), Vec::new() )
+    pub fn new_eq(eqs: Vec<ConstraintPair>) -> Self {
+        ConstraintSystem::new(  eqs, Vec::new(), Vec::new(), Vec::new() )
     }
 
-    pub fn new_sub( subs: Vec<SugaredUnificationPair>) -> Self {
-        SugaredUnificationProblem::new( Vec::new(), subs, Vec::new(), Vec::new() )
+    pub fn new_sub( subs: Vec<ConstraintPair>) -> Self {
+        ConstraintSystem::new( Vec::new(), subs, Vec::new(), Vec::new() )
     }
 
-    pub fn new_trait(traits: Vec<SugaredUnificationPair>) -> Self {
-        SugaredUnificationProblem::new( Vec::new(), Vec::new(), traits, Vec::new() )
+    pub fn new_trait(traits: Vec<ConstraintPair>) -> Self {
+        ConstraintSystem::new( Vec::new(), Vec::new(), traits, Vec::new() )
     }
 
-    pub fn new_parallel( parallels: Vec<SugaredUnificationPair>) -> Self {
-        SugaredUnificationProblem::new(Vec::new(), Vec::new(), Vec::new(), parallels )
+    pub fn new_parallel( parallels: Vec<ConstraintPair>) -> Self {
+        ConstraintSystem::new(Vec::new(), Vec::new(), Vec::new(), parallels )
     }
 
 
@@ -87,45 +81,45 @@ impl SugaredUnificationProblem {
             let mut tt = tt.clone();
             tt.apply_subst(&self.σ);
             //eprintln!("update σ : {:?} --> {:?}", v, tt);
-            new_σ.insert(v.clone(), tt);
+            new_σ.insert(v.clone(), tt.normalize());
         }
         self.σ = new_σ;
     }
 
 
-    pub fn eval_equation(&mut self, unification_pair: SugaredUnificationPair) -> Result<(), SugaredUnificationError> {
+    pub fn eval_equation(&mut self, unification_pair: ConstraintPair) -> Result<(), ConstraintError> {
         match (&unification_pair.lhs, &unification_pair.rhs) {
-            (SugaredTypeTerm::TypeID(TypeID::Var(varid)), t) |
-            (t, SugaredTypeTerm::TypeID(TypeID::Var(varid))) => {
+            (TypeTerm::TypeID(TypeID::Var(varid)), t) |
+            (t, TypeTerm::TypeID(TypeID::Var(varid))) => {
                 if ! t.contains_var( *varid ) {
                     self.σ.insert(TypeID::Var(*varid), t.clone());
                     self.reapply_subst();
                     Ok(())
-                } else if t == &SugaredTypeTerm::TypeID(TypeID::Var(*varid)) {
+                } else if t == &TypeTerm::TypeID(TypeID::Var(*varid)) {
                     Ok(())
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: SugaredTypeTerm::TypeID(TypeID::Var(*varid)), t2: t.clone() })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(*varid)), t2: t.clone() })
                 }
             }
 
-            (SugaredTypeTerm::TypeID(a1), SugaredTypeTerm::TypeID(a2)) => {
-                if a1 == a2 { Ok(()) } else { Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
+            (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
+                if a1 == a2 { Ok(()) } else { Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
-            (SugaredTypeTerm::Num(n1), SugaredTypeTerm::Num(n2)) => {
-                if n1 == n2 { Ok(()) } else { Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
+            (TypeTerm::Num(n1), TypeTerm::Num(n2)) => {
+                if n1 == n2 { Ok(()) } else { Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
-            (SugaredTypeTerm::Char(c1), SugaredTypeTerm::Char(c2)) => {
-                if c1 == c2 { Ok(()) } else { Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
+            (TypeTerm::Char(c1), TypeTerm::Char(c2)) => {
+                if c1 == c2 { Ok(()) } else { Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
 
-            (SugaredTypeTerm::Ladder(a1), SugaredTypeTerm::Ladder(a2)) |
-            (SugaredTypeTerm::Spec(a1), SugaredTypeTerm::Spec(a2)) => {
+            (TypeTerm::Ladder(a1), TypeTerm::Ladder(a2)) |
+            (TypeTerm::Spec(a1), TypeTerm::Spec(a2)) => {
                 if a1.len() == a2.len() {
                     for (i, (x, y)) in a1.iter().cloned().zip(a2.iter().cloned()).enumerate().rev() {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
                         self.equal_pairs.push(
-                            SugaredUnificationPair {
+                            ConstraintPair {
                                 lhs: x,
                                 rhs: y,
                                 addr: new_addr
@@ -133,21 +127,21 @@ impl SugaredUnificationProblem {
                     }
                     Ok(())
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
 
-            (SugaredTypeTerm::Seq{ seq_repr: lhs_seq_repr, items: lhs_items },
-                SugaredTypeTerm::Seq { seq_repr: rhs_seq_repr, items: rhs_items })
+            (TypeTerm::Seq{ seq_repr: lhs_seq_repr, items: lhs_items },
+                TypeTerm::Seq { seq_repr: rhs_seq_repr, items: rhs_items })
             => {
                 let mut new_addr = unification_pair.addr.clone();
                 new_addr.push(0);
 
                 if let Some(rhs_seq_repr) = rhs_seq_repr.as_ref() {
                     if let Some(lhs_seq_repr) = lhs_seq_repr.as_ref() {
-                        let _seq_repr_ψ = self.eval_equation(SugaredUnificationPair { addr: new_addr.clone(), lhs: *lhs_seq_repr.clone(), rhs: *rhs_seq_repr.clone() })?;
+                        let _seq_repr_ψ = self.eval_equation(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_seq_repr.clone(), rhs: *rhs_seq_repr.clone() })?;
                     } else {
-                        return Err(SugaredUnificationError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
+                        return Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
                 }
 
@@ -157,80 +151,79 @@ impl SugaredUnificationProblem {
                     {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
-                        self.equal_pairs.push( SugaredUnificationPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
+                        self.equal_pairs.push( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
                     }
                     Ok(())
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
-            (SugaredTypeTerm::Struct{ struct_repr: lhs_struct_repr, members: lhs_members },
-                SugaredTypeTerm::Struct{ struct_repr: rhs_struct_repr, members: rhs_members })
+            (TypeTerm::Struct{ struct_repr: lhs_struct_repr, members: lhs_members },
+                TypeTerm::Struct{ struct_repr: rhs_struct_repr, members: rhs_members })
             => {
                 let new_addr = unification_pair.addr.clone();
                 if let Some(rhs_struct_repr) = rhs_struct_repr.as_ref() {
                     if let Some(lhs_struct_repr) = lhs_struct_repr.as_ref() {
-                        let _struct_repr_ψ = self.eval_subtype(SugaredUnificationPair { addr: new_addr.clone(), lhs: *lhs_struct_repr.clone(), rhs: *rhs_struct_repr.clone() })?;
+                        let _struct_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_struct_repr.clone(), rhs: *rhs_struct_repr.clone() })?;
                     } else {
-                        return Err(SugaredUnificationError{ addr: new_addr.clone(), t1: unification_pair.lhs, t2: unification_pair.rhs });
+                        return Err(ConstraintError{ addr: new_addr.clone(), t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
                 }
 
                 if lhs_members.len() == rhs_members.len() {
                     for (i,
-                            (SugaredStructMember{ symbol: lhs_symbol, ty: lhs_ty},
-                                SugaredStructMember{ symbol: rhs_symbol, ty: rhs_ty })
+                            (StructMember{ symbol: lhs_symbol, ty: lhs_ty},
+                                StructMember{ symbol: rhs_symbol, ty: rhs_ty })
                         ) in
                             lhs_members.into_iter().zip(rhs_members.into_iter()).enumerate()
                     {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
-                        self.equal_pairs.push( SugaredUnificationPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
+                        self.equal_pairs.push( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
                     }
                     Ok(())
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
-            (SugaredTypeTerm::Enum{ enum_repr: lhs_enum_repr, variants: lhs_variants },
-                SugaredTypeTerm::Enum{ enum_repr: rhs_enum_repr, variants: rhs_variants })
+            (TypeTerm::Enum{ enum_repr: lhs_enum_repr, variants: lhs_variants },
+                TypeTerm::Enum{ enum_repr: rhs_enum_repr, variants: rhs_variants })
             => {
                 let mut new_addr = unification_pair.addr.clone();
                 if let Some(rhs_enum_repr) = rhs_enum_repr.as_ref() {
                     if let Some(lhs_enum_repr) = lhs_enum_repr.as_ref() {
-                        let _enum_repr_ψ = self.eval_subtype(SugaredUnificationPair { addr: new_addr.clone(), lhs: *lhs_enum_repr.clone(), rhs: *rhs_enum_repr.clone() })?;
+                        let _enum_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_enum_repr.clone(), rhs: *rhs_enum_repr.clone() })?;
                     } else {
-                        return Err(SugaredUnificationError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
+                        return Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
                 }
 
 
                 if lhs_variants.len() == rhs_variants.len() {
                     for (i,
-                            (SugaredEnumVariant{ symbol: lhs_symbol, ty: lhs_ty },
-                                SugaredEnumVariant{ symbol: rhs_symbol, ty: rhs_ty })
+                            (EnumVariant{ symbol: lhs_symbol, ty: lhs_ty },
+                                EnumVariant{ symbol: rhs_symbol, ty: rhs_ty })
                         ) in
                             lhs_variants.into_iter().zip(rhs_variants.into_iter()).enumerate()
                     {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
-                        self.equal_pairs.push( SugaredUnificationPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
+                        self.equal_pairs.push( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
                     }
                     Ok(())
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
 
-            _ => Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+            _ => Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
         }
     }
 
 
+    pub fn add_lower_subtype_bound(&mut self, v: u64, new_lower_bound: TypeTerm) -> Result<(),()> {
 
-    pub fn add_lower_subtype_bound(&mut self, v: u64, new_lower_bound: SugaredTypeTerm) -> Result<(),()> {
-
-        if new_lower_bound == SugaredTypeTerm::TypeID(TypeID::Var(v)) {
+        if new_lower_bound == TypeTerm::TypeID(TypeID::Var(v)) {
             return Ok(());
         }
 
@@ -241,7 +234,7 @@ impl SugaredUnificationProblem {
 
         if let Some(lower_bound) = self.lower_bounds.get(&v).cloned() {
             if let Ok(halo) = self.eval_subtype(
-                SugaredUnificationPair {
+                ConstraintPair {
                     lhs: lower_bound.clone(),
                     rhs: new_lower_bound.clone(),
                     addr: vec![]
@@ -251,7 +244,7 @@ impl SugaredUnificationProblem {
                 self.lower_bounds.insert(v, new_lower_bound);
                 Ok(())
             } else if let Ok(halo) = self.eval_subtype(
-                SugaredUnificationPair{
+                ConstraintPair{
                     lhs: new_lower_bound,
                     rhs: lower_bound,
                     addr: vec![]
@@ -268,8 +261,8 @@ impl SugaredUnificationProblem {
     }
 
 
-    pub fn add_upper_subtype_bound(&mut self, v: u64, new_upper_bound: SugaredTypeTerm) -> Result<(),()> {
-        if new_upper_bound == SugaredTypeTerm::TypeID(TypeID::Var(v)) {
+    pub fn add_upper_subtype_bound(&mut self, v: u64, new_upper_bound: TypeTerm) -> Result<(),()> {
+        if new_upper_bound == TypeTerm::TypeID(TypeID::Var(v)) {
             return Ok(());
         }
 
@@ -280,29 +273,32 @@ impl SugaredUnificationProblem {
 
         if let Some(upper_bound) = self.upper_bounds.get(&v).cloned() {
             if let Ok(_halo) = self.eval_subtype(
-                SugaredUnificationPair {
+                ConstraintPair {
                     lhs: new_upper_bound.clone(),
                     rhs: upper_bound,
                     addr: vec![]
                 }
             ) {
+                eprintln!("found a lower upper bound: {} <= {:?}", v, new_upper_bound);
                 // found a lower upper bound
                 self.upper_bounds.insert(v, new_upper_bound);
                 Ok(())
             } else {
+                eprintln!("new upper bound violates subtype restriction");
                 Err(())
             }
         } else {
+            eprintln!("set upper bound: {} <= {:?}", v, new_upper_bound);
             self.upper_bounds.insert(v, new_upper_bound);
             Ok(())
         }
     }
 
-    pub fn eval_subtype(&mut self, unification_pair: SugaredUnificationPair) -> Result<
+    pub fn eval_subtype(&mut self, unification_pair: ConstraintPair) -> Result<
         // ok: halo type
-        SugaredTypeTerm,
+        TypeTerm,
         // error
-        SugaredUnificationError
+        ConstraintError
     > {
         match (unification_pair.lhs.clone().strip(), unification_pair.rhs.clone().strip()) {
 
@@ -310,21 +306,21 @@ impl SugaredUnificationProblem {
              Variables
             */
 
-            (SugaredTypeTerm::TypeID(TypeID::Var(v)), t) => {
+            (TypeTerm::TypeID(TypeID::Var(v)), t) => {
                 //eprintln!("variable <= t");
                 if self.add_upper_subtype_bound(v, t.clone()).is_ok() {
-                    Ok(SugaredTypeTerm::unit())
+                    Ok(TypeTerm::unit())
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: SugaredTypeTerm::TypeID(TypeID::Var(v)), t2: t })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(v)), t2: t })
                 }
             }
 
-            (t, SugaredTypeTerm::TypeID(TypeID::Var(v))) => {
+            (t, TypeTerm::TypeID(TypeID::Var(v))) => {
                 //eprintln!("t <= variable");
                 if self.add_lower_subtype_bound(v, t.clone()).is_ok() {
-                    Ok(SugaredTypeTerm::unit())
+                    Ok(TypeTerm::unit())
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: SugaredTypeTerm::TypeID(TypeID::Var(v)), t2: t })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(v)), t2: t })
                 }
             }
 
@@ -332,22 +328,22 @@ impl SugaredUnificationProblem {
             /*
              Atoms
             */
-            (SugaredTypeTerm::TypeID(a1), SugaredTypeTerm::TypeID(a2)) => {
-                if a1 == a2 { Ok(SugaredTypeTerm::unit()) } else { Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs}) }
+            (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
+                if a1 == a2 { Ok(TypeTerm::unit()) } else { Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs}) }
             }
-            (SugaredTypeTerm::Num(n1), SugaredTypeTerm::Num(n2)) => {
-                if n1 == n2 { Ok(SugaredTypeTerm::unit()) } else { Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
+            (TypeTerm::Num(n1), TypeTerm::Num(n2)) => {
+                if n1 == n2 { Ok(TypeTerm::unit()) } else { Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
-            (SugaredTypeTerm::Char(c1), SugaredTypeTerm::Char(c2)) => {
-                if c1 == c2 { Ok(SugaredTypeTerm::unit()) } else { Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
+            (TypeTerm::Char(c1), TypeTerm::Char(c2)) => {
+                if c1 == c2 { Ok(TypeTerm::unit()) } else { Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
 
             /*
              Complex Types
             */
 
-            (SugaredTypeTerm::Seq{ seq_repr: lhs_seq_repr, items: lhs_items },
-                SugaredTypeTerm::Seq { seq_repr: rhs_seq_repr, items: rhs_items })
+            (TypeTerm::Seq{ seq_repr: lhs_seq_repr, items: lhs_items },
+                TypeTerm::Seq { seq_repr: rhs_seq_repr, items: rhs_items })
             => {
                 let mut new_addr = unification_pair.addr.clone();
                 new_addr.push(0);
@@ -356,97 +352,97 @@ impl SugaredUnificationProblem {
                     //eprintln!("subtype unify: rhs has seq-repr: {:?}", rhs_seq_repr);
                     if let Some(lhs_seq_repr) = lhs_seq_repr.as_ref() {
                         //eprintln!("check if it maches lhs seq-repr: {:?}", lhs_seq_repr);
-                        let _seq_repr_ψ = self.eval_subtype(SugaredUnificationPair { addr: new_addr.clone(), lhs: *lhs_seq_repr.clone(), rhs: *rhs_seq_repr.clone() })?;
+                        let _seq_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_seq_repr.clone(), rhs: *rhs_seq_repr.clone() })?;
                         //eprintln!("..yes!");
                     } else {
                         //eprintln!("...but lhs has none.");
-                        return Err(SugaredUnificationError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
+                        return Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
                 }
 
                 let mut new_addr = unification_pair.addr.clone();
                 new_addr.push(1);
                 if lhs_items.len() == rhs_items.len() && lhs_items.len() > 0 {
-                    match self.eval_subtype( SugaredUnificationPair { addr: new_addr.clone(), lhs: lhs_items[0].clone(), rhs: rhs_items[0].clone() } ) {
-                        Ok(ψ) => Ok(SugaredTypeTerm::Seq {
+                    match self.eval_subtype( ConstraintPair { addr: new_addr.clone(), lhs: lhs_items[0].clone(), rhs: rhs_items[0].clone() } ) {
+                        Ok(ψ) => Ok(TypeTerm::Seq {
                                 seq_repr: None, // <<- todo
                                 items: vec![ψ]
                             }.strip()),
-                        Err(e) => Err(SugaredUnificationError{
+                        Err(e) => Err(ConstraintError{
                                 addr: new_addr,
                                 t1: e.t1,
                                 t2: e.t2,
                             })
                     }
                 } else {
-                    Err(SugaredUnificationError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+                    Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
-            (SugaredTypeTerm::Struct{ struct_repr: lhs_struct_repr, members: lhs_members },
-                SugaredTypeTerm::Struct{ struct_repr: rhs_struct_repr, members: rhs_members })
+            (TypeTerm::Struct{ struct_repr: lhs_struct_repr, members: lhs_members },
+                TypeTerm::Struct{ struct_repr: rhs_struct_repr, members: rhs_members })
             => {
                 let new_addr = unification_pair.addr.clone();
                 if let Some(rhs_struct_repr) = rhs_struct_repr.as_ref() {
                     if let Some(lhs_struct_repr) = lhs_struct_repr.as_ref() {
-                        let _struct_repr_ψ = self.eval_subtype(SugaredUnificationPair { addr: new_addr.clone(), lhs: *lhs_struct_repr.clone(), rhs: *rhs_struct_repr.clone() })?;
+                        let _struct_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_struct_repr.clone(), rhs: *rhs_struct_repr.clone() })?;
                     } else {
-                        return Err(SugaredUnificationError{ addr: new_addr.clone(), t1: unification_pair.lhs, t2: unification_pair.rhs });
+                        return Err(ConstraintError{ addr: new_addr.clone(), t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
                 }
 
                 if lhs_members.len() == rhs_members.len() {
                     let mut halo_members = Vec::new();
                     for (i,
-                            (SugaredStructMember{ symbol: lhs_symbol, ty: lhs_ty},
-                                SugaredStructMember{ symbol: rhs_symbol, ty: rhs_ty })
+                            (StructMember{ symbol: lhs_symbol, ty: lhs_ty},
+                                StructMember{ symbol: rhs_symbol, ty: rhs_ty })
                         ) in
                             lhs_members.into_iter().zip(rhs_members.into_iter()).enumerate()
                     {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
 
-                        let ψ = self.eval_subtype( SugaredUnificationPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } )?;
-                        halo_members.push(SugaredStructMember { symbol: lhs_symbol, ty: ψ });
+                        let ψ = self.eval_subtype( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } )?;
+                        halo_members.push(StructMember { symbol: lhs_symbol, ty: ψ });
                     }
-                    Ok(SugaredTypeTerm::Struct {
+                    Ok(TypeTerm::Struct {
                         struct_repr: None,
                         members: halo_members
                     })
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
-            (SugaredTypeTerm::Enum{ enum_repr: lhs_enum_repr, variants: lhs_variants },
-                SugaredTypeTerm::Enum{ enum_repr: rhs_enum_repr, variants: rhs_variants })
+            (TypeTerm::Enum{ enum_repr: lhs_enum_repr, variants: lhs_variants },
+                TypeTerm::Enum{ enum_repr: rhs_enum_repr, variants: rhs_variants })
             => {
                 let mut new_addr = unification_pair.addr.clone();
                 if let Some(rhs_enum_repr) = rhs_enum_repr.as_ref() {
                     if let Some(lhs_enum_repr) = lhs_enum_repr.as_ref() {
-                        let _enum_repr_ψ = self.eval_subtype(SugaredUnificationPair { addr: new_addr.clone(), lhs: *lhs_enum_repr.clone(), rhs: *rhs_enum_repr.clone() })?;
+                        let _enum_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_enum_repr.clone(), rhs: *rhs_enum_repr.clone() })?;
                     } else {
-                        return Err(SugaredUnificationError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
+                        return Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
                 }
 
                 if lhs_variants.len() == rhs_variants.len() {
                     let mut halo_variants = Vec::new();
                     for (i,
-                            (SugaredEnumVariant{ symbol: lhs_symbol, ty: lhs_ty },
-                                SugaredEnumVariant{ symbol: rhs_symbol, ty: rhs_ty })
+                            (EnumVariant{ symbol: lhs_symbol, ty: lhs_ty },
+                                EnumVariant{ symbol: rhs_symbol, ty: rhs_ty })
                         ) in
                             lhs_variants.into_iter().zip(rhs_variants.into_iter()).enumerate()
                     {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
-                        let ψ = self.eval_subtype( SugaredUnificationPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } )?;
-                        halo_variants.push(SugaredEnumVariant { symbol: lhs_symbol, ty: ψ });
+                        let ψ = self.eval_subtype( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } )?;
+                        halo_variants.push(EnumVariant { symbol: lhs_symbol, ty: ψ });
                     }
-                    Ok(SugaredTypeTerm::Enum {
+                    Ok(TypeTerm::Enum {
                         enum_repr: None,
                         variants: halo_variants
                     })
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
 
@@ -456,7 +452,7 @@ impl SugaredUnificationProblem {
              Ladders
             */
 
-            (SugaredTypeTerm::Ladder(a1), SugaredTypeTerm::Ladder(a2)) => {
+            (TypeTerm::Ladder(a1), TypeTerm::Ladder(a2)) => {
 
                 let mut l1_iter = a1.into_iter().enumerate().rev();
                 let mut l2_iter = a2.into_iter().rev();
@@ -472,15 +468,12 @@ impl SugaredUnificationProblem {
                         //eprintln!("addr = {:?}", addr);
 
                         match (lhs.clone(), rhs.clone()) {
-                            (t, SugaredTypeTerm::TypeID(TypeID::Var(v))) => {
+                            (t, TypeTerm::TypeID(TypeID::Var(v))) => {
 
                                 if self.add_upper_subtype_bound(v,t.clone()).is_ok() {
                                     let mut new_upper_bound_ladder = vec![ t ];
 
                                     if let Some(next_rhs) = l2_iter.next() {
-
-                                        // TODO
-                                        todo!();
 
                                     } else {
                                         // ladder of rhs is empty
@@ -492,17 +485,17 @@ impl SugaredUnificationProblem {
                                     }
 
                                     new_upper_bound_ladder.reverse();
-                                    if self.add_upper_subtype_bound(v, SugaredTypeTerm::Ladder(new_upper_bound_ladder)).is_ok() {
+                                    if self.add_upper_subtype_bound(v, TypeTerm::Ladder(new_upper_bound_ladder)).is_ok() {
                                         // ok
                                     } else {
-                                        return Err(SugaredUnificationError {
+                                        return Err(ConstraintError {
                                             addr,
                                             t1: lhs,
                                             t2: rhs
                                         });
                                     }
                                 } else {
-                                    return Err(SugaredUnificationError {
+                                    return Err(ConstraintError {
                                         addr,
                                         t1: lhs,
                                         t2: rhs
@@ -511,7 +504,7 @@ impl SugaredUnificationProblem {
                             }
                             (lhs, rhs) => {
                                 if let Ok(ψ) = self.eval_subtype(
-                                    SugaredUnificationPair {
+                                    ConstraintPair {
                                         lhs: lhs.clone(),
                                         rhs: rhs.clone(),
                                         addr:addr.clone(),
@@ -521,7 +514,7 @@ impl SugaredUnificationProblem {
                                     //eprintln!("rungs are subtypes. continue");
                                     halo_ladder.push(ψ);
                                 } else {
-                                    return Err(SugaredUnificationError {
+                                    return Err(ConstraintError {
                                         addr,
                                         t1: lhs,
                                         t2: rhs
@@ -531,13 +524,14 @@ impl SugaredUnificationProblem {
                         }
                     } else {
                         // not a subtype,
-                        return Err(SugaredUnificationError {
+                        return Err(ConstraintError {
                             addr: vec![],
                             t1: unification_pair.lhs,
                             t2: unification_pair.rhs
                         });
                     }
                 }
+
                 //eprintln!("left ladder fully consumed");
 
                 for (i,t) in l1_iter {
@@ -545,19 +539,94 @@ impl SugaredUnificationProblem {
                     halo_ladder.push(t);
                 }
                 halo_ladder.reverse();
-                Ok(SugaredTypeTerm::Ladder(halo_ladder).strip())//.param_normalize())
+                Ok(TypeTerm::Ladder(halo_ladder).strip())//.param_normalize())
             },
 
-            (t, SugaredTypeTerm::Ladder(a1)) => {
-                Err(SugaredUnificationError{ addr: unification_pair.addr, t1: t, t2: SugaredTypeTerm::Ladder(a1) })
+            (TypeTerm::Seq { seq_repr, items }, TypeTerm::Spec(mut args)) => {
+                let mut new_addr = unification_pair.addr.clone();
+                let mut n_halos_required = 0;
+                if args.len() > 1 {
+                    if let Some(seq_repr) = seq_repr {
+                        let rhs = args.remove(0);
+                        let reprψinterface = rhs.get_interface_type();
+                        let mut reprψ = self.eval_subtype(ConstraintPair{
+                            addr: new_addr.clone(),
+                            lhs: seq_repr.as_ref().clone(),
+                            rhs
+                        })?;
+
+                        let mut itemsψ = Vec::new();
+                        for (i,(item, arg)) in items.iter().zip(args.iter()).enumerate() {
+                            let mut new_addr = new_addr.clone();
+                            new_addr.push(i);
+                            let ψ = self.eval_subtype(ConstraintPair {
+                                addr: new_addr,
+                                lhs: item.clone(),
+                                rhs: arg.clone()
+                            })?;
+
+                            if ψ.is_empty() {
+                                itemsψ.push(item.get_interface_type());
+                            } else {
+                                if n_halos_required == 0 {
+                                    // first argument that requires halo,
+                                    // add highest-common-rung to sequence repr
+                                    reprψ = TypeTerm::Ladder(vec![
+                                        reprψ,
+                                        reprψinterface.clone()
+                                    ]).normalize();
+                                } else {
+                                    /* todo
+                                    if let Some(mut t) = itemsψ.last_mut() {
+                                        t = TypeTerm::Ladder(vec![
+                                            t.clone(),
+                                            args[i]
+                                        ]).normalize();
+                                    } else {
+                                        t =
+                                    }
+                                    */
+                                }
+
+                                n_halos_required += 1;
+
+                                itemsψ.push(ψ);
+                            }
+                        }
+                        eprintln!("itemsψ = {:?}", itemsψ);
+                        Ok(
+                            TypeTerm::Seq {
+                                seq_repr: if reprψ.is_empty() { None }
+                                          else { Some(Box::new(reprψ)) },
+                                items: itemsψ
+                            }
+                        )
+                    } else {
+                        Err(ConstraintError {
+                            addr: new_addr,
+                            t1: unification_pair.lhs,
+                            t2: unification_pair.rhs
+                        })
+                    }
+                } else {
+                    Err(ConstraintError {
+                        addr: unification_pair.addr,
+                        t1: unification_pair.lhs,
+                        t2: unification_pair.rhs
+                    })
+                }
             }
 
-            (SugaredTypeTerm::Ladder(mut a1), t) => {
+            (t, TypeTerm::Ladder(a1)) => {
+                Err(ConstraintError{ addr: unification_pair.addr, t1: t, t2: TypeTerm::Ladder(a1) })
+            }
+
+            (TypeTerm::Ladder(mut a1), t) => {
                 if a1.len() > 0 {
                     let mut new_addr = unification_pair.addr.clone();
-                    new_addr.push( a1.len() -1 );
+                    new_addr.push( a1.len() - 1 );
                     if let Ok(halo) = self.eval_subtype(
-                        SugaredUnificationPair {
+                        ConstraintPair {
                             lhs: a1.pop().unwrap(),
                             rhs: t.clone(),
                             addr: new_addr
@@ -567,15 +636,15 @@ impl SugaredUnificationProblem {
                         if a1.len() == 1 {
                             Ok(a1.pop().unwrap())
                         } else {
-                            Ok(SugaredTypeTerm::Ladder(a1))
+                            Ok(TypeTerm::Ladder(a1).normalize())
                         }
                     } else {
-                        Err(SugaredUnificationError{ addr: unification_pair.addr, t1: SugaredTypeTerm::Ladder(a1), t2: t })
+                        Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::Ladder(a1), t2: t })
                     }
-                } else if t == SugaredTypeTerm::unit() {
-                    Ok(SugaredTypeTerm::unit())
+                } else if t == TypeTerm::unit() {
+                    Ok(TypeTerm::unit())
                 } else {
-                    Err(SugaredUnificationError { addr: unification_pair.addr, t1: SugaredTypeTerm::unit(), t2: t })
+                    Err(ConstraintError { addr: unification_pair.addr, t1: TypeTerm::unit(), t2: t })
                 }
             }
 
@@ -584,7 +653,7 @@ impl SugaredUnificationProblem {
              Application
             */
 
-            (SugaredTypeTerm::Spec(a1), SugaredTypeTerm::Spec(a2)) => {
+            (TypeTerm::Spec(a1), TypeTerm::Spec(a2)) => {
                 if a1.len() == a2.len() {
                     let mut halo_args = Vec::new();
                     let mut n_halos_required = 0;
@@ -601,14 +670,14 @@ impl SugaredUnificationProblem {
 //                        eprintln!("APP<> eval {:?} \n ?<=? {:?} ", x, y);
 
                         match self.eval_subtype(
-                            SugaredUnificationPair {
+                            ConstraintPair {
                                 lhs: x.clone(),
                                 rhs: y.clone(),
                                 addr: new_addr,
                             }
                         ) {
                             Ok(halo) => {
-                                if halo == SugaredTypeTerm::unit() {
+                                if halo == TypeTerm::unit() {
                                     let mut y = y.clone();
                                     y.apply_subst(&self.σ);
                                     y = y.strip();
@@ -620,12 +689,12 @@ impl SugaredUnificationProblem {
                                     //println!("add halo {}", halo.pretty(self.dict, 0));
                                     if n_halos_required > 0 {
                                         let x = &mut halo_args[n_halos_required-1];
-                                        if let SugaredTypeTerm::Ladder(arg_rungs) = x {
+                                        if let TypeTerm::Ladder(arg_rungs) = x {
                                             let mut a = a2[n_halos_required-1].clone();
                                             a.apply_subst(&self.σ);
                                             arg_rungs.push(a.get_interface_type());
                                         } else {
-                                            *x = SugaredTypeTerm::Ladder(vec![
+                                            *x = TypeTerm::Ladder(vec![
                                                 x.clone(),
                                                 a2[n_halos_required-1].get_interface_type()
                                             ]);
@@ -643,20 +712,20 @@ impl SugaredUnificationProblem {
                     }
 
                     if n_halos_required > 0 {
-                        Ok(SugaredTypeTerm::Spec(halo_args))
+                        Ok(TypeTerm::Spec(halo_args))
                     } else {
-                        Ok(SugaredTypeTerm::unit())
+                        Ok(TypeTerm::unit())
                     }
                 } else {
-                    Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
 
-            _ => Err(SugaredUnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+            _ => Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
         }
     }
 
-    pub fn solve(mut self) -> Result<(Vec<SugaredTypeTerm>, HashMap<TypeID, SugaredTypeTerm>), SugaredUnificationError> {
+    pub fn solve(mut self) -> Result<(Vec<TypeTerm>, HashMap<TypeID, TypeTerm>), ConstraintError> {
         // solve equations
         while let Some( mut equal_pair ) = self.equal_pairs.pop() {
             equal_pair.lhs.apply_subst(&self.σ);
@@ -683,13 +752,11 @@ impl SugaredUnificationProblem {
 
         self.reapply_subst();
 
+
         let mut halo_types = Vec::new();
         for mut subtype_pair in self.subtype_pairs.clone().into_iter() {
-            subtype_pair.lhs = subtype_pair.lhs.apply_subst(&self.σ).clone().strip();
-            subtype_pair.rhs = subtype_pair.rhs.apply_subst(&self.σ).clone().strip();
-
-            subtype_pair.lhs.apply_subst(&self.σ);
-            subtype_pair.rhs.apply_subst(&self.σ);
+            subtype_pair.lhs = subtype_pair.lhs.apply_subst(&self.σ).clone();
+            subtype_pair.rhs = subtype_pair.rhs.apply_subst(&self.σ).clone();
 
             let halo = self.eval_subtype( subtype_pair.clone() )?.strip();
             halo_types.push(halo);
@@ -705,27 +772,27 @@ impl SugaredUnificationProblem {
 }
 
 pub fn unify(
-    t1: &SugaredTypeTerm,
-    t2: &SugaredTypeTerm
-) -> Result<HashMap<TypeID, SugaredTypeTerm>, SugaredUnificationError> {
-    let unification = SugaredUnificationProblem::new_eq(vec![ SugaredUnificationPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
+    t1: &TypeTerm,
+    t2: &TypeTerm
+) -> Result<HashMap<TypeID, TypeTerm>, ConstraintError> {
+    let unification = ConstraintSystem::new_eq(vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
     Ok(unification.solve()?.1)
 }
 
 pub fn subtype_unify(
-    t1: &SugaredTypeTerm,
-    t2: &SugaredTypeTerm
-) -> Result<(SugaredTypeTerm, HashMap<TypeID, SugaredTypeTerm>), SugaredUnificationError> {
-    let unification = SugaredUnificationProblem::new_sub(vec![ SugaredUnificationPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
-    unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(SugaredTypeTerm::unit()), σ) )
+    t1: &TypeTerm,
+    t2: &TypeTerm
+) -> Result<(TypeTerm, HashMap<TypeID, TypeTerm>), ConstraintError> {
+    let unification = ConstraintSystem::new_sub(vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
+    unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
 }
 
 pub fn parallel_unify(
-    t1: &SugaredTypeTerm,
-    t2: &SugaredTypeTerm
-) -> Result<(SugaredTypeTerm, HashMap<TypeID, SugaredTypeTerm>), SugaredUnificationError> {
-    let unification = SugaredUnificationProblem::new_parallel(vec![ SugaredUnificationPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
-    unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(SugaredTypeTerm::unit()), σ) )
+    t1: &TypeTerm,
+    t2: &TypeTerm
+) -> Result<(TypeTerm, HashMap<TypeID, TypeTerm>), ConstraintError> {
+    let unification = ConstraintSystem::new_parallel(vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
+    unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\

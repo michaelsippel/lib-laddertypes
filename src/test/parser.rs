@@ -1,6 +1,6 @@
 
 use {
-    crate::{term::*, dict::*, parser::*}
+    crate::{desugared_term::*, dict::*, parser::*, TypeTerm}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -42,14 +42,14 @@ fn test_parser_char() {
 fn test_parser_app() {
     assert_eq!(
         BimapTypeDict::new().parse("<A B>"),
-        Ok(TypeTerm::App(vec![
+        Ok(TypeTerm::Spec(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::TypeID(TypeID::Fun(1)),
         ]))
     );
     assert_eq!(
         BimapTypeDict::new().parse("<A B C>"),
-        Ok(TypeTerm::App(vec![
+        Ok(TypeTerm::Spec(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::TypeID(TypeID::Fun(1)),
             TypeTerm::TypeID(TypeID::Fun(2)),
@@ -97,7 +97,7 @@ fn test_parser_ladder_outside() {
     assert_eq!(
         BimapTypeDict::new().parse("<A B>~C"),
         Ok(TypeTerm::Ladder(vec![
-            TypeTerm::App(vec![
+            TypeTerm::Spec(vec![
                 TypeTerm::TypeID(TypeID::Fun(0)),
                 TypeTerm::TypeID(TypeID::Fun(1)),
             ]),
@@ -110,7 +110,7 @@ fn test_parser_ladder_outside() {
 fn test_parser_ladder_inside() {
     assert_eq!(
         BimapTypeDict::new().parse("<A B~C>"),
-        Ok(TypeTerm::App(vec![
+        Ok(TypeTerm::Spec(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::Ladder(vec![
                 TypeTerm::TypeID(TypeID::Fun(1)),
@@ -124,11 +124,11 @@ fn test_parser_ladder_inside() {
 fn test_parser_ladder_between() {
     assert_eq!(
         BimapTypeDict::new().parse("<A B~<C D>>"),
-        Ok(TypeTerm::App(vec![
+        Ok(TypeTerm::Spec(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::Ladder(vec![
                 TypeTerm::TypeID(TypeID::Fun(1)),
-                TypeTerm::App(vec![
+                TypeTerm::Spec(vec![
                     TypeTerm::TypeID(TypeID::Fun(2)),
                     TypeTerm::TypeID(TypeID::Fun(3)),
                 ])
@@ -141,7 +141,7 @@ fn test_parser_ladder_between() {
 #[test]
 fn test_parser_ladder_large() {
     assert_eq!(
-        BimapTypeDict::new().parse(
+        BimapTypeDict::new().parse_desugared(
             "<Seq Date
                   ~<TimeSince UnixEpoch>
                   ~<Duration Seconds>
@@ -154,50 +154,50 @@ fn test_parser_ladder_large() {
               ~<Seq Byte>"),
 
         Ok(
-            TypeTerm::Ladder(vec![
-                TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(0)),
-                    TypeTerm::Ladder(vec![
-                        TypeTerm::TypeID(TypeID::Fun(1)),
-                        TypeTerm::App(vec![
-                            TypeTerm::TypeID(TypeID::Fun(2)),
-                            TypeTerm::TypeID(TypeID::Fun(3))
+            DesugaredTypeTerm::Ladder(vec![
+                DesugaredTypeTerm::App(vec![
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(0)),
+                    DesugaredTypeTerm::Ladder(vec![
+                        DesugaredTypeTerm::TypeID(TypeID::Fun(1)),
+                        DesugaredTypeTerm::App(vec![
+                            DesugaredTypeTerm::TypeID(TypeID::Fun(2)),
+                            DesugaredTypeTerm::TypeID(TypeID::Fun(3))
                         ]),
-                        TypeTerm::App(vec![
-                            TypeTerm::TypeID(TypeID::Fun(4)),
-                            TypeTerm::TypeID(TypeID::Fun(5))
+                        DesugaredTypeTerm::App(vec![
+                            DesugaredTypeTerm::TypeID(TypeID::Fun(4)),
+                            DesugaredTypeTerm::TypeID(TypeID::Fun(5))
                         ]),
-                        TypeTerm::TypeID(TypeID::Fun(6)),
-                        TypeTerm::App(vec![
-                            TypeTerm::TypeID(TypeID::Fun(7)),
-                            TypeTerm::Num(10),
-                            TypeTerm::TypeID(TypeID::Fun(8))
+                        DesugaredTypeTerm::TypeID(TypeID::Fun(6)),
+                        DesugaredTypeTerm::App(vec![
+                            DesugaredTypeTerm::TypeID(TypeID::Fun(7)),
+                            DesugaredTypeTerm::Num(10),
+                            DesugaredTypeTerm::TypeID(TypeID::Fun(8))
                         ]),
-                        TypeTerm::App(vec![
-                            TypeTerm::TypeID(TypeID::Fun(0)),
-                            TypeTerm::Ladder(vec![
-                                TypeTerm::App(vec![
-                                    TypeTerm::TypeID(TypeID::Fun(9)),
-                                    TypeTerm::Num(10)
+                        DesugaredTypeTerm::App(vec![
+                            DesugaredTypeTerm::TypeID(TypeID::Fun(0)),
+                            DesugaredTypeTerm::Ladder(vec![
+                                DesugaredTypeTerm::App(vec![
+                                    DesugaredTypeTerm::TypeID(TypeID::Fun(9)),
+                                    DesugaredTypeTerm::Num(10)
                                 ]),
-                                TypeTerm::TypeID(TypeID::Fun(10))
+                                DesugaredTypeTerm::TypeID(TypeID::Fun(10))
                             ])
                         ])
                     ])
                 ]),
-                TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(11)),
-                    TypeTerm::TypeID(TypeID::Fun(10)),
-                    TypeTerm::Char(':')
+                DesugaredTypeTerm::App(vec![
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(11)),
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(10)),
+                    DesugaredTypeTerm::Char(':')
                 ]),
-                TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(0)),
-                    TypeTerm::TypeID(TypeID::Fun(10))
+                DesugaredTypeTerm::App(vec![
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(0)),
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(10))
                 ]),
-                TypeTerm::TypeID(TypeID::Fun(12)),
-                TypeTerm::App(vec![
-                    TypeTerm::TypeID(TypeID::Fun(0)),
-                    TypeTerm::TypeID(TypeID::Fun(13))
+                DesugaredTypeTerm::TypeID(TypeID::Fun(12)),
+                DesugaredTypeTerm::App(vec![
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(0)),
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(13))
                 ])
             ])
         )
