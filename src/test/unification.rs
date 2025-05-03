@@ -336,6 +336,53 @@ fn test_subtype_unification2() {
     );
 }
 
+#[test]
+fn test_subtype_unification3() {
+    let mut dict = BimapTypeDict::new();
+
+    assert_eq!(
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs: dict.parse("<A1~A2  B  C  D1~D2 E F1~F2>").expect("parse"),
+                rhs: dict.parse("<A2 B C D2 E F2>").expect("parse")
+            }
+        ]).solve(),
+
+        Ok((
+            // halo
+            vec![
+                dict.parse("<A1~A2 B C D1~D2 E F1>").expect("parse")
+            ],
+
+            // subst
+            vec![
+            ].into_iter().collect()
+        ))
+    );
+
+    assert_eq!(
+        ConstraintSystem::new_sub(vec![
+            ConstraintPair {
+                addr: Vec::new(),
+                lhs: dict.parse("<Seq~List  B  C  D1~D2 E F1~F2>").expect("parse"),
+                rhs: dict.parse("<List      B  C     D2 E F2>").expect("parse")
+            }
+        ]).solve(),
+
+        Ok((
+            // halo
+            vec![
+                dict.parse("<Seq~List B C D1~D2 E F1>").expect("parse")
+            ],
+
+            // subst
+            vec![
+            ].into_iter().collect()
+        ))
+    );
+}
+
 
 #[test]
 fn test_trait_not_subtype() {
