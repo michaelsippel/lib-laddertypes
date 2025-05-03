@@ -544,18 +544,21 @@ impl ConstraintSystem {
 
             (TypeTerm::Seq { seq_repr, items }, TypeTerm::Spec(mut args)) => {
                 let mut new_addr = unification_pair.addr.clone();
-                let mut n_halos_required = 0;
+
                 if args.len() > 1 {
                     if let Some(seq_repr) = seq_repr {
-                        let rhs = args.remove(0);
-                        let reprψinterface = rhs.get_interface_type();
+                        let repr_rhs = args.remove(0);
+                        let reprψinterface = repr_rhs.get_interface_type();
                         let mut reprψ = self.eval_subtype(ConstraintPair{
                             addr: new_addr.clone(),
                             lhs: seq_repr.as_ref().clone(),
-                            rhs
+                            rhs: repr_rhs
                         })?;
 
                         let mut itemsψ = Vec::new();
+                        let mut n_halos_required = 0;
+                        let mut next_arg_with_common_rung = 0;
+
                         for (i,(item, arg)) in items.iter().zip(args.iter()).enumerate() {
                             let mut new_addr = new_addr.clone();
                             new_addr.push(i);
@@ -568,32 +571,29 @@ impl ConstraintSystem {
                             if ψ.is_empty() {
                                 itemsψ.push(item.get_interface_type());
                             } else {
-                                if n_halos_required == 0 {
-                                    // first argument that requires halo,
-                                    // add highest-common-rung to sequence repr
-                                    reprψ = TypeTerm::Ladder(vec![
-                                        reprψ,
-                                        reprψinterface.clone()
+                                while next_arg_with_common_rung < i {
+                                    let x = &mut itemsψ[next_arg_with_common_rung];
+                                    *x = TypeTerm::Ladder(vec![
+                                        x.clone(),
+                                        args[next_arg_with_common_rung].get_interface_type()
                                     ]).normalize();
-                                } else {
-                                    /* todo
-                                    if let Some(mut t) = itemsψ.last_mut() {
-                                        t = TypeTerm::Ladder(vec![
-                                            t.clone(),
-                                            args[i]
-                                        ]).normalize();
-                                    } else {
-                                        t =
-                                    }
-                                    */
+                                    x.apply_subst(&self.σ);
+                                    next_arg_with_common_rung += 1;
                                 }
 
                                 n_halos_required += 1;
-
                                 itemsψ.push(ψ);
                             }
                         }
                         eprintln!("itemsψ = {:?}", itemsψ);
+
+                        if n_halos_required > 0 {
+                            reprψ = TypeTerm::Ladder(vec![
+                                reprψ,
+                                reprψinterface
+                            ]);
+                        }
+                        
                         Ok(
                             TypeTerm::Seq {
                                 seq_repr: if reprψ.is_empty() { None }
@@ -657,6 +657,7 @@ impl ConstraintSystem {
                 if a1.len() == a2.len() {
                     let mut halo_args = Vec::new();
                     let mut n_halos_required = 0;
+                    let mut next_arg_with_common_rung = 0;
 
                     for (i, (mut x, mut y)) in a1.iter().cloned().zip(a2.iter().cloned()).enumerate() {
                         let mut new_addr = unification_pair.addr.clone();
@@ -677,30 +678,23 @@ impl ConstraintSystem {
                             }
                         ) {
                             Ok(halo) => {
-                                if halo == TypeTerm::unit() {
+                                if halo.is_empty() {
                                     let mut y = y.clone();
                                     y.apply_subst(&self.σ);
                                     y = y.strip();
 
                                     let top = y.get_interface_type();
-                                    // eprintln!("add top {}", top.pretty(self.dict, 0));
                                     halo_args.push(top);
                                 } else {
                                     //println!("add halo {}", halo.pretty(self.dict, 0));
-                                    if n_halos_required > 0 {
-                                        let x = &mut halo_args[n_halos_required-1];
-                                        if let TypeTerm::Ladder(arg_rungs) = x {
-                                            let mut a = a2[n_halos_required-1].clone();
-                                            a.apply_subst(&self.σ);
-                                            arg_rungs.push(a.get_interface_type());
-                                        } else {
-                                            *x = TypeTerm::Ladder(vec![
-                                                x.clone(),
-                                                a2[n_halos_required-1].get_interface_type()
-                                            ]);
-
-                                            x.apply_subst(&self.σ);
-                                        }
+                                    while next_arg_with_common_rung < i {
+                                        let x = &mut halo_args[next_arg_with_common_rung];
+                                        *x = TypeTerm::Ladder(vec![
+                                            x.clone(),
+                                            a2[next_arg_with_common_rung].get_interface_type()
+                                        ]).normalize();
+                                        x.apply_subst(&self.σ);
+                                        next_arg_with_common_rung += 1;
                                     }
 
                                     halo_args.push(halo);
