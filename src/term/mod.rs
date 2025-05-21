@@ -21,7 +21,7 @@ use {
 };
 
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum VariableConstraint {
     UnconstrainedType, // <<- add TypeKind here ?
     Subtype(TypeTerm),
@@ -30,19 +30,19 @@ pub enum VariableConstraint {
     ValueUInt,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct StructMember {
     pub symbol: String,
     pub ty: TypeTerm
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct EnumVariant {
     pub symbol: String,
     pub ty: TypeTerm
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum TypeTerm {
     Id(u64),
     Var(u64),

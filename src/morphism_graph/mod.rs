@@ -18,7 +18,7 @@ use {
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MorphismType {
     pub bounds: Vec< VariableConstraint >,
     pub src_type: TypeTerm,
