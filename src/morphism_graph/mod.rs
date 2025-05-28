@@ -230,7 +230,7 @@ pub trait Morphism : Sized {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum MorphismInstance<M: Morphism + Clone> {
-    //Id{ ψ: TypeTerm }
+    Id { ψ: TypeTerm },
     Primitive{
         ψ: TypeTerm,
         σ: HashMapSubst,
@@ -265,7 +265,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
 
     pub fn get_weight(&self) -> u64 {
         match self {
-           // MorphismInstance::Id { ψ } => 0,
+            MorphismInstance::Id { ψ } => 0,
             MorphismInstance::Primitive { ψ, σ, morph } => 1,
             MorphismInstance::Chain { path } => path.iter().map(|m| m.get_weight()).sum(),
             MorphismInstance::MapSeq { ψ, seq_repr, item_morph } => item_morph.get_weight() + 1,
@@ -276,6 +276,13 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
 
     pub fn get_type(&self) -> MorphismType {
         match self {
+            MorphismInstance::Id { ψ } => {
+                MorphismType {
+                    bounds: Vec::new(),
+                    src_type: ψ.clone(),
+                    dst_type: ψ.clone()
+                }
+            }
             MorphismInstance::Primitive { ψ, σ, morph } => {
                 MorphismType {
                     bounds: morph.get_type().bounds,
@@ -376,6 +383,9 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
 
     pub fn get_subst(&self) -> HashMapSubst {
         match self {
+            MorphismInstance::Id { ψ } => {
+                std::collections::HashMap::new()
+            }
             MorphismInstance::Primitive { ψ, σ, morph } => σ.clone(),
             MorphismInstance::Chain { path } => {
                 path.iter().fold(
@@ -406,6 +416,9 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
     pub fn apply_subst(&mut self, γ: &HashMapSubst) {
         let ty = self.get_type();
         match self {
+            MorphismInstance::Id { ψ } => {
+                ψ.apply_subst( γ );
+            }
             MorphismInstance::Primitive { ψ, σ, morph } => {
                 ψ.apply_subst(γ);
                 for (_,t) in σ.iter_mut() {

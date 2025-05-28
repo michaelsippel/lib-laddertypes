@@ -28,7 +28,9 @@ impl<M: Morphism + Clone> MorphismBase<M> {
 
     pub fn get_morphism_instance(&self, ty: &MorphismType) -> Option<MorphismInstance<M>> {
         if let Some(path) = ShortestPathProblem::new(self, ty.clone()).solve() {
-            if path.len() == 1 {
+            if path.len() == 0 {
+                Some(MorphismInstance::Id{ ψ: ty.src_type.clone() })
+            } else if path.len() == 1 {
                 Some(path[0].clone())
             } else {
                 Some(MorphismInstance::Chain { path })
