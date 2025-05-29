@@ -230,6 +230,7 @@ pub trait Morphism : Sized {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum MorphismInstance<M: Morphism + Clone> {
+    //Id{ ψ: TypeTerm }
     Primitive{
         ψ: TypeTerm,
         σ: HashMapSubst,
@@ -260,6 +261,17 @@ pub enum MorphismInstance<M: Morphism + Clone> {
 impl<M: Morphism + Clone> MorphismInstance<M> {
     pub fn get_action_type(&self) -> MorphismType {
         self.get_type().strip_common_rungs()
+    }
+
+    pub fn get_weight(&self) -> u64 {
+        match self {
+           // MorphismInstance::Id { ψ } => 0,
+            MorphismInstance::Primitive { ψ, σ, morph } => 1,
+            MorphismInstance::Chain { path } => path.iter().map(|m| m.get_weight()).sum(),
+            MorphismInstance::MapSeq { ψ, seq_repr, item_morph } => item_morph.get_weight() + 1,
+            MorphismInstance::MapStruct { ψ, src_struct_repr, dst_struct_repr, member_morph } => member_morph.iter().map(|m| m.1.get_weight()).sum(),
+            MorphismInstance::MapEnum { ψ, enum_repr, variant_morph } => variant_morph.iter().map(|m| m.1.get_weight()).sum()
+        }
     }
 
     pub fn get_type(&self) -> MorphismType {

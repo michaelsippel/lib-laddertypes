@@ -2,7 +2,8 @@ use {
     crate::{
         morphism_graph::{Morphism, MorphismInstance, MorphismType, MorphismBase},
         term::*,
-        HashMapSubst
+        HashMapSubst,
+        heuristic::*,
     }
 };
 
@@ -11,8 +12,9 @@ use {
 #[derive(Clone)]
 pub struct MorphismPath<M: Morphism + Clone> {
     pub weight: u64,
+    pub est_remain: u64,
     pub cur_type: TypeTerm,
-    pub morphisms: Vec< MorphismInstance<M> >
+    pub morphisms: Vec< MorphismInstance<M> >,
 }
 
 
@@ -39,7 +41,7 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
         ShortestPathProblem {
             morphism_base,
             queue: vec![
-                MorphismPath::<M> { weight: 0, cur_type: ty.src_type, morphisms: vec![] }
+                MorphismPath::<M> { weight: 0, est_remain: estimated_morphism_cost(&ty), cur_type: ty.src_type, morphisms: vec![] }
             ],
             goal: ty.dst_type
         }
@@ -47,7 +49,13 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
 
     pub fn advance(&mut self, prev_path: &MorphismPath<M>, morph_inst: MorphismInstance<M>) {
         let dst_type = morph_inst.get_type().dst_type;
-        //eprintln!("try morph to {:?}", dst_type.clone());//.sugar(type_dict).pretty(type_dict, 0));
+        /*
+        eprintln!("try morph to {:?}  (weight: {}) (prev: {} + est {})", dst_type.clone(),
+            morph_inst.get_weight(),
+            prev_path.weight,
+            prev_path.est_remain,
+        );//.sugar(type_dict).pretty(type_dict, 0));
+        */
 
         let mut creates_loop = false;
 
@@ -61,8 +69,9 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
         }
 
         if ! creates_loop {
-            new_path.weight += 1;//next_morph_inst.get_weight();
+            new_path.weight += morph_inst.get_weight();
             new_path.cur_type = dst_type;
+            new_path.est_remain = estimated_morphism_cost(&MorphismType{ bounds: Vec::new(), src_type: new_path.cur_type.clone(), dst_type: self.goal.clone() });
 
             new_path.morphisms.push(morph_inst);
             self.queue.push(new_path);
@@ -71,8 +80,15 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
 
     pub fn solve(&mut self) -> Option< Vec<MorphismInstance<M>> > {
         while ! self.queue.is_empty() {
-            /* take the shortest partial path and try to advance it by one step */
-            self.queue.sort_by( |p1,p2| p2.weight.cmp(&p1.weight));
+            /* take the most promising partial path and try to advance it by one step */
+            self.queue.sort_by( |p1,p2| ( p2.weight + p2.est_remain ).cmp(&( p1.weight + p1.est_remain ) ));
+/*
+            eprintln!("===== TOP 5 PATHS =====\nGoal: {}", self.goal.pretty(dict, 0));
+            for i in 1 ..= usize::min(self.queue.len(), 5) {
+                let path = &self.queue[self.queue.len() - i];
+                eprintln!("[[ {} ]] (w: {}, est remain: {}) ---  {}", i, path.weight, path.est_remain, path.cur_type.pretty(dict, 0));
+            }
+*/
             if let Some(mut cur_path) = self.queue.pop() {
 
                 /* 1. Check if goal is already reached by the current path */
