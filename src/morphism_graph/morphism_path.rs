@@ -41,7 +41,7 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
         ShortestPathProblem {
             morphism_base,
             queue: vec![
-                MorphismPath::<M> { weight: 0, est_remain: estimated_morphism_cost(&ty), cur_type: ty.src_type, morphisms: vec![] }
+                MorphismPath::<M> { weight: 0, est_remain: ty.estimated_cost(), cur_type: ty.src_type, morphisms: vec![] }
             ],
             goal: ty.dst_type
         }
@@ -71,7 +71,7 @@ impl<'a, M:Morphism+Clone> ShortestPathProblem<'a, M> {
         if ! creates_loop {
             new_path.weight += morph_inst.get_weight();
             new_path.cur_type = dst_type;
-            new_path.est_remain = estimated_morphism_cost(&MorphismType{ bounds: Vec::new(), src_type: new_path.cur_type.clone(), dst_type: self.goal.clone() });
+            new_path.est_remain = MorphismType{ bounds: Vec::new(), src_type: new_path.cur_type.clone(), dst_type: self.goal.clone() }.estimated_cost();
 
             new_path.morphisms.push(morph_inst);
             self.queue.push(new_path);
