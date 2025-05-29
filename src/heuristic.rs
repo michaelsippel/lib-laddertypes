@@ -1,10 +1,11 @@
-use crate::{MorphismType, TypeTerm};
+use crate::{morphism_graph::MorphismType, TypeTerm};
 
 impl MorphismType {
+
     pub fn estimated_cost(&self) -> u64 {
 
         if let Ok((ψ,σ)) = crate::subtype_unify(&self.src_type, &self.dst_type) {
-            1
+            0
         } else {
             match (self.src_type.clone().normalize(),
                 self.dst_type.clone().normalize())
@@ -28,7 +29,7 @@ impl MorphismType {
                 (TypeTerm::Seq{ seq_repr: sr1, items: items1 },
                 TypeTerm::Seq{ seq_repr: sr2, items: items2 }) => {
                     let mut cost = 10;
-        /*
+        /* // todo : add cost seq-repr conversion?
                         estimated_morphism_cost(
                         &MorphismType { src_type: sr1, dst_type: sr2 }
                     );
@@ -40,6 +41,11 @@ impl MorphismType {
                     cost
                 }
 
+                (TypeTerm::Var(_), x)
+                | (x, TypeTerm::Var(_))
+                => {
+                    return 1;
+                }
                 (a, b) => {
                     if a == b {
                         return 0;

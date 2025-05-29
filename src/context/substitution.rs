@@ -19,6 +19,8 @@ pub type HashMapSubst = std::collections::HashMap<u64, TypeTerm>;
 
 pub trait SubstitutionMut {
     fn append(&mut self, other: &Self);
+    fn filter(self, f: impl FnMut(&(u64, TypeTerm)) -> bool) -> Self;
+    fn filter_morphtype(self, ty: &crate::MorphismType) -> Self;
 }
 
 impl SubstitutionMut for HashMapSubst {
@@ -26,6 +28,17 @@ impl SubstitutionMut for HashMapSubst {
         for (v,t) in other.iter() {
             self.insert(*v,t.clone());
         }
+    }
+
+    fn filter(self, f: impl FnMut(&(u64, TypeTerm)) -> bool) -> Self {
+        self.into_iter().filter(f).collect()
+    }
+
+    fn filter_morphtype(self, ty: &crate::MorphismType) -> Self {
+        self.filter(|(v,t)| {
+            ty.src_type.contains_var(*v) ||
+            ty.dst_type.contains_var(*v)
+        })
     }
 }
 
