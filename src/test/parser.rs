@@ -7,7 +7,7 @@ use {
 
 #[test]
 fn test_parser_id() {
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
 
     dict.add_varname("T".into());
 
@@ -26,7 +26,7 @@ fn test_parser_id() {
 fn test_parser_num() {
     assert_eq!(
         Ok(TypeTerm::Num(1234)),
-        TypeDict::new().parse("1234")
+        BimapTypeDict::new().parse("1234")
     );
 }
 
@@ -34,21 +34,21 @@ fn test_parser_num() {
 fn test_parser_char() {
     assert_eq!(
         Ok(TypeTerm::Char('x')),
-        TypeDict::new().parse("'x'")
+        BimapTypeDict::new().parse("'x'")
     );
 }
 
 #[test]
 fn test_parser_app() {
     assert_eq!(
-        TypeDict::new().parse("<A B>"),
+        BimapTypeDict::new().parse("<A B>"),
         Ok(TypeTerm::App(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::TypeID(TypeID::Fun(1)),
         ]))
     );
     assert_eq!(
-        TypeDict::new().parse("<A B C>"),
+        BimapTypeDict::new().parse("<A B C>"),
         Ok(TypeTerm::App(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::TypeID(TypeID::Fun(1)),
@@ -60,7 +60,7 @@ fn test_parser_app() {
 #[test]
 fn test_parser_unexpected_close() {
     assert_eq!(
-        TypeDict::new().parse(">"),
+        BimapTypeDict::new().parse(">"),
         Err(ParseError::UnexpectedClose)
     );
 }
@@ -68,7 +68,7 @@ fn test_parser_unexpected_close() {
 #[test]
 fn test_parser_unexpected_token() {
     assert_eq!(
-        TypeDict::new().parse("A B"),
+        BimapTypeDict::new().parse("A B"),
         Err(ParseError::UnexpectedToken)
     );
 }
@@ -76,14 +76,14 @@ fn test_parser_unexpected_token() {
 #[test]
 fn test_parser_ladder() {
     assert_eq!(
-        TypeDict::new().parse("A~B"),
+        BimapTypeDict::new().parse("A~B"),
         Ok(TypeTerm::Ladder(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::TypeID(TypeID::Fun(1)),
         ]))
     );
     assert_eq!(
-        TypeDict::new().parse("A~B~C"),
+        BimapTypeDict::new().parse("A~B~C"),
         Ok(TypeTerm::Ladder(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::TypeID(TypeID::Fun(1)),
@@ -95,7 +95,7 @@ fn test_parser_ladder() {
 #[test]
 fn test_parser_ladder_outside() {
     assert_eq!(
-        TypeDict::new().parse("<A B>~C"),
+        BimapTypeDict::new().parse("<A B>~C"),
         Ok(TypeTerm::Ladder(vec![
             TypeTerm::App(vec![
                 TypeTerm::TypeID(TypeID::Fun(0)),
@@ -103,13 +103,13 @@ fn test_parser_ladder_outside() {
             ]),
             TypeTerm::TypeID(TypeID::Fun(2)),
         ]))
-    );    
+    );
 }
 
 #[test]
 fn test_parser_ladder_inside() {
     assert_eq!(
-        TypeDict::new().parse("<A B~C>"),
+        BimapTypeDict::new().parse("<A B~C>"),
         Ok(TypeTerm::App(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::Ladder(vec![
@@ -117,13 +117,13 @@ fn test_parser_ladder_inside() {
                 TypeTerm::TypeID(TypeID::Fun(2)),
             ])
         ]))
-    );    
+    );
 }
 
 #[test]
 fn test_parser_ladder_between() {
     assert_eq!(
-        TypeDict::new().parse("<A B~<C D>>"),
+        BimapTypeDict::new().parse("<A B~<C D>>"),
         Ok(TypeTerm::App(vec![
             TypeTerm::TypeID(TypeID::Fun(0)),
             TypeTerm::Ladder(vec![
@@ -134,14 +134,14 @@ fn test_parser_ladder_between() {
                 ])
             ])
         ]))
-    );    
+    );
 }
 
 
 #[test]
 fn test_parser_ladder_large() {
     assert_eq!(
-        TypeDict::new().parse(
+        BimapTypeDict::new().parse(
             "<Seq Date
                   ~<TimeSince UnixEpoch>
                   ~<Duration Seconds>
@@ -203,4 +203,3 @@ fn test_parser_ladder_large() {
         )
     );
 }
-

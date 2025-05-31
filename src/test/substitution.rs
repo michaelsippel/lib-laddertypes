@@ -1,6 +1,6 @@
 
 use {
-    crate::{dict::*, term::*},
+    crate::{dict::*, term::*, parser::*, unparser::*},
     std::iter::FromIterator
 };
 
@@ -8,7 +8,7 @@ use {
 
 #[test]
 fn test_subst() {
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
 
     let mut σ = std::collections::HashMap::new();
 
@@ -29,4 +29,3 @@ fn test_subst() {
         dict.parse("<Seq ℕ~<Seq Char>>").unwrap()
     );
 }
-

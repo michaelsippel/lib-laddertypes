@@ -2,6 +2,7 @@ use std::{collections::HashMap, hash::Hash};
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
+#[derive(Debug)]
 pub struct Bimap<V: Eq + Hash, Λ: Eq + Hash> {
     pub mλ: HashMap<V, Λ>,
     pub my: HashMap<Λ, V>,

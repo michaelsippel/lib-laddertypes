@@ -1,8 +1,8 @@
-use crate::dict::TypeDict;
+use crate::{dict::BimapTypeDict, parser::*};
 
 #[test]
 fn test_param_normalize() {
-    let mut dict = TypeDict::new();
+    let mut dict = BimapTypeDict::new();
 
     assert_eq!(
         dict.parse("A~B~C").expect("parse error"),
@@ -56,4 +56,3 @@ fn test_param_normalize() {
                .param_normalize(),
     );
 }
-

@@ -18,10 +18,23 @@ pub enum ParseError {
     UnexpectedToken
 }
 
+pub trait ParseLadderType {
+    fn parse(&mut self, s: &str) -> Result<TypeTerm, ParseError>;
+    
+    fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>;
+
+    fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>;
+
+    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>;
+}
+
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-impl TypeDict {
-    pub fn parse(&mut self, s: &str) -> Result<TypeTerm, ParseError> {
+impl<T: TypeDict> ParseLadderType for T {
+    fn parse(&mut self, s: &str) -> Result<TypeTerm, ParseError> {
         let mut tokens = LadderTypeLexer::from(s.chars()).peekable();
 
         match self.parse_ladder(&mut tokens) {

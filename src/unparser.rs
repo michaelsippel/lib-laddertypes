@@ -2,8 +2,12 @@ use crate::{dict::*, term::*};
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-impl TypeDict {
-    pub fn unparse(&self, t: &TypeTerm) -> String {
+pub trait UnparseLadderType {
+    fn unparse(&self, t: &TypeTerm) -> String;
+}
+
+impl<T: TypeDict> UnparseLadderType for T {
+    fn unparse(&self, t: &TypeTerm) -> String {
         match t {
             TypeTerm::TypeID(id) => self.get_typename(id).unwrap(),
             TypeTerm::Num(n) => format!("{}", n),
