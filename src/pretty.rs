@@ -1,5 +1,5 @@
 use {
-    crate::TypeDict,
+    crate::{TypeDict, dict::TypeID},
     crate::sugar::SugaredTypeTerm,
     tiny_ansi::TinyAnsi
 };
@@ -9,15 +9,26 @@ impl SugaredTypeTerm {
         let indent_width = 4;
         match self {
             SugaredTypeTerm::TypeID(id) => {
-                format!("{}", dict.get_typename(id).unwrap_or("??".bright_red())).bright_blue()
+                match id {
+                    TypeID::Var(varid) => {
+                        format!("{}", dict.get_typename(id).unwrap_or("??".bright_red())).bright_magenta()
+                    },
+                    TypeID::Fun(funid) => {
+                        format!("{}", dict.get_typename(id).unwrap_or("??".bright_red())).blue().bold()
+                    }
+                }
             },
 
             SugaredTypeTerm::Num(n) => {
-                format!("{}", n).bright_cyan()
+                format!("{}", n).green().bold()
             }
 
             SugaredTypeTerm::Char(c) => {
-                format!("'{}'", c)
+                match c {
+                    '\0' => format!("'\\0'"),
+                    '\n' => format!("'\\n'"),
+                    _ => format!("'{}'", c)
+                }
             }
 
             SugaredTypeTerm::Univ(t) => {
@@ -30,7 +41,7 @@ impl SugaredTypeTerm {
 
             SugaredTypeTerm::Spec(args) => {
                 let mut s = String::new();
-                s.push_str(&"<".yellow().bold());
+                s.push_str(&"<".yellow());
                 for i in 0..args.len() {
                     let arg = &args[i];
                     if i > 0 {
@@ -38,7 +49,7 @@ impl SugaredTypeTerm {
                     }
                     s.push_str( &arg.pretty(dict,indent+1) );
                 }
-                s.push_str(&">".yellow().bold());
+                s.push_str(&">".yellow());
                 s
             }
 
@@ -116,7 +127,7 @@ impl SugaredTypeTerm {
                         s.push('\n');
                         for x in 0..(indent*indent_width) {
                             s.push(' ');
-                        }                
+                        }
                         s.push_str(&"-->  ".bright_yellow());
                     } else {
 //                        s.push_str("   ");
@@ -144,5 +155,3 @@ impl SugaredTypeTerm {
         }
     }
 }
-
-
