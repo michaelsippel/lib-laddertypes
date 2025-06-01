@@ -22,6 +22,8 @@ impl Substitution for std::collections::HashMap< TypeID, TypeTerm > {
     }
 }
 
+pub type HashMapSubst = std::collections::HashMap< TypeID, TypeTerm >;
+
 impl TypeTerm {
     /// recursively apply substitution to all subterms,
     /// which will replace all occurences of variables which map
