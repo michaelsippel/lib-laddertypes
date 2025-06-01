@@ -7,4 +7,5 @@ pub mod pnf;
 pub mod subtype;
 pub mod substitution;
 pub mod unification;
+pub mod morphism;
 

@@ -1,5 +1,5 @@
 use {
-    crate::{dict::*, term::*}, std::{collections::HashMap, env::consts::ARCH}
+    crate::{dict::*, term::*}, std::{collections::HashMap}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -79,7 +79,7 @@ impl UnificationProblem {
         let mut new_σ = HashMap::new();
         for (v, tt) in self.σ.iter() {
             let mut tt = tt.clone().normalize();
-            tt.apply_substitution(&|v| self.σ.get(v).cloned());
+            tt.apply_subst(&self.σ);
             tt = tt.normalize();
             //eprintln!("update σ : {:?} --> {:?}", v, tt);
             new_σ.insert(v.clone(), tt);
@@ -224,7 +224,7 @@ impl UnificationProblem {
         // error
         UnificationError
     > {
-        eprintln!("eval_subtype {:?} <=? {:?}", unification_pair.lhs, unification_pair.rhs);
+        // eprintln!("eval_subtype {:?} <=? {:?}", unification_pair.lhs, unification_pair.rhs);
         match (unification_pair.lhs.clone(), unification_pair.rhs.clone()) {
 
             /*
@@ -414,7 +414,7 @@ impl UnificationProblem {
                             Ok(halo) => {
                             if halo == TypeTerm::unit() {
                                 let mut y = y.clone();
-                                y.apply_substitution(&|k| self.σ.get(k).cloned());
+                                y.apply_subst(&self.σ);
                                 y = y.strip();
                                 let mut top = y.get_lnf_vec().first().unwrap().clone();
                                 halo_args.push(top.clone());
@@ -425,7 +425,7 @@ impl UnificationProblem {
                                     let x = &mut halo_args[n_halos_required-1];
                                     if let TypeTerm::Ladder(argrs) = x {
                                         let mut a = a2[n_halos_required-1].clone();
-                                        a.apply_substitution(&|k| self.σ.get(k).cloned());
+                                        a.apply_subst(&self.σ);
                                         a = a.get_lnf_vec().first().unwrap().clone();
                                         argrs.push(a);
                                     } else {
@@ -434,7 +434,7 @@ impl UnificationProblem {
                                             a2[n_halos_required-1].clone().get_lnf_vec().first().unwrap().clone()
                                         ]);
 
-                                        x.apply_substitution(&|k| self.σ.get(k).cloned());
+                                        x.apply_subst(&self.σ);
                                     }
                                 }
 
@@ -464,8 +464,8 @@ impl UnificationProblem {
     pub fn solve(mut self) -> Result<(Vec<TypeTerm>, HashMap<TypeID, TypeTerm>), UnificationError> {
         // solve equations
         while let Some( mut equal_pair ) = self.equal_pairs.pop() {
-            equal_pair.lhs.apply_substitution(&|v| self.σ.get(v).cloned());
-            equal_pair.rhs.apply_substitution(&|v| self.σ.get(v).cloned());
+            equal_pair.lhs.apply_subst(&self.σ);
+            equal_pair.rhs.apply_subst(&self.σ);
 
             self.eval_equation(equal_pair)?;
         }
@@ -473,8 +473,8 @@ impl UnificationProblem {
         // solve subtypes
 //        eprintln!("------ SOLVE SUBTYPES ---- ");
         for mut subtype_pair in self.subtype_pairs.clone().into_iter() {
-            subtype_pair.lhs.apply_substitution(&|v| self.σ.get(v).cloned());
-            subtype_pair.rhs.apply_substitution(&|v| self.σ.get(v).cloned());
+            subtype_pair.lhs.apply_subst(&self.σ);
+            subtype_pair.rhs.apply_subst(&self.σ);
             let _halo = self.eval_subtype( subtype_pair.clone() )?.strip();
         }
 
@@ -494,8 +494,8 @@ impl UnificationProblem {
 //        eprintln!("------ MAKE HALOS -----");
         let mut halo_types = Vec::new();
         for mut subtype_pair in self.subtype_pairs.clone().into_iter() {
-            subtype_pair.lhs = subtype_pair.lhs.apply_substitution(&|v| self.σ.get(v).cloned()).clone().strip();
-            subtype_pair.rhs = subtype_pair.rhs.apply_substitution(&|v| self.σ.get(v).cloned()).clone().strip();
+            subtype_pair.lhs = subtype_pair.lhs.apply_subst(&self.σ).clone().strip();
+            subtype_pair.rhs = subtype_pair.rhs.apply_subst(&self.σ).clone().strip();
 
             let halo = self.eval_subtype( subtype_pair.clone() )?.strip();
             halo_types.push(halo);

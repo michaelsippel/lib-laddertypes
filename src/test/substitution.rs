@@ -1,7 +1,7 @@
 
 use {
-    crate::{dict::*, term::*, parser::*, unparser::*},
-    std::iter::FromIterator
+    crate::{dict::*, term::*, parser::*, unparser::*, substitution::*},
+    std::iter::FromIterator,
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -24,8 +24,7 @@ fn test_subst() {
 
 
     assert_eq!(
-        dict.parse("<Seq T~U>").unwrap()
-            .apply_substitution(&|typid|{ σ.get(typid).cloned() }).clone(),
+        dict.parse("<Seq T~U>").unwrap().apply_subst(&σ).clone(),
         dict.parse("<Seq ℕ~<Seq Char>>").unwrap()
     );
 }
