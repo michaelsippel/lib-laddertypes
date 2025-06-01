@@ -1,6 +1,5 @@
 use {
-    std::collections::HashMap,
-    crate::{term::*, dict::*}
+    crate::{dict::*, term::*}, std::{collections::HashMap, env::consts::ARCH}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -12,21 +11,71 @@ pub struct UnificationError {
     pub t2: TypeTerm
 }
 
+#[derive(Clone, Debug)]
+pub struct UnificationPair {
+    addr: Vec<usize>,
+    halo: TypeTerm,
+
+    lhs: TypeTerm,
+    rhs: TypeTerm,
+}
+
+#[derive(Debug)]
 pub struct UnificationProblem {
-    eqs: Vec<(TypeTerm, TypeTerm, Vec<usize>)>,
-    σ: HashMap<TypeID, TypeTerm>
+    σ: HashMap<TypeID, TypeTerm>,
+    upper_bounds: HashMap< u64, TypeTerm >,
+    lower_bounds: HashMap< u64, TypeTerm >,
+    equal_pairs: Vec<UnificationPair>,
+    subtype_pairs: Vec<UnificationPair>,
+    trait_pairs: Vec<UnificationPair>
 }
 
 impl UnificationProblem {
-    pub fn new(eqs: Vec<(TypeTerm, TypeTerm)>) -> Self {
+    pub fn new(
+        equal_pairs: Vec<(TypeTerm, TypeTerm)>,
+        subtype_pairs: Vec<(TypeTerm, TypeTerm)>,
+        trait_pairs: Vec<(TypeTerm, TypeTerm)>
+    ) -> Self {
         UnificationProblem {
-            eqs: eqs.iter().map(|(lhs,rhs)| (lhs.clone(),rhs.clone(),vec![])).collect(),
-            σ: HashMap::new()
+            σ: HashMap::new(),
+
+            equal_pairs: equal_pairs.into_iter().map(|(lhs,rhs)|
+                UnificationPair{
+                    lhs,rhs,
+                    halo: TypeTerm::unit(),
+                    addr: Vec::new()
+                }).collect(),
+
+            subtype_pairs: subtype_pairs.into_iter().map(|(lhs,rhs)|
+                UnificationPair{
+                    lhs,rhs,
+                    halo: TypeTerm::unit(),
+                    addr: Vec::new()
+                }).collect(),
+
+            trait_pairs: trait_pairs.into_iter().map(|(lhs,rhs)|
+                UnificationPair{
+                    lhs,rhs,
+                    halo: TypeTerm::unit(),
+                    addr: Vec::new()
+                }).collect(),
+
+            upper_bounds: HashMap::new(),
+            lower_bounds: HashMap::new(),
         }
     }
 
+    pub fn new_eq(eqs: Vec<(TypeTerm, TypeTerm)>) -> Self {
+        UnificationProblem::new( eqs, Vec::new(), Vec::new() )
+    }
+
+    pub fn new_sub(subs: Vec<(TypeTerm, TypeTerm)>) -> Self {
+        UnificationProblem::new( Vec::new(), subs, Vec::new() )
+    }
+
+
+    /// update all values in substitution
     pub fn reapply_subst(&mut self) {
-        // update all values in substitution
         let mut new_σ = HashMap::new();
         for (v, tt) in self.σ.iter() {
             let mut tt = tt.clone().normalize();
@@ -38,222 +87,426 @@ impl UnificationProblem {
         self.σ = new_σ;
     }
 
-    pub fn eval_subtype(&mut self, lhs: TypeTerm, rhs: TypeTerm, addr: Vec<usize>) -> Result<Vec<TypeTerm>, UnificationError> {
-        match (lhs.clone(), rhs.clone()) {
+
+    pub fn eval_equation(&mut self, unification_pair: UnificationPair) -> Result<(), UnificationError> {
+        match (&unification_pair.lhs, &unification_pair.rhs) {
             (TypeTerm::TypeID(TypeID::Var(varid)), t) |
             (t, TypeTerm::TypeID(TypeID::Var(varid))) => {
-                if ! t.contains_var( varid ) {
-                    self.σ.insert(TypeID::Var(varid), t.clone());
+                if ! t.contains_var( *varid ) {
+                    self.σ.insert(TypeID::Var(*varid), t.clone());
                     self.reapply_subst();
-                    Ok(vec![])
-                } else if t == TypeTerm::TypeID(TypeID::Var(varid)) {
-                    Ok(vec![])
+                    Ok(())
+                } else if t == &TypeTerm::TypeID(TypeID::Var(*varid)) {
+                    Ok(())
                 } else {
-                    Err(UnificationError{ addr, t1: TypeTerm::TypeID(TypeID::Var(varid)), t2: t })
+                    Err(UnificationError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(*varid)), t2: t.clone() })
                 }
             }
 
             (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
-                if a1 == a2 { Ok(vec![]) } else { Err(UnificationError{ addr, t1: lhs, t2: rhs}) }
+                if a1 == a2 { Ok(()) } else { Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
             (TypeTerm::Num(n1), TypeTerm::Num(n2)) => {
-                if n1 == n2 { Ok(vec![]) } else { Err(UnificationError{ addr, t1: lhs, t2: rhs}) }
+                if n1 == n2 { Ok(()) } else { Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
             (TypeTerm::Char(c1), TypeTerm::Char(c2)) => {
-                if c1 == c2 { Ok(vec![]) } else { Err(UnificationError{ addr, t1: lhs, t2: rhs}) }
-            }
-
-            (TypeTerm::Ladder(a1), TypeTerm::Ladder(a2)) => {
-                let mut halo = Vec::new();
-                for i in 0..a1.len() {
-                    if let Ok((r_halo, σ)) = subtype_unify( &a1[i], &a2[0] ) {
-                        //eprintln!("unified ladders at {}, r_halo = {:?}", i, r_halo);
-                        for (k,v) in σ.iter() {
-                            self.σ.insert(k.clone(),v.clone());
-                        }
-
-                        for j in 0..a2.len() {
-                            if i+j < a1.len() {
-                                let mut new_addr = addr.clone();
-                                new_addr.push(i+j);
-                                self.eqs.push((a1[i+j].clone().apply_substitution(&|k| σ.get(k).cloned()).clone(),
-                                    a2[j].clone().apply_substitution(&|k| σ.get(k).cloned()).clone(),
-                                    new_addr));
-                            }
-                        }
-                        return Ok(halo)
-                    } else {
-                        halo.push(a1[i].clone());
-                        //eprintln!("could not unify ladders");
-                    }
-                }
-
-                Err(UnificationError{ addr, t1: lhs, t2: rhs })
-            },
-
-            (t, TypeTerm::Ladder(mut a1)) => {
-                if let Ok(mut halo) = self.eval_subtype( t.clone(), a1.first().unwrap().clone(), addr.clone() ) {
-                    a1.append(&mut halo);
-                    Ok(a1)
-                } else {
-                    Err(UnificationError{ addr, t1: t, t2: TypeTerm::Ladder(a1) })
-                }
-            }
-
-            (TypeTerm::Ladder(mut a1), t) => {
-                if let Ok(mut halo) = self.eval_subtype( a1.pop().unwrap(), t.clone(), addr.clone() ) {
-                    a1.append(&mut halo);
-                    Ok(a1)
-                } else {
-                    Err(UnificationError{ addr, t1: TypeTerm::Ladder(a1), t2: t })
-                }
-            }
-
-            (TypeTerm::App(a1), TypeTerm::App(a2)) => {
-                if a1.len() == a2.len() {
-                    let mut halo_args = Vec::new();
-                    let mut halo_required = false;
-
-                    for (i, (x, y)) in a1.iter().cloned().zip(a2.iter().cloned()).enumerate() {
-                        let mut new_addr = addr.clone();
-                        new_addr.push(i);
-                        //self.eqs.push((x, y, new_addr));
-
-                        if let Ok(halo) = self.eval_subtype( x.clone(), y.clone(), new_addr ) {
-                            if halo.len() == 0 {
-                                halo_args.push(y.get_lnf_vec().first().unwrap().clone());
-                            } else {
-                                halo_args.push(TypeTerm::Ladder(halo));
-                                halo_required = true;
-                            }
-                        } else {
-                            return Err(UnificationError{ addr, t1: x, t2: y })
-                        }
-                    }
-
-                    if halo_required {
-                        Ok(vec![ TypeTerm::App(halo_args) ])
-                    } else {
-                        Ok(vec![])
-                    }
-                } else {
-                    Err(UnificationError{ addr, t1: lhs, t2: rhs })
-                }
-            }
-
-            _ => Err(UnificationError{ addr, t1: lhs, t2: rhs})
-        }
-    }
-
-    pub fn eval_equation(&mut self, lhs: TypeTerm, rhs: TypeTerm, addr: Vec<usize>) -> Result<(), UnificationError> {
-        match (lhs.clone(), rhs.clone()) {
-            (TypeTerm::TypeID(TypeID::Var(varid)), t) |
-            (t, TypeTerm::TypeID(TypeID::Var(varid))) => {
-                if ! t.contains_var( varid ) {
-                    self.σ.insert(TypeID::Var(varid), t.clone());
-                    self.reapply_subst();
-                    Ok(())
-                } else if t == TypeTerm::TypeID(TypeID::Var(varid)) {
-                    Ok(())
-                } else {
-                    Err(UnificationError{ addr, t1: TypeTerm::TypeID(TypeID::Var(varid)), t2: t })
-                }
-            }
-
-            (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
-                if a1 == a2 { Ok(()) } else { Err(UnificationError{ addr, t1: lhs, t2: rhs}) }
-            }
-            (TypeTerm::Num(n1), TypeTerm::Num(n2)) => {
-                if n1 == n2 { Ok(()) } else { Err(UnificationError{ addr, t1: lhs, t2: rhs}) }
-            }
-            (TypeTerm::Char(c1), TypeTerm::Char(c2)) => {
-                if c1 == c2 { Ok(()) } else { Err(UnificationError{ addr, t1: lhs, t2: rhs}) }
+                if c1 == c2 { Ok(()) } else { Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
 
             (TypeTerm::Ladder(a1), TypeTerm::Ladder(a2)) |
             (TypeTerm::App(a1), TypeTerm::App(a2)) => {
                 if a1.len() == a2.len() {
                     for (i, (x, y)) in a1.iter().cloned().zip(a2.iter().cloned()).enumerate().rev() {
-                        let mut new_addr = addr.clone();
+                        let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
-                        self.eqs.push((x, y, new_addr));
+                        self.equal_pairs.push(
+                            UnificationPair {
+                                lhs: x,
+                                rhs: y,
+                                halo: TypeTerm::unit(),
+                                addr: new_addr
+                            });
                     }
                     Ok(())
                 } else {
-                    Err(UnificationError{ addr, t1: lhs, t2: rhs })
+                    Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
 
-            _ => Err(UnificationError{ addr, t1: lhs, t2: rhs})
+            _ => Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
         }
     }
 
-    pub fn solve(mut self) -> Result<HashMap<TypeID, TypeTerm>, UnificationError> {
-        while let Some( (mut lhs,mut rhs,addr) ) = self.eqs.pop() {
-            lhs.apply_substitution(&|v| self.σ.get(v).cloned());
-            rhs.apply_substitution(&|v| self.σ.get(v).cloned());
-            self.eval_equation(lhs, rhs, addr)?;
+
+
+    pub fn add_lower_subtype_bound(&mut self, v: u64, new_lower_bound: TypeTerm) -> Result<(),()> {
+
+        if new_lower_bound == TypeTerm::TypeID(TypeID::Var(v)) {
+            return Ok(());
         }
-        Ok(self.σ)
+
+        if new_lower_bound.contains_var(v) {
+            // loop
+            return Err(());
+        }
+
+        if let Some(lower_bound) = self.lower_bounds.get(&v).cloned() {
+//                        eprintln!("var already exists. check max. type");
+            if let Ok(halo) = self.eval_subtype(
+                UnificationPair {
+                    lhs: lower_bound.clone(),
+                    rhs: new_lower_bound.clone(),
+                    halo: TypeTerm::unit(),
+                    addr: vec![]
+                }
+            ) {
+//                            eprintln!("found more general lower bound");
+//                            eprintln!("set var {}'s lowerbound to {:?}", varid, t.clone());
+                // generalize variable type to supertype
+                self.lower_bounds.insert(v, new_lower_bound);
+                Ok(())
+            } else if let Ok(halo) = self.eval_subtype(
+                UnificationPair{
+                    lhs: new_lower_bound,
+                    rhs: lower_bound,
+                    halo: TypeTerm::unit(),
+                    addr: vec![]
+                }
+            ) {
+//                            eprintln!("OK, is already larger type");
+                 Ok(())
+            } else {
+//                            eprintln!("violated subtype restriction");
+                Err(())
+            }
+        } else {
+//                        eprintln!("set var {}'s lowerbound to {:?}", varid, t.clone());
+            self.lower_bounds.insert(v, new_lower_bound);
+            Ok(())
+        }
     }
 
-    pub fn solve_subtype(mut self) -> Result<(TypeTerm, HashMap<TypeID, TypeTerm>), UnificationError> {
 
-        pub fn insert_halo_at(
-            t: &mut TypeTerm,
-            mut addr: Vec<usize>,
-            halo_type: TypeTerm
-        ) {
-            match t {
-                TypeTerm::Ladder(rungs) => {
-                    if let Some(idx) = addr.pop() {
-                        for i in rungs.len()..idx+1 {
-                            rungs.push(TypeTerm::unit());
+    pub fn add_upper_subtype_bound(&mut self, v: u64, new_upper_bound: TypeTerm) -> Result<(),()> {
+        if new_upper_bound == TypeTerm::TypeID(TypeID::Var(v)) {
+            return Ok(());
+        }
+
+        if new_upper_bound.contains_var(v) {
+            // loop
+            return Err(());
+        }
+
+        if let Some(upper_bound) = self.upper_bounds.get(&v).cloned() {
+            if let Ok(_halo) = self.eval_subtype(
+                UnificationPair {
+                    lhs: new_upper_bound.clone(),
+                    rhs: upper_bound,
+                    halo: TypeTerm::unit(),
+                    addr: vec![]
+                }
+            ) {
+                // found a lower upper bound
+                self.upper_bounds.insert(v, new_upper_bound);
+                Ok(())
+            } else {
+                Err(())
+            }
+        } else {
+            self.upper_bounds.insert(v, new_upper_bound);
+            Ok(())
+        }
+    }
+
+    pub fn eval_subtype(&mut self, unification_pair: UnificationPair) -> Result<
+        // ok: halo type
+        TypeTerm,
+        // error
+        UnificationError
+    > {
+        eprintln!("eval_subtype {:?} <=? {:?}", unification_pair.lhs, unification_pair.rhs);
+        match (unification_pair.lhs.clone(), unification_pair.rhs.clone()) {
+
+            /*
+             Variables
+            */
+
+            (t, TypeTerm::TypeID(TypeID::Var(v))) => {
+                //eprintln!("t <= variable");
+                if self.add_lower_subtype_bound(v, t.clone()).is_ok() {
+                    Ok(TypeTerm::unit())
+                } else {
+                    Err(UnificationError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(v)), t2: t })
+                }
+            }
+
+            (TypeTerm::TypeID(TypeID::Var(v)), t) => {
+                //eprintln!("variable <= t");
+                if self.add_upper_subtype_bound(v, t.clone()).is_ok() {
+                    Ok(TypeTerm::unit())
+                } else {
+                    Err(UnificationError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(v)), t2: t })
+                }
+            }
+
+
+            /*
+             Atoms
+            */
+
+            (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
+                if a1 == a2 { Ok(TypeTerm::unit()) } else { Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs}) }
+            }
+            (TypeTerm::Num(n1), TypeTerm::Num(n2)) => {
+                if n1 == n2 { Ok(TypeTerm::unit()) } else { Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
+            }
+            (TypeTerm::Char(c1), TypeTerm::Char(c2)) => {
+                if c1 == c2 { Ok(TypeTerm::unit()) } else { Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
+            }
+
+
+            /*
+             Ladders
+            */
+
+            (TypeTerm::Ladder(a1), TypeTerm::Ladder(a2)) => {
+                let mut l1_iter = a1.into_iter().enumerate().rev();
+                let mut l2_iter = a2.into_iter().rev();
+
+                let mut halo_ladder = Vec::new();
+
+                while let Some(rhs) = l2_iter.next() {
+                    //eprintln!("take rhs = {:?}", rhs);
+                    if let Some((i, lhs)) = l1_iter.next() {
+                        //eprintln!("take lhs ({}) = {:?}", i, lhs);
+                        let mut addr = unification_pair.addr.clone();
+                        addr.push(i);
+                        //eprintln!("addr = {:?}", addr);
+
+                        match (lhs.clone(), rhs.clone()) {
+                            (t, TypeTerm::TypeID(TypeID::Var(v))) => {
+
+                                if self.add_upper_subtype_bound(v,t.clone()).is_ok() {
+                                    let mut new_upper_bound_ladder = vec![ t ];
+
+                                    if let Some(next_rhs) = l2_iter.next() {
+
+                                        // TODO
+
+                                    } else {
+                                        // take everything
+
+                                        while let Some((i,t)) = l1_iter.next() {
+                                            new_upper_bound_ladder.push(t);
+                                        }
+                                    }
+
+                                    new_upper_bound_ladder.reverse();
+                                    if self.add_upper_subtype_bound(v, TypeTerm::Ladder(new_upper_bound_ladder)).is_ok() {
+                                        // ok
+                                    } else {
+                                        return Err(UnificationError {
+                                            addr,
+                                            t1: lhs,
+                                            t2: rhs
+                                        });
+                                    }
+                                } else {
+                                    return Err(UnificationError {
+                                        addr,
+                                        t1: lhs,
+                                        t2: rhs
+                                    });
+                                }
+                            }
+                            (lhs, rhs) => {
+                                if let Ok(ψ) = self.eval_subtype(
+                                    UnificationPair {
+                                        lhs: lhs.clone(), rhs: rhs.clone(),
+                                        addr:addr.clone(), halo: TypeTerm::unit()
+                                    }
+                                ) {
+                                    // ok.
+                                    //eprintln!("rungs are subtypes. continue");
+                                    halo_ladder.push(ψ);
+                                } else {
+                                    return Err(UnificationError {
+                                        addr,
+                                        t1: lhs,
+                                        t2: rhs
+                                    });
+                                }
+                            }
                         }
-                        insert_halo_at( &mut rungs[idx], addr, halo_type );
                     } else {
-                        rungs.push(halo_type);
-                    }
-                },
-
-                TypeTerm::App(args) => {
-                    if let Some(idx) = addr.pop() {
-                        insert_halo_at( &mut args[idx], addr, halo_type );
-                    } else {
-                        *t = TypeTerm::Ladder(vec![
-                            halo_type,
-                            t.clone()
-                        ]);
+                        // not a subtype,
+                        return Err(UnificationError {
+                            addr: vec![],
+                            t1: unification_pair.lhs,
+                            t2: unification_pair.rhs
+                        });
                     }
                 }
+                //eprintln!("left ladder fully consumed");
 
-                atomic => {
+                for (i,t) in l1_iter {
+                    halo_ladder.push(t);
+                }
+                halo_ladder.reverse();
+                Ok(TypeTerm::Ladder(halo_ladder).strip().param_normalize())
+            },
 
+            (t, TypeTerm::Ladder(a1)) => {
+                Err(UnificationError{ addr: unification_pair.addr, t1: t, t2: TypeTerm::Ladder(a1) })
+            }
+
+            (TypeTerm::Ladder(mut a1), t) => {
+                let mut new_addr = unification_pair.addr.clone();
+                new_addr.push( a1.len() -1 );
+                if let Ok(halo) = self.eval_subtype(
+                    UnificationPair {
+                        lhs: a1.pop().unwrap(),
+                        rhs: t.clone(),
+                        halo: TypeTerm::unit(),
+                        addr: new_addr
+                    }
+                ) {
+                    a1.push(halo);
+                    if a1.len() == 1 {
+                        Ok(a1.pop().unwrap())
+                    } else {
+                        Ok(TypeTerm::Ladder(a1))
+                    }
+                } else {
+                    Err(UnificationError{ addr: unification_pair.addr, t1: TypeTerm::Ladder(a1), t2: t })
                 }
             }
-        }
 
-        //let mut halo_type = TypeTerm::unit();
-        let mut halo_rungs = Vec::new();
 
-        while let Some( (mut lhs, mut rhs, mut addr) ) = self.eqs.pop() {
-            lhs.apply_substitution(&|v| self.σ.get(v).cloned());
-            rhs.apply_substitution(&|v| self.σ.get(v).cloned());
-            //eprintln!("eval subtype\n\tLHS={:?}\n\tRHS={:?}\n", lhs, rhs);
-            let mut new_halo = self.eval_subtype(lhs, rhs, addr.clone())?;
-            if new_halo.len() > 0 {
-                //insert_halo_at( &mut halo_type, addr, TypeTerm::Ladder(new_halo) );
-                if addr.len() == 0 {
-                    halo_rungs.push(TypeTerm::Ladder(new_halo))
+            /*
+             Application
+            */
+
+            (TypeTerm::App(a1), TypeTerm::App(a2)) => {
+                if a1.len() == a2.len() {
+                    let mut halo_args = Vec::new();
+                    let mut n_halos_required = 0;
+
+                    for (i, (mut x, mut y)) in a1.iter().cloned().zip(a2.iter().cloned()).enumerate() {
+                        let mut new_addr = unification_pair.addr.clone();
+                        new_addr.push(i);
+
+                        x = x.strip();
+
+//                        eprintln!("before strip: {:?}", y);
+                        y = y.strip();
+//                        eprintln!("after strip: {:?}", y);
+//                        eprintln!("APP<> eval {:?} \n ?<=? {:?} ", x, y);
+
+                        match self.eval_subtype(
+                            UnificationPair {
+                                lhs: x.clone(),
+                                rhs: y.clone(),
+                                halo: TypeTerm::unit(),
+                                addr: new_addr,
+                            }
+                        ) {
+                            Ok(halo) => {
+                            if halo == TypeTerm::unit() {
+                                let mut y = y.clone();
+                                y.apply_substitution(&|k| self.σ.get(k).cloned());
+                                y = y.strip();
+                                let mut top = y.get_lnf_vec().first().unwrap().clone();
+                                halo_args.push(top.clone());
+                                //eprintln!("add top {:?}", top);
+                            } else {
+                                //eprintln!("add halo {:?}", halo);
+                                if n_halos_required > 0 {
+                                    let x = &mut halo_args[n_halos_required-1];
+                                    if let TypeTerm::Ladder(argrs) = x {
+                                        let mut a = a2[n_halos_required-1].clone();
+                                        a.apply_substitution(&|k| self.σ.get(k).cloned());
+                                        a = a.get_lnf_vec().first().unwrap().clone();
+                                        argrs.push(a);
+                                    } else {
+                                        *x = TypeTerm::Ladder(vec![
+                                            x.clone(),
+                                            a2[n_halos_required-1].clone().get_lnf_vec().first().unwrap().clone()
+                                        ]);
+
+                                        x.apply_substitution(&|k| self.σ.get(k).cloned());
+                                    }
+                                }
+
+                                halo_args.push(halo);
+                                n_halos_required += 1;
+                            }
+                            },
+                            Err(err) => { return Err(err); }
+                        }
+                    }
+
+                    if n_halos_required > 0 {
+                        //eprintln!("halo args : {:?}", halo_args);
+                        Ok(TypeTerm::App(halo_args))
+                    } else {
+                        Ok(TypeTerm::unit())
+                    }
+                } else {
+                    Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
                 }
             }
+
+            _ => Err(UnificationError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+        }
+    }
+
+    pub fn solve(mut self) -> Result<(Vec<TypeTerm>, HashMap<TypeID, TypeTerm>), UnificationError> {
+        // solve equations
+        while let Some( mut equal_pair ) = self.equal_pairs.pop() {
+            equal_pair.lhs.apply_substitution(&|v| self.σ.get(v).cloned());
+            equal_pair.rhs.apply_substitution(&|v| self.σ.get(v).cloned());
+
+            self.eval_equation(equal_pair)?;
         }
 
-        let mut halo_type = TypeTerm::Ladder(halo_rungs);
-        halo_type = halo_type.normalize();
-        halo_type = halo_type.apply_substitution(&|k| self.σ.get(k).cloned()).clone();
+        // solve subtypes
+//        eprintln!("------ SOLVE SUBTYPES ---- ");
+        for mut subtype_pair in self.subtype_pairs.clone().into_iter() {
+            subtype_pair.lhs.apply_substitution(&|v| self.σ.get(v).cloned());
+            subtype_pair.rhs.apply_substitution(&|v| self.σ.get(v).cloned());
+            let _halo = self.eval_subtype( subtype_pair.clone() )?.strip();
+        }
 
-        Ok((halo_type.param_normalize(), self.σ))
+        // add variables from subtype bounds
+        for (var_id, t) in self.upper_bounds.iter() {
+//            eprintln!("VAR {} upper bound {:?}", var_id, t);
+            self.σ.insert(TypeID::Var(*var_id), t.clone().strip());
+        }
+
+        for (var_id, t) in self.lower_bounds.iter() {
+//            eprintln!("VAR {} lower bound {:?}", var_id, t);
+            self.σ.insert(TypeID::Var(*var_id), t.clone().strip());
+        }
+
+        self.reapply_subst();
+
+//        eprintln!("------ MAKE HALOS -----");
+        let mut halo_types = Vec::new();
+        for mut subtype_pair in self.subtype_pairs.clone().into_iter() {
+            subtype_pair.lhs = subtype_pair.lhs.apply_substitution(&|v| self.σ.get(v).cloned()).clone().strip();
+            subtype_pair.rhs = subtype_pair.rhs.apply_substitution(&|v| self.σ.get(v).cloned()).clone().strip();
+
+            let halo = self.eval_subtype( subtype_pair.clone() )?.strip();
+            halo_types.push(halo);
+        }
+
+        // solve traits
+        while let Some( trait_pair ) = self.trait_pairs.pop() {
+            unimplemented!();
+        }
+
+        Ok((halo_types, self.σ))
     }
 }
 
@@ -261,16 +514,16 @@ pub fn unify(
     t1: &TypeTerm,
     t2: &TypeTerm
 ) -> Result<HashMap<TypeID, TypeTerm>, UnificationError> {
-    let mut unification = UnificationProblem::new(vec![ (t1.clone(), t2.clone()) ]);
-    unification.solve()
+    let unification = UnificationProblem::new_eq(vec![ (t1.clone(), t2.clone()) ]);
+    Ok(unification.solve()?.1)
 }
 
 pub fn subtype_unify(
     t1: &TypeTerm,
     t2: &TypeTerm
 ) -> Result<(TypeTerm, HashMap<TypeID, TypeTerm>), UnificationError> {
-    let mut unification = UnificationProblem::new(vec![ (t1.clone(), t2.clone()) ]);
-    unification.solve_subtype()
+    let unification = UnificationProblem::new_sub(vec![ (t1.clone(), t2.clone()) ]);
+    unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\

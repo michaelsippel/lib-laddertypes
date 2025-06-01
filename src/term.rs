@@ -165,8 +165,6 @@ impl TypeTerm {
         }
     }
 
-
-
     pub fn get_interface_type(&self) -> TypeTerm {
         match self {
             TypeTerm::Ladder(rungs) => {
