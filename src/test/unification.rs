@@ -1,6 +1,6 @@
 
 use {
-    crate::{dict::*, parser::*, constraint_system::ConstraintError},
+    crate::{dict::*, parser::*, constraint_system::{ConstraintError}},
     std::iter::FromIterator
 };
 
