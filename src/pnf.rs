@@ -247,7 +247,7 @@ impl TypeTerm {
                             todo!();
                         }
 
-                        (TypeTerm::Morph(args1), TypeTerm::Morph(args2)) => {
+                        (TypeTerm::Morph(src1,dst1), TypeTerm::Morph(src2,dst2)) => {
                             todo!();
                         }
 

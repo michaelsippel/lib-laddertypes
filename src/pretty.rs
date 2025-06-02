@@ -136,12 +136,11 @@ impl TypeTerm {
                 s
             }
 
-            TypeTerm::Morph(args) => {
+            TypeTerm::Morph(src,dst) => {
                 let mut s = String::new();
-                for arg in args {
-                    s.push_str(&"  ~~morph~~>  ".bright_yellow());
-                    s.push_str(&arg.pretty(dict, indent));
-                }
+                s.push_str(&src.pretty(dict, indent));
+                s.push_str(&"  ~~morph~~>  ".bright_yellow());
+                s.push_str(&dst.pretty(dict, indent));
                 s
             }
 

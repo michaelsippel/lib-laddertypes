@@ -73,8 +73,7 @@ impl TypeTerm {
             }
             TypeTerm::Ladder(args) |
             TypeTerm::Spec(args) |
-            TypeTerm::Func(args) |
-            TypeTerm::Morph(args)
+            TypeTerm::Func(args)
             => {
                 for r in args.iter_mut() {
                     r.apply_subst(σ);
@@ -82,6 +81,11 @@ impl TypeTerm {
             }
 
             TypeTerm::Univ(t) => { t.apply_subst(σ); }
+
+            TypeTerm::Morph(src, dst) => {
+                src.apply_subst(σ);
+                dst.apply_subst(σ);
+            }
 
             TypeTerm::Struct { struct_repr, members } => {
                 if let Some(struct_repr) = struct_repr.as_mut() {

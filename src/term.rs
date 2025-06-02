@@ -1,5 +1,5 @@
 use {
-    crate::{parser::ParseLadderType, subtype_unify, DesugaredTypeTerm, TypeDict, TypeID}
+    crate::{parser::ParseLadderType, subtype_unify, DesugaredTypeTerm, MorphismType, TypeDict, TypeID}, std::ops::Deref
 };
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -19,10 +19,11 @@ pub enum TypeTerm {
     TypeID(TypeID),
     Num(i64),
     Char(char),
+    //Univ(Box< VariableConstraint >, Box< TypeTerm >),
     Univ(Box< TypeTerm >),
     Spec(Vec< TypeTerm >),
     Func(Vec< TypeTerm >),
-    Morph(Vec< TypeTerm >),
+    Morph(Box< TypeTerm >, Box< TypeTerm >),
     Ladder(Vec< TypeTerm >),
     Struct{
         struct_repr: Option< Box<TypeTerm> >,
@@ -40,6 +41,15 @@ pub enum TypeTerm {
     /*
     Todo: Ref, RefMut
     */
+}
+
+impl TypeTerm {
+    pub fn into_morphism_type(self) -> Option< MorphismType > {
+        match self.normalize() {
+            TypeTerm::Morph(src,dst) => Some(MorphismType { src_type: src.deref().clone(), dst_type: dst.deref().clone() }),
+            _ => None
+        }
+    }
 }
 
 impl StructMember {
@@ -119,7 +129,14 @@ impl DesugaredTypeTerm {
                     TypeTerm::Func( args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect() )
                 }
                 else if first == &dict.parse_desugared("Morph").unwrap() {
-                    TypeTerm::Morph( args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect() )
+                    if args.len() == 3 {
+                        TypeTerm::Morph(
+                            Box::new(args[1].clone().sugar(dict)),
+                            Box::new(args[2].clone().sugar(dict)),
+                        )
+                    } else {
+                        panic!("sugar: invalid arguments for morphism type")
+                    }
                 }
                 else if first == &dict.parse_desugared("Seq").unwrap() {
                     TypeTerm::Seq{
@@ -271,10 +288,11 @@ impl TypeTerm {
                 std::iter::once( dict.parse_desugared("Func").unwrap() ).chain(
                     ts.into_iter().map(|t| t.desugar(dict))
                 ).collect()),
-            TypeTerm::Morph(ts) => DesugaredTypeTerm::App(
-                std::iter::once( dict.parse_desugared("Morph").unwrap() ).chain(
-                    ts.into_iter().map(|t| t.desugar(dict))
-                ).collect()),
+            TypeTerm::Morph(src,dst) => DesugaredTypeTerm::App(vec![
+                    dict.parse_desugared("Morph").unwrap(),
+                    src.desugar(dict),
+                    dst.desugar(dict)
+                ]),
             TypeTerm::Struct{ struct_repr, members } => DesugaredTypeTerm::App(
                 std::iter::once(
                     if let Some(sr) = struct_repr {
@@ -322,7 +340,6 @@ impl TypeTerm {
             TypeTerm::TypeID(TypeID::Var(v)) => (&var_id == v),
             TypeTerm::Spec(args) |
             TypeTerm::Func(args) |
-            TypeTerm::Morph(args) |
             TypeTerm::Ladder(args) => {
                 for a in args.iter() {
                     if a.contains_var(var_id) {
@@ -330,6 +347,9 @@ impl TypeTerm {
                     }
                 }
                 false
+            }
+            TypeTerm::Morph(src,dst) => {
+                src.contains_var(var_id) || dst.contains_var(var_id)
             }
             TypeTerm::Univ(t) => {
                 t.contains_var(var_id)
@@ -449,8 +469,11 @@ impl TypeTerm {
             TypeTerm::Func(args)
                 => TypeTerm::Func(args.iter().map(|a| a.get_interface_type()).collect()),
 
-            TypeTerm::Morph(args)
-                => TypeTerm::Spec(args.iter().map(|a| a.get_interface_type()).collect()),
+            TypeTerm::Morph(src,dst)
+                => TypeTerm::Morph(
+                    Box::new(src.get_interface_type()),
+                    Box::new(dst.get_interface_type())
+                ),
 
             TypeTerm::Univ(t)
                 => TypeTerm::Univ(Box::new(t.get_interface_type())),
@@ -564,9 +587,11 @@ impl TypeTerm {
             TypeTerm::Univ(t) => t.is_empty(),
             TypeTerm::Spec(ts) |
             TypeTerm::Ladder(ts) |
-            TypeTerm::Func(ts) |
-            TypeTerm::Morph(ts) => {
+            TypeTerm::Func(ts) => {
                 ts.iter().fold(true, |s,t| s && t.is_empty() )
+            }
+            TypeTerm::Morph(src,dst) => {
+                src.is_empty() && dst.is_empty()
             }
             TypeTerm::Seq{ seq_repr, items } => {
                 items.iter().fold(true, |s,t| s && t.is_empty() )
