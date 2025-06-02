@@ -132,8 +132,10 @@ impl ConstraintSystem {
         }
 
         // solve traits
-        while let Some( trait_pair ) = self.trait_pairs.pop() {
-            unimplemented!();
+        while let Some( mut trait_pair ) = self.trait_pairs.pop() {
+            trait_pair.lhs.apply_subst(&self.σ);
+            trait_pair.rhs.apply_subst(&self.σ);
+            self.eval_trait(trait_pair)?;
         }
 
         Ok((halo_types, self.σ))
