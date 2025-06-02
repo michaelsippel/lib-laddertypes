@@ -80,7 +80,10 @@ impl TypeTerm {
                 }
             }
 
-            TypeTerm::Univ(t) => { t.apply_subst(σ); }
+            TypeTerm::Univ(bound, t) => {
+                bound.apply_subst(σ);
+                t.apply_subst(σ);
+            }
 
             TypeTerm::Morph(src, dst) => {
                 src.apply_subst(σ);

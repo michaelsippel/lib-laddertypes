@@ -239,7 +239,7 @@ impl TypeTerm {
                             }
                         }
 
-                        (TypeTerm::Univ(args1), TypeTerm::Univ(args2)) => {
+                        (TypeTerm::Univ(bound1, args1), TypeTerm::Univ(bound2, args2)) => {
                             todo!();
                         }
 

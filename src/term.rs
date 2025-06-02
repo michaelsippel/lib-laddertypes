@@ -1,6 +1,15 @@
 use {
-    crate::{parser::ParseLadderType, subtype_unify, DesugaredTypeTerm, MorphismType, TypeDict, TypeID}, std::ops::Deref
+    crate::{parser::ParseLadderType, subtype_unify, DesugaredTypeTerm, MorphismType, Substitution, TypeDict, TypeID}, std::{f32::consts::TAU, ops::Deref}
 };
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum VariableConstraint {
+    UnconstrainedType,
+    Subtype(TypeTerm),
+    Trait(TypeTerm),
+    Parallel(TypeTerm),
+    ValueUInt,
+}
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct StructMember {
@@ -19,8 +28,7 @@ pub enum TypeTerm {
     TypeID(TypeID),
     Num(i64),
     Char(char),
-    //Univ(Box< VariableConstraint >, Box< TypeTerm >),
-    Univ(Box< TypeTerm >),
+    Univ(Box< VariableConstraint >, Box< TypeTerm >),
     Spec(Vec< TypeTerm >),
     Func(Vec< TypeTerm >),
     Morph(Box< TypeTerm >, Box< TypeTerm >),
@@ -46,9 +54,42 @@ pub enum TypeTerm {
 impl TypeTerm {
     pub fn into_morphism_type(self) -> Option< MorphismType > {
         match self.normalize() {
-            TypeTerm::Morph(src,dst) => Some(MorphismType { src_type: src.deref().clone(), dst_type: dst.deref().clone() }),
+            TypeTerm::Univ(bound, τ) => {
+                let mut m = τ.into_morphism_type()?;
+                m.bounds.push(bound.deref().clone());
+                Some(m)
+            }
+            TypeTerm::Morph(src,dst) => {
+                Some(MorphismType {
+                    bounds: Vec::new(),
+                    src_type: src.deref().clone(),
+                    dst_type: dst.deref().clone()
+                })
+            },
             _ => None
         }
+    }
+}
+
+impl VariableConstraint {
+    pub fn normalize(&self) -> Self {
+        match self {
+            VariableConstraint::UnconstrainedType => VariableConstraint::UnconstrainedType,
+            VariableConstraint::Subtype(τ) => VariableConstraint::Subtype(τ.clone().normalize()),
+            VariableConstraint::Trait(τ) => VariableConstraint::Trait(τ.clone().normalize()),
+            VariableConstraint::Parallel(τ) => VariableConstraint::Parallel(τ.clone().normalize()),
+            VariableConstraint::ValueUInt => VariableConstraint::ValueUInt
+        }
+    }
+
+    pub fn apply_subst(&mut self, σ: &impl Substitution) -> &mut Self {
+        match self {
+            VariableConstraint::Subtype(type_term) => { type_term.apply_subst(σ); },
+            VariableConstraint::Trait(type_term) => { type_term.apply_subst(σ); },
+            VariableConstraint::Parallel(type_term) => { type_term.clone().apply_subst(σ); },
+            _ => {}
+        }
+        self
     }
 }
 
@@ -232,11 +273,12 @@ impl DesugaredTypeTerm {
                     TypeTerm::Spec( args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect() )
                 }
                 else if first == &dict.parse_desugared("Univ").unwrap() {
-                    TypeTerm::Univ(Box::new(
-                        TypeTerm::Spec(
-                            args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect()
-                        )
-                    ))
+                    TypeTerm::Univ(
+                        // fixme: ignored bound, will be superseded by new parser
+                        Box::new(VariableConstraint::UnconstrainedType),
+
+                        Box::new(TypeTerm::Spec(args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect()))
+                    )
                 }
                 else {
                     TypeTerm::Spec(args.into_iter().map(|t| t.sugar(dict)).collect())
@@ -281,7 +323,7 @@ impl TypeTerm {
             TypeTerm::TypeID(id) => DesugaredTypeTerm::TypeID(id),
             TypeTerm::Num(n) => DesugaredTypeTerm::Num(n),
             TypeTerm::Char(c) => DesugaredTypeTerm::Char(c),
-            TypeTerm::Univ(t) => t.desugar(dict),
+            TypeTerm::Univ(bound, t) => t.desugar(dict), // <- fixme: missing bound
             TypeTerm::Spec(ts) => DesugaredTypeTerm::App(ts.into_iter().map(|t| t.desugar(dict)).collect()),
             TypeTerm::Ladder(ts) => DesugaredTypeTerm::Ladder(ts.into_iter().map(|t|t.desugar(dict)).collect()),
             TypeTerm::Func(ts) => DesugaredTypeTerm::App(
@@ -351,7 +393,8 @@ impl TypeTerm {
             TypeTerm::Morph(src,dst) => {
                 src.contains_var(var_id) || dst.contains_var(var_id)
             }
-            TypeTerm::Univ(t) => {
+            TypeTerm::Univ(bound,t) => {
+                // todo: capture avoidance (via debruijn)
                 t.contains_var(var_id)
             }
             TypeTerm::Struct { struct_repr, members } => {
@@ -440,6 +483,10 @@ impl TypeTerm {
                     TypeTerm::Spec(args)
                 }
             }
+
+            TypeTerm::Func(args) => TypeTerm::Func(args.into_iter().map(|arg| arg.strip()).collect()),
+            TypeTerm::Morph(src, dst) => TypeTerm::Morph(Box::new(src.strip()), Box::new(dst.strip())),
+
             TypeTerm::Seq{ mut seq_repr, mut items } => {
                 if let Some(seq_repr) = seq_repr.as_mut() {
                     *seq_repr = Box::new(seq_repr.clone().strip());
@@ -450,6 +497,27 @@ impl TypeTerm {
 
                 TypeTerm::Seq { seq_repr, items }
             }
+            TypeTerm::Struct { mut struct_repr, mut members } => {
+                if let Some(struct_repr) = struct_repr.as_mut() {
+                    *struct_repr = Box::new(struct_repr.clone().strip());
+                }
+                for m in members.iter_mut() {
+                    m.ty = m.ty.clone().strip();
+                }
+
+                TypeTerm::Struct { struct_repr, members }
+            },
+            TypeTerm::Enum { mut enum_repr, mut variants } => {
+                if let Some(enum_repr) = enum_repr.as_mut() {
+                    *enum_repr = Box::new(enum_repr.clone().strip());
+                }
+                for v in variants.iter_mut() {
+                    v.ty = v.ty.clone().strip();
+                }
+
+                TypeTerm::Enum { enum_repr, variants }
+            },
+
             atom => atom
         }
     }
@@ -475,8 +543,8 @@ impl TypeTerm {
                     Box::new(dst.get_interface_type())
                 ),
 
-            TypeTerm::Univ(t)
-                => TypeTerm::Univ(Box::new(t.get_interface_type())),
+            TypeTerm::Univ(bound, t)
+                => TypeTerm::Univ(bound.clone(), Box::new(t.get_interface_type())),
 
             TypeTerm::Seq { seq_repr, items } => {
                 TypeTerm::Seq {
@@ -584,7 +652,7 @@ impl TypeTerm {
             TypeTerm::TypeID(_) => false,
             TypeTerm::Num(_) => false,
             TypeTerm::Char(_) => false,
-            TypeTerm::Univ(t) => t.is_empty(),
+            TypeTerm::Univ(bound, t) => t.is_empty(),
             TypeTerm::Spec(ts) |
             TypeTerm::Ladder(ts) |
             TypeTerm::Func(ts) => {

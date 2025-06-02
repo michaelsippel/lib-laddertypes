@@ -1,5 +1,5 @@
 use {
-    crate::{dict::TypeID, term::TypeTerm, StructMember, EnumVariant, TypeDict},
+    crate::{dict::TypeID, term::TypeTerm, EnumVariant, StructMember, TypeDict, VariableConstraint},
     tiny_ansi::TinyAnsi
 };
 
@@ -12,6 +12,18 @@ impl StructMember {
 impl EnumVariant {
     pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
         format!("{}: {}", self.symbol, self.ty.pretty(dict, indent+1))
+    }
+}
+
+impl VariableConstraint {
+    pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
+        match self {
+            VariableConstraint::UnconstrainedType => format!(""),
+            VariableConstraint::Subtype(τ) => format!(":<= {}", τ.pretty(dict, indent)),
+            VariableConstraint::Trait(τ) => format!(":>< {}", τ.pretty(dict, indent)),
+            VariableConstraint::Parallel(τ) => format!(":|| {}", τ.pretty(dict, indent)),
+            VariableConstraint::ValueUInt => format!(": ℤ"),
+        }
     }
 }
 
@@ -42,10 +54,11 @@ impl TypeTerm {
                 }
             }
 
-            TypeTerm::Univ(t) => {
-                format!("{} {} . {}",
+            TypeTerm::Univ(bound, t) => {
+                format!("{} {}{} . {}",
                     "∀".yellow().bold(),
                     dict.get_varname(0).unwrap_or("??".into()).bright_blue(),
+                    bound.pretty(dict, indent),
                     t.pretty(dict,indent)
                 )
             }

@@ -57,30 +57,35 @@ fn morphism_test_setup() -> ( BimapTypeDict, MorphismBase<DummyMorphism> ) {
 
     base.add_morphism(
         DummyMorphism(MorphismType{
+            bounds: Vec::new(),
             src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
             dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
         })
     );
     base.add_morphism(
         DummyMorphism(MorphismType{
+            bounds: Vec::new(),
             src_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
             dst_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
         })
     );
     base.add_morphism(
         DummyMorphism(MorphismType{
+            bounds: Vec::new(),
             src_type: dict.parse_desugared("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
             dst_type: dict.parse_desugared("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
         })
     );
     base.add_morphism(
         DummyMorphism(MorphismType{
+            bounds: Vec::new(),
             src_type: dict.parse_desugared("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
             dst_type: dict.parse_desugared("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
         })
     );
     base.add_morphism(
         DummyMorphism(MorphismType{
+            bounds: Vec::new(),
             src_type: dict.parse_desugared("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict),
             dst_type: dict.parse_desugared("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix>~ℤ_2^64~machine.UInt64>").unwrap().sugar(&mut dict)
         })
@@ -94,6 +99,7 @@ fn test_morphism_path1() {
     let (mut dict, mut base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
+        bounds: Vec::new(),
         src_type: dict.parse_desugared("<Digit 10> ~ Char").unwrap().sugar(&mut dict),
         dst_type: dict.parse_desugared("<Digit 10> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
     }).solve();
@@ -108,6 +114,7 @@ fn test_morphism_path1() {
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType {
+                        bounds: Vec::new(),
                         src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
                         dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                     }),
@@ -122,6 +129,7 @@ fn test_morphism_path2() {
     let (mut dict, mut base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
+        bounds: Vec::new(),
         src_type: dict.parse_desugared("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
         dst_type: dict.parse_desugared("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
     }).solve();
@@ -139,6 +147,7 @@ fn test_morphism_path2() {
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
+                            bounds: Vec::new(),
                             src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
                             dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                         }),
@@ -154,6 +163,7 @@ fn test_morphism_path3() {
     let (mut dict, mut base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
+        bounds: Vec::new(),
         src_type: dict.parse_desugared("ℕ ~ <PosInt 10 LittleEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
         dst_type: dict.parse_desugared("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
     }).solve();
@@ -175,6 +185,7 @@ fn test_morphism_path3() {
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
+                            bounds: Vec::new(),
                             src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
                             dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                         }),
@@ -188,6 +199,7 @@ fn test_morphism_path3() {
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType {
+                        bounds: Vec::new(),
                         src_type: dict.parse_desugared("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
                         dst_type: dict.parse_desugared("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
                     }),
@@ -203,6 +215,7 @@ fn test_morphism_path4() {
     let (mut dict, mut base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
+        bounds: Vec::new(),
         src_type: dict.parse_desugared("ℕ ~ <PosInt 10 LittleEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
         dst_type: dict.parse_desugared("ℕ ~ <PosInt 16 LittleEndian> ~ <Seq <Digit 16> ~ Char>").unwrap().sugar(&mut dict)
     }).solve();
@@ -224,6 +237,7 @@ fn test_morphism_path4() {
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
+                            bounds: Vec::new(),
                             src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
                             dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                         }),
@@ -237,6 +251,7 @@ fn test_morphism_path4() {
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType {
+                        bounds: Vec::new(),
                         src_type: dict.parse_desugared("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
                         dst_type: dict.parse_desugared("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
                     }),
@@ -252,6 +267,7 @@ fn test_morphism_path4() {
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
+                            bounds: Vec::new(),
                             src_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
                             dst_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
                         }),
@@ -269,6 +285,7 @@ fn test_morphism_path_posint() {
     let (mut dict, mut base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
+        bounds: Vec::new(),
         src_type: dict.parse_desugared("ℕ ~ <PosInt 10 BigEndian> ~ <Seq <Digit 10> ~ Char>").unwrap().sugar(&mut dict),
         dst_type: dict.parse_desugared("ℕ ~ <PosInt 16 BigEndian> ~ <Seq <Digit 16> ~ Char>").unwrap().sugar(&mut dict),
     }).solve();
@@ -290,6 +307,7 @@ fn test_morphism_path_posint() {
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
+                            bounds: Vec::new(),
                             src_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict),
                             dst_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict)
                         }),
@@ -302,6 +320,7 @@ fn test_morphism_path_posint() {
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType{
+                        bounds: Vec::new(),
                         src_type: dict.parse_desugared("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
                         dst_type: dict.parse_desugared("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
                     }),
@@ -313,6 +332,7 @@ fn test_morphism_path_posint() {
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType{
+                        bounds: Vec::new(),
                         src_type: dict.parse_desugared("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
                         dst_type: dict.parse_desugared("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict)
                     }),
@@ -324,6 +344,7 @@ fn test_morphism_path_posint() {
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType{
+                        bounds: Vec::new(),
                         src_type: dict.parse_desugared("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
                         dst_type: dict.parse_desugared("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix> ~ ℤ_2^64 ~ machine.UInt64>").unwrap().sugar(&mut dict),
                     }),
@@ -338,6 +359,7 @@ fn test_morphism_path_posint() {
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
+                            bounds: Vec::new(),
                             src_type: dict.parse_desugared("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap().sugar(&mut dict),
                             dst_type: dict.parse_desugared("<Digit Radix> ~ Char").unwrap().sugar(&mut dict)
                         }),
@@ -399,6 +421,7 @@ fn morphism_test_seq_repr() {
 
     base.add_morphism(
         DummyMorphism(MorphismType{
+            bounds: Vec::new(),
             src_type: dict.parse_desugared("<Seq~<ValueTerminated 0> native.UInt8>").unwrap().sugar(&mut dict),
             dst_type: dict.parse_desugared("<Seq~<LengthPrefix native.UInt64> native.UInt8>").unwrap().sugar(&mut dict)
         })
@@ -406,6 +429,7 @@ fn morphism_test_seq_repr() {
 
     assert_eq!(
         base.get_morphism_instance(&MorphismType {
+            bounds: Vec::new(),
             src_type: dict.parse_desugared("<Seq~<ValueTerminated 0> Char~Ascii~native.UInt8>").expect("parse").sugar(&mut dict),
             dst_type: dict.parse_desugared("<Seq~<LengthPrefix native.UInt64> Char~Ascii~native.UInt8>").expect("parse").sugar(&mut dict)
         }),
@@ -414,6 +438,7 @@ fn morphism_test_seq_repr() {
                 ψ: dict.parse_desugared("<Seq Char~Ascii>").expect("").sugar(&mut dict),
                 σ: HashMap::new(),
                 morph: DummyMorphism(MorphismType{
+                    bounds: Vec::new(),
                     src_type: dict.parse_desugared("<Seq~<ValueTerminated 0> native.UInt8>").unwrap().sugar(&mut dict),
                     dst_type: dict.parse_desugared("<Seq~<LengthPrefix native.UInt64> native.UInt8>").unwrap().sugar(&mut dict)
                 })

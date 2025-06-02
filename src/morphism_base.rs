@@ -64,7 +64,11 @@ impl<M: Morphism + Clone> MorphismBase<M> {
                         if symbol_rhs == symbol_lhs {
                             found_src_member = true;
 
-                            if let Some(mm) = self.get_morphism_instance(&MorphismType { src_type: ty_lhs.clone(), dst_type: ty_rhs.clone() }) {
+                            if let Some(mm) = self.get_morphism_instance(&MorphismType {
+                                bounds: Vec::new(),
+                                src_type: ty_lhs.clone(),
+                                dst_type: ty_rhs.clone()
+                            }) {
                                 if ty_lhs != ty_rhs {
                                     necessary = true;
                                 }
@@ -102,7 +106,11 @@ impl<M: Morphism + Clone> MorphismBase<M> {
                 //let mut item_morphs = Vec::new();
 
                 for (ty_lhs, ty_rhs) in items_lhs.iter().zip(items_rhs.iter()) {
-                    if let Some(item_morph) = self.get_morphism_instance(&MorphismType{ src_type: ty_lhs.clone(), dst_type: ty_rhs.clone() }) {
+                    if let Some(item_morph) = self.get_morphism_instance(&MorphismType{
+                        bounds: Vec::new(),
+                        src_type: ty_lhs.clone(),
+                        dst_type: ty_rhs.clone()
+                    }) {
                         return Some(MorphismInstance::MapSeq { ψ: src_ψ, seq_repr: seq_repr_lhs.clone(), item_morph: Box::new(item_morph) });
                     }
                     break;
