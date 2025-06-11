@@ -14,6 +14,20 @@ pub trait TypeDict : Send + Sync {
     fn get_typename(&self, tid: u64) -> Option<String>;
     fn get_varname(&self, var_id: u64) -> Option<String>;
 
+    fn get_name(&self, id: TypeID) -> Option<String> {
+        match id {
+            TypeID::Fun(id) => self.get_typename(id),
+            TypeID::Var(id) => self.get_varname(id)
+        }
+    }
+
+    fn get_varid(&self, varname: &str) -> Option<u64> {
+        match self.get_typeid(varname) {
+            Some(TypeID::Var(id)) => Some(id),
+            _ => None
+        }
+    }
+
     fn get_typeid_creat(&mut self, tn: &str) -> TypeID {
         if let Some(id) = self.get_typeid(tn) {
             id
