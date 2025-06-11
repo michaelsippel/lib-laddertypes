@@ -1,5 +1,6 @@
 pub mod morphism_base;
 pub mod morphism_graph;
+pub mod heuristic;
 
 pub use morphism_base::*;
 pub use morphism_graph::*;
