@@ -4,5 +4,5 @@ pub mod parser;
 pub mod curry;
 pub mod pnf;
 pub mod context;
-pub mod morphism;
 pub mod constraint_system;
+pub mod morphism_graph;

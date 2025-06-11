@@ -1,6 +1,8 @@
 use {
     crate::{
-        morphism::{Morphism, MorphismInstance, MorphismType}, morphism_base::MorphismBase, term::*, HashMapSubst
+        morphism_graph::{Morphism, MorphismInstance, MorphismType, MorphismBase},
+        term::*,
+        HashMapSubst
     }
 };
 

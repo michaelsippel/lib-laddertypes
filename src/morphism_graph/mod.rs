@@ -1,3 +1,9 @@
+pub mod morphism_base;
+pub mod morphism_path;
+
+pub use morphism_base::*;
+pub use morphism_path::*;
+
 use {
     crate::{
         constraint_system::ConstraintSystem, substitution::Substitution, term::{StructMember, TypeTerm},

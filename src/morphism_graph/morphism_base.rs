@@ -1,7 +1,7 @@
 use {
     crate::{
         morphism_path::{ShortestPathProblem},
-        morphism::{MorphismInstance, Morphism, MorphismType},
+        morphism_graph::{MorphismInstance, Morphism, MorphismType},
         TypeTerm, StructMember, TypeDict
     }, std::io::{Write}
 };

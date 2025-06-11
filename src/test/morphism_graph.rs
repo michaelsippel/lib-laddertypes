@@ -1,5 +1,5 @@
 use {
-    crate::{dict::*, morphism::{Morphism, MorphismInstance, MorphismType}, morphism_base::MorphismBase, morphism_path::ShortestPathProblem, parser::*, HashMapSubst, TypeTerm
+    crate::{dict::*, morphism_graph::{Morphism, MorphismInstance, MorphismType}, morphism_base::MorphismBase, morphism_path::ShortestPathProblem, parser::*, HashMapSubst, TypeTerm
     },
     std::collections::HashMap
 };

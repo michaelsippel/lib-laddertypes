@@ -1,3 +1,14 @@
+pub mod lexer;
+pub mod parser; // todo sugared variant
+pub mod curry; // todo: sugared variant
+pub mod unparser;
+pub mod desugared_term; // deprecated
+pub mod pnf;
+
+#[cfg(feature = "pretty")]
+mod pretty;
+
+
 use {
     crate::{
         parser::ParseLadderType,
@@ -8,6 +19,7 @@ use {
         TypeID},
     std::{ops::Deref}
 };
+
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum VariableConstraint {
