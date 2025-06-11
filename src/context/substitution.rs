@@ -1,51 +1,55 @@
-
-use std::ops::DerefMut;
-use crate::{
-    TypeID,
-    DesugaredTypeTerm
-};
 use crate::term::*;
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
+#[derive(Clone, Debug)]
+pub enum SubstError {
+    InvalidVariable,
+    UnassignedVariable,
+    AlreadyAssigned
+}
+
 pub trait Substitution {
-    fn get(&self, t: &TypeID) -> Option< TypeTerm >;
-    fn add(&mut self, tyid: TypeID, val: TypeTerm);
-    fn append(self, rhs: &Self) -> Self;
+    fn saturate(&mut self);
+    fn get(&self, t: u64) -> Result<TypeTerm, SubstError>;
 }
 
-impl Substitution for std::collections::HashMap< TypeID, TypeTerm > {
-    fn get(&self, t: &TypeID) -> Option< TypeTerm > {
-        (self as &std::collections::HashMap< TypeID, TypeTerm >).get(t).cloned()
-    }
 
-    fn add(&mut self, tyid: TypeID, val: TypeTerm) {
-        if let TypeID::Var(id) = tyid {
-            if !val.contains_var(id) {
-                self.insert(tyid, val.normalize());
-            } else {
-                eprintln!("substitution cannot contain loop");
-            }
+pub type HashMapSubst = std::collections::HashMap<u64, TypeTerm>;
+
+pub trait SubstitutionMut {
+    fn append(&mut self, other: &Self);
+}
+
+impl SubstitutionMut for HashMapSubst {
+    fn append(&mut self, other: &HashMapSubst) {
+        for (v,t) in other.iter() {
+            self.insert(*v,t.clone());
         }
     }
+}
 
-    fn append(self, rhs: &Self) -> Self {
+impl Substitution for HashMapSubst {
+    fn saturate(&mut self) {
         let mut new_σ = std::collections::HashMap::new();
-        for (v, tt) in self.iter() {
-            let mut tt = tt.clone().normalize();
-            tt.apply_subst(rhs);
-            tt.apply_subst(&self);
-            new_σ.add(v.clone(), tt);
+        for (id, t) in self.iter() {
+            let mut t = t.clone();
+            t.apply_subst(self);
+            new_σ.insert(*id, t.normalize());
         }
-        for (v, tt) in rhs.iter() {
-            new_σ.add(v.clone(), tt.clone().normalize());
-        }
+        *self = new_σ;
+    }
 
-        new_σ
+    fn get(&self, t : u64) -> Result<TypeTerm, SubstError> {
+        if let Some(t) = (self as &std::collections::HashMap<u64,TypeTerm>).get(&t).cloned() {
+            Ok(t)
+        } else {
+            Err(SubstError::InvalidVariable)
+        }
     }
 }
 
-pub type HashMapSubst = std::collections::HashMap< TypeID, TypeTerm >;
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 impl TypeTerm {
     /// recursively apply substitution to all subterms,
@@ -63,11 +67,12 @@ impl TypeTerm {
         σ: &impl Substitution
     ) -> &mut Self {
         match self {
+            TypeTerm::Id(_) => {},
             TypeTerm::Num(_) => {},
             TypeTerm::Char(_) => {},
 
-            TypeTerm::TypeID(typid) => {
-                if let Some(t) = σ.get(typid) {
+            TypeTerm::Var(var) => {
+                if let Ok(t) = σ.get(*var) {
                     *self = t;
                 }
             }

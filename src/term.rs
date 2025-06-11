@@ -1,10 +1,17 @@
 use {
-    crate::{parser::ParseLadderType, subtype_unify, DesugaredTypeTerm, MorphismType, Substitution, TypeDict, TypeID}, std::{f32::consts::TAU, ops::Deref}
+    crate::{
+        parser::ParseLadderType,
+        DesugaredTypeTerm,
+        MorphismType,
+        Substitution,
+        TypeDict,
+        TypeID},
+    std::{ops::Deref}
 };
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum VariableConstraint {
-    UnconstrainedType,
+    UnconstrainedType, // <<- add TypeKind here ?
     Subtype(TypeTerm),
     Trait(TypeTerm),
     Parallel(TypeTerm),
@@ -25,7 +32,8 @@ pub struct EnumVariant {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum TypeTerm {
-    TypeID(TypeID),
+    Id(u64),
+    Var(u64),
     Num(i64),
     Char(char),
     Univ(Box< VariableConstraint >, Box< TypeTerm >),
@@ -107,7 +115,8 @@ impl StructMember {
 */
                 let symbol = match args[0] {
                     DesugaredTypeTerm::Char(c) => c.to_string(),
-                    DesugaredTypeTerm::TypeID(id) => dict.get_typename(&id).expect("cant get member name"),
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(id)) => dict.get_typename(id).expect("cant get member name"),
+                    DesugaredTypeTerm::TypeID(TypeID::Var(id)) => dict.get_varname(id).expect("cant get member name"),
                     _ => {
                         return None;
                     }
@@ -138,7 +147,10 @@ impl EnumVariant {
 */
                 let symbol = match args[0] {
                     DesugaredTypeTerm::Char(c) => c.to_string(),
-                    DesugaredTypeTerm::TypeID(id) => dict.get_typename(&id).expect("cant get member name"),
+                    DesugaredTypeTerm::TypeID(TypeID::Fun(id)) =>
+                        dict.get_typename(id).expect("cant get member name"),
+                    DesugaredTypeTerm::TypeID(TypeID::Var(id)) =>
+                        dict.get_varname(id).expect("cant get member name"),
                     _ => {
                         return None;
                     }
@@ -157,12 +169,15 @@ impl EnumVariant {
 
 impl DesugaredTypeTerm {
     pub fn sugar(self: DesugaredTypeTerm, dict: &mut impl crate::TypeDict) -> TypeTerm {
-        dict.add_varname("StructRepr".into());
-        dict.add_varname("EnumRepr".into());
-        dict.add_varname("SeqRepr".into());
+        //dict.add_varname("StructRepr".into());
+        //dict.add_varname("EnumRepr".into());
+        //dict.add_varname("SeqRepr".into());
 
         match self {
-            DesugaredTypeTerm::TypeID(id) => TypeTerm::TypeID(id),
+            DesugaredTypeTerm::TypeID(id) => match id {
+                TypeID::Fun(id) => TypeTerm::Id(id),
+                TypeID::Var(id) => TypeTerm::Var(id)
+            },
             DesugaredTypeTerm::Num(n) => TypeTerm::Num(n),
             DesugaredTypeTerm::Char(c) => TypeTerm::Char(c),
             DesugaredTypeTerm::App(args) => if let Some(first) = args.first() {
@@ -207,7 +222,7 @@ impl DesugaredTypeTerm {
                     if rungs.len() > 0 {
                         match rungs.remove(0) {
                             DesugaredTypeTerm::TypeID(tyid) => {
-                                if tyid == dict.get_typeid(&"Seq".into()).expect("") {
+                                if tyid == dict.get_typeid("Seq").expect("") {
                                     TypeTerm::Seq {
                                         seq_repr:
                                             if rungs.len() > 0 {
@@ -222,7 +237,7 @@ impl DesugaredTypeTerm {
                                             },
                                         items: args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect()
                                     }
-                                } else if tyid == dict.get_typeid(&"Struct".into()).expect("") {
+                                } else if tyid == dict.get_typeid("Struct").expect("") {
                                     TypeTerm::Struct {
                                         struct_repr:
                                             if rungs.len() > 0 {
@@ -239,7 +254,7 @@ impl DesugaredTypeTerm {
                                             .map(|t| StructMember::parse(dict, t).expect("cant parse field"))
                                             .collect()
                                     }
-                                } else if tyid == dict.get_typeid(&"Enum".into()).expect("") {
+                                } else if tyid == dict.get_typeid("Enum").expect("") {
                                     TypeTerm::Enum {
                                         enum_repr:
                                             if rungs.len() > 0 {
@@ -320,7 +335,8 @@ impl TypeTerm {
 
     pub fn desugar(self, dict: &mut impl crate::TypeDict) -> DesugaredTypeTerm {
         match self {
-            TypeTerm::TypeID(id) => DesugaredTypeTerm::TypeID(id),
+            TypeTerm::Id(id) => DesugaredTypeTerm::TypeID(TypeID::Fun(id)),
+            TypeTerm::Var(id) => DesugaredTypeTerm::TypeID(TypeID::Var(id)),
             TypeTerm::Num(n) => DesugaredTypeTerm::Num(n),
             TypeTerm::Char(c) => DesugaredTypeTerm::Char(c),
             TypeTerm::Univ(bound, t) => t.desugar(dict), // <- fixme: missing bound
@@ -379,7 +395,7 @@ impl TypeTerm {
 
     pub fn contains_var(&self, var_id: u64) -> bool {
         match self {
-            TypeTerm::TypeID(TypeID::Var(v)) => (&var_id == v),
+            TypeTerm::Var(v) => &var_id == v,
             TypeTerm::Spec(args) |
             TypeTerm::Func(args) |
             TypeTerm::Ladder(args) => {
@@ -442,7 +458,7 @@ impl TypeTerm {
 
             TypeTerm::Num(_) |
             TypeTerm::Char(_) |
-            TypeTerm::TypeID(TypeID::Fun(_)) => false
+            TypeTerm::Id(_) => false
         }
     }
 
@@ -577,7 +593,8 @@ impl TypeTerm {
                 }
             }
 
-            TypeTerm::TypeID(tyid) => TypeTerm::TypeID(tyid.clone()),
+            TypeTerm::Var(varid) => TypeTerm::Var(*varid),
+            TypeTerm::Id(tyid) => TypeTerm::Id(*tyid),
             TypeTerm::Num(n) => TypeTerm::Num(*n),
             TypeTerm::Char(c) => TypeTerm::Char(*c)
         }
@@ -649,7 +666,8 @@ impl TypeTerm {
 
     pub fn is_empty(&self) -> bool {
         match self {
-            TypeTerm::TypeID(_) => false,
+            TypeTerm::Id(_) => false,
+            TypeTerm::Var(_) => false,
             TypeTerm::Num(_) => false,
             TypeTerm::Char(_) => false,
             TypeTerm::Univ(bound, t) => t.is_empty(),

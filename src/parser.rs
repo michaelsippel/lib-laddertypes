@@ -1,8 +1,7 @@
 use {
     crate::{
-        dict::*, lexer::*, desugared_term::*, TypeTerm, term::*
-
-    }, std::iter::Peekable
+        context::dict::*, desugared_term::*, lexer::*, term::*
+    }, std::{iter::Peekable}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -83,10 +82,10 @@ impl<T: TypeDict> ParseLadderType for T {
             Some(Ok(LadderTypeToken::Ladder)) => Err(ParseError::UnexpectedLadder),
             Some(Ok(LadderTypeToken::Symbol(s))) =>
                 Ok(DesugaredTypeTerm::TypeID(
-                    if let Some(tyid) = self.get_typeid(&s) {
+                    if let Some(tyid) = self.get_typeid(s.as_str()) {
                         tyid
                     } else {
-                        self.add_typename(s)
+                        TypeID::Fun(self.add_typename(s.as_str()))
                     }
                 )),
             Some(Ok(LadderTypeToken::Char(c))) => Ok(DesugaredTypeTerm::Char(c)),

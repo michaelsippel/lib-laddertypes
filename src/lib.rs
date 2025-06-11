@@ -1,7 +1,6 @@
 #![allow(mixed_script_confusables)]
-
-pub mod bimap;
-pub mod dict;
+#![allow(confusable_idents)]
+#![allow(non_snake_case)]
 
 pub mod lexer;
 pub mod parser; // todo sugared variant
@@ -11,7 +10,7 @@ pub mod unparser;
 pub mod desugared_term; // deprecated
 pub mod term;
 pub mod pnf;
-pub mod substitution;
+pub mod context;
 pub mod constraint_system;
 pub mod morphism;
 pub mod morphism_base;
@@ -24,9 +23,8 @@ mod test;
 mod pretty;
 
 pub use {
-    dict::*,
+    context::*,
     desugared_term::*,
-    substitution::*,
     term::*,
     constraint_system::*,
     morphism::*,

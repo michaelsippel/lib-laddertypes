@@ -1,21 +1,17 @@
 use {
-    crate::{dict::*, morphism_base::MorphismBase,
-        morphism_path::ShortestPathProblem,
-        morphism::{MorphismInstance, Morphism, MorphismType},
-        parser::*, TypeTerm,
-        DesugaredTypeTerm
+    crate::{dict::*, morphism::{Morphism, MorphismInstance, MorphismType}, morphism_base::MorphismBase, morphism_path::ShortestPathProblem, parser::*, HashMapSubst, TypeTerm
     },
     std::collections::HashMap
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-fn print_subst(m: &std::collections::HashMap<TypeID, TypeTerm>, dict: &mut impl TypeDict) {
+fn print_subst(m: &HashMapSubst, dict: &mut impl TypeDict) {
     eprintln!("{{");
 
     for (k,v) in m.iter() {
         eprintln!("    {} --> {}",
-            dict.get_typename(k).unwrap(),
+            dict.get_typename(*k).unwrap(),
             v.pretty(dict, 0)
         );
     }
@@ -96,7 +92,7 @@ fn morphism_test_setup() -> ( BimapTypeDict, MorphismBase<DummyMorphism> ) {
 
 #[test]
 fn test_morphism_path1() {
-    let (mut dict, mut base) = morphism_test_setup();
+    let (mut dict, base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
         bounds: Vec::new(),
@@ -110,7 +106,7 @@ fn test_morphism_path1() {
             vec![
                 MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
+                        (0, TypeTerm::Num(10)),
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType {
@@ -126,7 +122,7 @@ fn test_morphism_path1() {
 
 #[test]
 fn test_morphism_path2() {
-    let (mut dict, mut base) = morphism_test_setup();
+    let (mut dict, base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
         bounds: Vec::new(),
@@ -143,7 +139,7 @@ fn test_morphism_path2() {
                     seq_repr: None,
                     item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
+                            (0, TypeTerm::Num(10)),
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
@@ -160,7 +156,7 @@ fn test_morphism_path2() {
 
 #[test]
 fn test_morphism_path3() {
-    let (mut dict, mut base) = morphism_test_setup();
+    let (mut dict, base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
         bounds: Vec::new(),
@@ -181,7 +177,7 @@ fn test_morphism_path3() {
                     seq_repr: None,
                     item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
+                            (0, TypeTerm::Num(10)),
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
@@ -194,8 +190,8 @@ fn test_morphism_path3() {
 
                 MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), TypeTerm::Num(10)),
-                        (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
+                        (1, TypeTerm::Num(10)),
+                        (2, TypeTerm::Num(16)),
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType {
@@ -212,7 +208,7 @@ fn test_morphism_path3() {
 
 #[test]
 fn test_morphism_path4() {
-    let (mut dict, mut base) = morphism_test_setup();
+    let (mut dict, base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
         bounds: Vec::new(),
@@ -233,7 +229,7 @@ fn test_morphism_path4() {
                     seq_repr: None,
                     item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
+                            (0, TypeTerm::Num(10)),
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
@@ -246,8 +242,8 @@ fn test_morphism_path4() {
 
                 MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), TypeTerm::Num(10)),
-                        (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
+                        (1, TypeTerm::Num(10)),
+                        (2, TypeTerm::Num(16)),
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType {
@@ -262,8 +258,8 @@ fn test_morphism_path4() {
                     seq_repr: None,
                     item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
-                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(16)),
+                            (2, TypeTerm::Num(16)),
+                            (0, TypeTerm::Num(16)),
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
@@ -282,7 +278,7 @@ fn test_morphism_path4() {
 
 #[test]
 fn test_morphism_path_posint() {
-    let (mut dict, mut base) = morphism_test_setup();
+    let (mut dict, base) = morphism_test_setup();
 
     let path = ShortestPathProblem::new(&base, MorphismType {
         bounds: Vec::new(),
@@ -303,7 +299,7 @@ fn test_morphism_path_posint() {
                     seq_repr: None,
                     item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
+                            (0, TypeTerm::Num(10)),
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {
@@ -316,7 +312,7 @@ fn test_morphism_path_posint() {
 
                 MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(10)),
+                        (0, TypeTerm::Num(10)),
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType{
@@ -327,8 +323,8 @@ fn test_morphism_path_posint() {
                 },
                 MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"SrcRadix".into()).unwrap(), TypeTerm::Num(10)),
-                        (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
+                        (1, TypeTerm::Num(10)),
+                        (2, TypeTerm::Num(16)),
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType{
@@ -339,8 +335,8 @@ fn test_morphism_path_posint() {
                 },
                 MorphismInstance::Primitive {
                     σ: vec![
-                        (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
-                        (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(16)),
+                        (2, TypeTerm::Num(16)),
+                        (0, TypeTerm::Num(16)),
                     ].into_iter().collect(),
                     ψ: TypeTerm::unit(),
                     morph: DummyMorphism(MorphismType{
@@ -355,7 +351,7 @@ fn test_morphism_path_posint() {
                     seq_repr: None,
                     item_morph: Box::new(MorphismInstance::Primitive {
                         σ: vec![
-                            (dict.get_typeid(&"Radix".into()).unwrap(), TypeTerm::Num(16)),
+                            (0, TypeTerm::Num(16)),
                         ].into_iter().collect(),
                         ψ: TypeTerm::unit(),
                         morph: DummyMorphism(MorphismType {

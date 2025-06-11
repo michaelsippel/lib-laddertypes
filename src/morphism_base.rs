@@ -1,9 +1,9 @@
 use {
     crate::{
-        morphism_path::{MorphismPath, ShortestPathProblem},
+        morphism_path::{ShortestPathProblem},
         morphism::{MorphismInstance, Morphism, MorphismType},
-        TypeTerm, StructMember, TypeDict, TypeID
-    }, std::io::{Read, Write}
+        TypeTerm, StructMember, TypeDict
+    }, std::io::{Write}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\

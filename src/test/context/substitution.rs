@@ -1,7 +1,6 @@
 
 use {
-    crate::{dict::*, desugared_term::*, parser::*, unparser::*, substitution::*},
-    std::iter::FromIterator,
+    crate::{dict::*, parser::*,}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -14,12 +13,12 @@ fn test_subst() {
 
     // T  -->  ℕ
     σ.insert
-        (dict.add_varname(String::from("T")),
+        (dict.add_varname("T"),
          dict.parse_desugared("ℕ").unwrap().sugar(&mut dict));
 
     // U  -->  <Seq Char>
     σ.insert
-        (dict.add_varname(String::from("U")),
+        (dict.add_varname("U"),
          dict.parse_desugared("<Seq Char>").unwrap().sugar(&mut dict));
 
 

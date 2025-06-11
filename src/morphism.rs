@@ -1,8 +1,13 @@
 use {
     crate::{
-        constraint_system::ConstraintSystem, substitution::Substitution, term::{StructMember, TypeTerm}, unparser::*, EnumVariant, TypeDict, TypeID, VariableConstraint
+        constraint_system::ConstraintSystem, substitution::Substitution, term::{StructMember, TypeTerm},
+        unparser::*, EnumVariant, TypeDict, TypeID, VariableConstraint,
+        context::*
     },
-    std::{collections::HashMap, u64}
+    std::{
+        collections::HashMap,
+        sync::{Arc, RwLock}
+    }
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -221,7 +226,7 @@ pub trait Morphism : Sized {
 pub enum MorphismInstance<M: Morphism + Clone> {
     Primitive{
         ψ: TypeTerm,
-        σ: HashMap<TypeID, TypeTerm>,
+        σ: HashMapSubst,
         morph: M,
     },
     Chain{
@@ -272,19 +277,20 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
             }
             MorphismInstance::Chain { path } => {
                 if path.len() > 0 {
-                    let s = self.get_subst();
+                    //let s = self.get_subst();
                     MorphismType {
                         //bounds: path.iter().map(|m| m.get_type().bounds.iter()).flatten().collect(),
                         // here we would need to "move up" the remaining variables
                         bounds: Vec::new(), // <-- fixme: but first implement variable scopes
                         src_type: path.first().unwrap().get_type().src_type.clone(),
                         dst_type: path.last().unwrap().get_type().dst_type.clone()
-                    }.apply_subst(&s)
+                    }
+                    //.apply_subst(&s)
                 } else {
                     MorphismType {
                         bounds: Vec::new(),
-                        src_type: TypeTerm::TypeID(TypeID::Fun(45454)),
-                        dst_type: TypeTerm::TypeID(TypeID::Fun(45454))
+                        src_type: TypeTerm::Id(45454),
+                        dst_type: TypeTerm::Id(45454)
                     }
                 }
             }
@@ -350,14 +356,14 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
         }.normalize()
     }
 
-    pub fn get_subst(&self) -> std::collections::HashMap< TypeID, TypeTerm > {
+    pub fn get_subst(&self) -> HashMapSubst {
         match self {
             MorphismInstance::Primitive { ψ, σ, morph } => σ.clone(),
             MorphismInstance::Chain { path } => {
                 path.iter().fold(
                     std::collections::HashMap::new(),
                     |mut σ, m| {
-                        σ = σ.append(&m.get_subst());
+                        σ.append(&m.get_subst());
                         σ
                     }
                 )
@@ -368,7 +374,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
             MorphismInstance::MapStruct { ψ, src_struct_repr, dst_struct_repr, member_morph } => {
                 let mut σ = HashMap::new();
                 for (symbol, m) in member_morph.iter() {
-                    σ = σ.append(&mut m.get_subst());
+                    σ.append(&mut m.get_subst());
                 }
                 σ
             },
@@ -379,20 +385,18 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
         }
     }
 
-    pub fn apply_subst(&mut self, γ: &std::collections::HashMap< TypeID, TypeTerm >) {
+    pub fn apply_subst(&mut self, γ: &HashMapSubst) {
         let ty = self.get_type();
         match self {
             MorphismInstance::Primitive { ψ, σ, morph } => {
                 ψ.apply_subst(γ);
-                for (n,t) in σ.iter_mut() {
+                for (_,t) in σ.iter_mut() {
                     t.apply_subst(γ);
                 }
-                for (n,t) in γ.iter() {
-                    if let TypeID::Var(varid) = n {
-                        if morph.get_type().src_type.apply_subst(σ).contains_var(*varid)
-                        || morph.get_type().dst_type.apply_subst(σ).contains_var(*varid) {
-                            σ.insert(n.clone(), t.clone());
-                        }
+                for (v,t) in γ.iter() {
+                    if morph.get_type().src_type.apply_subst(σ).contains_var(*v)
+                    || morph.get_type().dst_type.apply_subst(σ).contains_var(*v) {
+                        σ.insert(*v, t.clone());
                     }
                 }
             },

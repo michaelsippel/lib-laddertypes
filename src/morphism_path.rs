@@ -1,10 +1,6 @@
 use {
     crate::{
-        dict::*,
-        morphism::{Morphism, MorphismType, MorphismInstance},
-        morphism_base::MorphismBase,
-        substitution::Substitution,
-        term::*, desugared_term::*,
+        morphism::{Morphism, MorphismInstance, MorphismType}, morphism_base::MorphismBase, term::*, HashMapSubst
     }
 };
 
@@ -19,7 +15,7 @@ pub struct MorphismPath<M: Morphism + Clone> {
 
 
 impl<M: Morphism+Clone> MorphismPath<M> {
-    fn apply_subst(&mut self, σ: &std::collections::HashMap<TypeID, TypeTerm>) {
+    fn apply_subst(&mut self, σ: &HashMapSubst) {
         for m in self.morphisms.iter_mut() {
             m.apply_subst(σ);
         }
