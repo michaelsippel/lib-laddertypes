@@ -384,9 +384,9 @@ fn test_morphism_path2() {
 
 #[test]
 fn test_morphism_path3() {
-    let (mut dict, mut base) = morphism_test_setup();
+    let (mut dict, base) = morphism_test_setup();
 
-    let mut morph_graph = MorphismGraph::new(base);
+    let morph_graph = MorphismGraph::new(base);
 
     let result = morph_graph.search(MorphismType {
         bounds: Vec::new(),
@@ -395,8 +395,6 @@ fn test_morphism_path3() {
     }, &mut dict);
 
     eprintln!("{:#?}", result);
-
-    return;
 
     assert_eq!(
         result,
@@ -436,7 +434,6 @@ fn test_morphism_path3() {
                 MorphismInstance::Specialize {
                     σ: vec![
                         (1, TypeTerm::Num(10)),
-                   //     (dict.get_typeid(&"DstRadix".into()).unwrap(), TypeTerm::Num(16)),
                     ].into_iter().collect(),
                     m: Box::new(
                             MorphismInstance::Primitive{
@@ -457,7 +454,7 @@ fn test_morphism_path3() {
                             item_morph:  Box::new(
                                         MorphismInstance::Specialize {
                                             σ: vec![
-                                                (0, dict.parse("DstRadix").expect("")),
+                                                (0, dict.parse("16").expect("")),
                                             ].into_iter().collect(),
                                             m: Box::new(MorphismInstance::Primitive {
                                                     m: DummyMorphism(MorphismType {
