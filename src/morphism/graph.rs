@@ -1,8 +1,9 @@
 use {
     crate::{
-        morphism::DecomposedMorphismType, EnumVariant, HashMapSubst, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, SubstitutionMut, TypeDict, TypeTerm
+        morphism::DecomposedMorphismType, EnumVariant, HashMapSubst, Morphism, MorphismBase, MorphismInstance,
+        MorphismType, StructMember, SubstitutionMut, TypeDict, TypeTerm
     },
-    std::{collections::HashMap, sync::{Arc,RwLock}}
+    std::{collections::HashMap, ops::Deref, sync::{Arc,RwLock}}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -54,18 +55,18 @@ pub enum Step<M: Morphism+Clone> {
     Inst{ m: MorphismInstance<M> },
     //Sub{ ψ: TypeTerm },
     Specialize { σ: HashMapSubst },
-    MapSeq { item: GraphSearch<M> },
-    MapStruct { members: Vec< (String, GraphSearch<M>) > },
-    MapEnum { variants: Vec< (String, GraphSearch<M>) > }
+    MapSeq { seq_repr: TypeTerm, item: GraphSearch<M> },
+    MapStruct { struct_repr: TypeTerm, members: Vec< (String, GraphSearch<M>) > },
+    MapEnum { enum_repr: TypeTerm, variants: Vec< (String, GraphSearch<M>) > }
 }
 
 pub enum SolvedStep<M: Morphism+Clone> {
     Id { τ: TypeTerm },
     Inst{ m: MorphismInstance<M> },
     Specialize { σ: HashMapSubst },
-    MapSeq { item: MorphismInstance<M> },
-    MapStruct { members: Vec< (String, MorphismInstance<M>) > },
-    MapEnum { variants: Vec< (String, MorphismInstance<M>) > }
+    MapSeq { seq_repr: TypeTerm, item: MorphismInstance<M> },
+    MapStruct { struct_repr: TypeTerm, members: Vec< (String, MorphismInstance<M>) > },
+    MapEnum { enum_repr: TypeTerm, variants: Vec< (String, MorphismInstance<M>) > }
 }
 
 
@@ -96,9 +97,9 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             Step::Id { τ } => 0,
             Step::Inst { m } => m.get_weight(),
             Step::Specialize { σ } => 0,
-            Step::MapSeq { item } => item.best_path_weight(),
-            Step::MapStruct { members } => members.iter().map(|(_,g)| g.best_path_weight() ).sum(),
-            Step::MapEnum { variants } => variants.iter().map(|(_,g)| g.best_path_weight() ).max().unwrap_or(0),
+            Step::MapSeq { seq_repr, item } => item.best_path_weight(),
+            Step::MapStruct { struct_repr, members } => members.iter().map(|(_,g)| g.best_path_weight() ).sum(),
+            Step::MapEnum { enum_repr, variants } => variants.iter().map(|(_,g)| g.best_path_weight() ).max().unwrap_or(0),
         }
     }
 
@@ -118,13 +119,13 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             Step::Id { τ } => true,
             //Step::Sub { ψ } => n.pred.as_ref().unwrap().is_ready(),
             Step::Specialize { σ } => true,
-            Step::MapSeq { item } => {
+            Step::MapSeq { seq_repr, item } => {
                 item.get_solution().is_some()
             }
-            Step::MapStruct { members } => {
+            Step::MapStruct { struct_repr, members } => {
                 members.iter().map(|(s,g)| g.get_solution().is_some()).min().unwrap_or(true)
             }
-            Step::MapEnum { variants } => {
+            Step::MapEnum { enum_repr, variants } => {
                 variants.iter().map(|(s,g)| g.get_solution().is_some()).min().unwrap_or(true)
             }
             Step::Inst { m } => true
@@ -149,15 +150,15 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
     fn advance(&self, base: &MorphismBase<M>, dict: &mut impl TypeDict) -> Result<bool, GraphSearchError> {
         let mut n = self.write().unwrap();
         match &mut n.step {
-            Step::MapSeq { item } => {
+            Step::MapSeq { seq_repr, item } => {
                 //eprintln!("advance seq-map");
                 match item.advance(base, dict) {
                     GraphSearchState::Solved(item_morph) => {
                         //eprintln!("Sequence-Map Sub Graph Solved!!");
                         n.ty = MorphismType {
                             bounds: Vec::new(),
-                            src_type: TypeTerm::Seq { seq_repr: None, items: vec![ item_morph.get_type().src_type ] },
-                            dst_type: TypeTerm::Seq { seq_repr: None, items: vec![ item_morph.get_type().dst_type ] },
+                            src_type: TypeTerm::Seq { seq_repr: Some(Box::new(seq_repr.clone())), items: vec![ item_morph.get_type().src_type ] },
+                            dst_type: TypeTerm::Seq { seq_repr: Some(Box::new(seq_repr.clone())), items: vec![ item_morph.get_type().dst_type ] },
                         };
                         Ok(false)
                     }
@@ -165,7 +166,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                     GraphSearchState::Err(err) => Err(err)
                 }
             }
-            Step::MapStruct { members } => {
+            Step::MapStruct { struct_repr, members } => {
                 for (symbol, sub_search) in members.iter_mut() {
                     if sub_search.get_solution().is_none() {
                         match sub_search.advance(base, dict) {
@@ -175,12 +176,35 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                             GraphSearchState::Continue => { return Ok(true); },
                             GraphSearchState::Err(err) => { return Err(err); }
                         }
+                    } else {
+                        // already solved, continue with next member
+                    }
+                }
+
+                // all sub searches are solved
+                /*
+                n.ty = MorphismType {
+                    bounds: Vec::new(),
+                    src_type: TypeTerm::Struct { struct_repr, items: vec![ item_morph.get_type().src_type ] },
+                    dst_type: TypeTerm::Struct { struct_repr, items: vec![ item_morph.get_type().dst_type ] },
+                };
+                */
+                return Ok(false);
+            }
+            Step::MapEnum { enum_repr, variants } => {
+                for (symbol, sub_search) in variants.iter_mut() {
+                    if sub_search.get_solution().is_none() {
+                        match sub_search.advance(base, dict) {
+                            GraphSearchState::Solved(_) => {
+
+                                return Ok(true);
+                            },
+                            GraphSearchState::Continue => { return Ok(true); },
+                            GraphSearchState::Err(err) => { return Err(err); }
+                        }
                     }
                 }
                 return Ok(false);
-            }
-            Step::MapEnum { variants } => {
-                todo!()
             }
             _ => Ok(false)
         }
@@ -259,43 +283,66 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
     }
 
     fn map_seq(&self, goal: MorphismType) -> Arc<RwLock<SearchNode<M>>> {
+
+        let seq_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
+            TypeTerm::Seq { seq_repr, items } => {
+                seq_repr.unwrap().deref().clone()
+            }
+            _ => unreachable!()
+        };
+
         Arc::new(RwLock::new(SearchNode {
             pred: Some(self.clone()),
             weight: self.get_weight(),
             ty: MorphismType {
                     bounds: Vec::new(),
-                    src_type: TypeTerm::Seq{ seq_repr: None, items: vec![goal.src_type.clone()] },
-                    dst_type: TypeTerm::Seq{ seq_repr: None, items: vec![goal.src_type.clone()] }
+                    src_type: TypeTerm::Seq{ seq_repr: Some(Box::new(seq_repr.clone())), items: vec![goal.src_type.clone()] },
+                    dst_type: TypeTerm::Seq{ seq_repr: Some(Box::new(seq_repr.clone())), items: vec![goal.src_type.clone()] }
                 },
-            step: Step::MapSeq { item: GraphSearch::new(goal) },
+            step: Step::MapSeq { seq_repr, item: GraphSearch::new(goal) },
             ψ: self.read().unwrap().ψ.clone()
         }))
     }
 
     fn map_struct(&self, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>> {
+
+        let struct_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
+            TypeTerm::Struct { struct_repr, members } => {
+                struct_repr.unwrap().deref().clone()
+            }
+            _ => unreachable!()
+        };
+
         Arc::new(RwLock::new(SearchNode {
             pred: Some(self.clone()),
             weight: self.get_weight(),
             ty: MorphismType {
                 bounds:Vec::new(),
-                src_type: TypeTerm::Struct { struct_repr: None, members: goals.iter().map(|(s,t)| StructMember{ symbol: s.clone(), ty: t.src_type.clone() }).collect() },
-                dst_type: TypeTerm::Struct { struct_repr: None, members: goals.iter().map(|(s,t)| StructMember{ symbol: s.clone(), ty: t.dst_type.clone() }).collect() }
+                src_type: TypeTerm::Struct { struct_repr: Some(Box::new(struct_repr.clone())), members: goals.iter().map(|(s,t)| StructMember{ symbol: s.clone(), ty: t.src_type.clone() }).collect() },
+                dst_type: TypeTerm::Struct { struct_repr: Some(Box::new(struct_repr.clone())), members: goals.iter().map(|(s,t)| StructMember{ symbol: s.clone(), ty: t.dst_type.clone() }).collect() }
             },
-            step: Step::MapStruct { members: goals.into_iter().map(|(name,goal)| (name, GraphSearch::new(goal))).collect() },
+            step: Step::MapStruct { struct_repr, members: goals.into_iter().map(|(name,goal)| (name, GraphSearch::new(goal))).collect() },
             ψ: self.read().unwrap().ψ.clone()
         }))
     }
 
     fn map_enum(&self, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>> {
+        let enum_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
+            TypeTerm::Enum { enum_repr, variants } => {
+                enum_repr.unwrap().deref().clone()
+            }
+            _ => unreachable!()
+        };
+
         Arc::new(RwLock::new(SearchNode {
             pred: Some(self.clone()),
             weight: self.get_weight(),
             ty: MorphismType {
                 bounds: Vec::new(),
-                src_type: TypeTerm::Enum { enum_repr: None, variants: goals.iter().map(|(s,t)| EnumVariant{ symbol: s.clone(), ty: t.src_type.clone() }).collect() },
-                dst_type: TypeTerm::Enum { enum_repr: None, variants: goals.iter().map(|(s,t)| EnumVariant{ symbol: s.clone(), ty: t.dst_type.clone() }).collect() }
+                src_type: TypeTerm::Enum { enum_repr: Some(Box::new(enum_repr.clone())), variants: goals.iter().map(|(s,t)| EnumVariant{ symbol: s.clone(), ty: t.src_type.clone() }).collect() },
+                dst_type: TypeTerm::Enum { enum_repr: Some(Box::new(enum_repr.clone())), variants: goals.iter().map(|(s,t)| EnumVariant{ symbol: s.clone(), ty: t.dst_type.clone() }).collect() }
             },
-            step: Step::MapEnum { variants: goals.into_iter().map(|(name,goal)| (name, GraphSearch::new(goal))).collect() },
+            step: Step::MapEnum { enum_repr, variants: goals.into_iter().map(|(name,goal)| (name, GraphSearch::new(goal))).collect() },
             ψ: self.read().unwrap().ψ.clone()
         }))
     }
@@ -310,9 +357,9 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                     Step::Id { τ } => SolvedStep::Id { τ: τ.clone() },
                     Step::Inst { m } => SolvedStep::Inst { m: m.clone() },
                     Step::Specialize { σ } => SolvedStep::Specialize { σ: σ.clone() },
-                    Step::MapSeq { item } => SolvedStep::MapSeq { item: item.get_solution().unwrap() },
-                    Step::MapStruct { members } => SolvedStep::MapStruct { members: members.iter().map(|(n,m)| (n.clone(), m.get_solution().unwrap())).collect() },
-                    Step::MapEnum { variants } => SolvedStep::MapEnum { variants: variants.iter().map(|(n,m)| (n.clone(), m.get_solution().unwrap())).collect() },
+                    Step::MapSeq { seq_repr, item } => SolvedStep::MapSeq { seq_repr: seq_repr.clone(), item: item.get_solution().unwrap() },
+                    Step::MapStruct { struct_repr, members } => SolvedStep::MapStruct { struct_repr: struct_repr.clone(), members: members.iter().map(|(n,m)| (n.clone(), m.get_solution().unwrap())).collect() },
+                    Step::MapEnum { enum_repr, variants } => SolvedStep::MapEnum { enum_repr: enum_repr.clone(), variants: variants.iter().map(|(n,m)| (n.clone(), m.get_solution().unwrap())).collect() },
                 }));
 
             cur_node = n.pred.clone();
@@ -345,9 +392,9 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                         ];
                     }
                 }
-                SolvedStep::MapSeq { item } => {
+                SolvedStep::MapSeq { seq_repr, item } => {
                     let mut m = MorphismInstance::MapSeq {
-                        seq_repr: None,
+                        seq_repr: Some(Box::new(seq_repr.clone())),
                         item_morph: Box::new(item)
                     };
 
@@ -356,10 +403,10 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                     }
                     path.push(m);
                 }
-                SolvedStep::MapStruct { members } => {
+                SolvedStep::MapStruct { struct_repr, members } => {
                     let mut m = MorphismInstance::MapStruct {
-                        src_struct_repr: None,
-                        dst_struct_repr: None,
+                        src_struct_repr: Some(Box::new(struct_repr.clone())),
+                        dst_struct_repr: Some(Box::new(struct_repr.clone())),
                         member_morph: members
                     };
                     if ! ψ.is_empty() {
@@ -367,9 +414,9 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                     }
                     path.push(m);
                 }
-                SolvedStep::MapEnum { variants } => {
+                SolvedStep::MapEnum { enum_repr, variants } => {
                     let mut m = MorphismInstance::MapEnum {
-                        enum_repr: None,
+                        enum_repr: Some(Box::new(enum_repr.clone())),
                         variant_morph: variants
                     };
                     if ! ψ.is_empty() {
@@ -497,7 +544,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                 Ok(_) => {
                     if ! node.is_ready() {
                         if ! node.creates_loop() {
-                            self.skip_preview = true;
+                           // self.skip_preview = true;
                             self.explore_queue.push(node);
                         }
                         return GraphSearchState::Continue;
@@ -543,7 +590,8 @@ impl<M: Morphism+Clone> GraphSearch<M> {
 
             let mut done = Vec::new();
             for (ψ,decomposition) in decompositions {
-                if ! done.contains(&(ψ.clone(),decomposition.clone())) {
+                if ! done.contains(&(ψ.clone(), decomposition.clone())) {
+                    eprintln!("decomposition {:?} ~ {:?}", ψ,decomposition);
                     self.explore_queue.push(
                         match &decomposition {
                             DecomposedMorphismType::SeqMap { item } => { node.map_seq( item.clone() ) },
@@ -553,7 +601,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                     );
                     done.push((ψ, decomposition));
                 }else {
-                    //eprintln!("avoid duplicate decomposition");
+                    eprintln!("avoid duplicate decomposition");
                 }
             }
 

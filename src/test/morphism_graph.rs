@@ -284,6 +284,40 @@ fn test_morphgraph_map_seq() {
 }
 
 #[test]
+fn test_morphgraph_map_seq_repr() {
+    let mut dict = BimapTypeDict::new();
+    let mut base = MorphismBase::<DummyMorphism>::new();
+
+    base.add_morphism(DummyMorphism(MorphismType{
+        bounds: Vec::new(),
+        src_type: dict.parse("A ~ F").expect(""),
+        dst_type: dict.parse("A ~ E").expect("")
+    }));
+
+    let morph_graph = MorphismGraph::new(base);
+
+    assert_eq!(
+        morph_graph.search(MorphismType {
+            bounds: Vec::new(),
+            src_type: dict.parse("<Seq~<StaticLength 64> A ~ F>").unwrap(),
+            dst_type: dict.parse("<Seq~<StaticLength 64> A ~ E>").unwrap(),
+        }, &mut dict),
+        Ok(
+            MorphismInstance::MapSeq {
+                seq_repr: Some(Box::new(dict.parse("<StaticLength 64>").unwrap())),
+                item_morph: Box::new(
+                    MorphismInstance::Primitive {
+                        m: DummyMorphism(MorphismType {
+                            bounds: Vec::new(),
+                            src_type: dict.parse("A ~ F").unwrap(),
+                            dst_type: dict.parse("A ~ E").unwrap()
+                        })
+                    })
+            })
+    );
+}
+
+#[test]
 fn test_morphism_path1() {
     let (mut dict, base) = morphism_test_setup();
 

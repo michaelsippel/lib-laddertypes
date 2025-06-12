@@ -78,7 +78,9 @@ impl<M: Morphism + Clone> MorphismBase<M> {
                             found_src_member = true;
                             member_morph_types.push((symbol_rhs.clone(), MorphismType {
                                 bounds: Vec::new(),
-                                src_type: ty_lhs.clone(), dst_type: ty_rhs.clone() }));
+                                src_type: ty_lhs.clone(), dst_type: ty_rhs.clone()
+                            }));
+
                             if ty_lhs != ty_rhs {
                                 necessary = true;
                             }
