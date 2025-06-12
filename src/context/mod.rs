@@ -52,9 +52,13 @@ impl Context {
 impl TypeDict for Arc<RwLock<Context>> {
     fn add_typename(&mut self, tn: &str) -> u64 {
         let mut locked_self = self.write().unwrap();
-        let idx = locked_self.names.len();
-        locked_self.names.push(tn.into());
-        idx as u64
+        if let Some(parent) = locked_self.parent.as_mut() {
+            parent.add_typename(tn) + locked_self.names.len() as u64
+        } else {
+            let idx = locked_self.names.len();
+            locked_self.names.push(tn.into());
+            idx as u64
+        }
     }
 
     fn get_typeid(&self, tn: &str) -> Option<TypeID> {

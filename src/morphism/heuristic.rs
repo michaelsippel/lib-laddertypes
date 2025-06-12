@@ -1,4 +1,4 @@
-use crate::{morphism_graph::MorphismType, TypeTerm};
+use crate::{morphism::MorphismType, TypeTerm};
 
 impl MorphismType {
 

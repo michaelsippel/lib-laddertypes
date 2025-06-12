@@ -1,4 +1,4 @@
-use crate::{heuristic::*, dict::*, parser::*, morphism_graph::*};
+use crate::{heuristic::*, dict::*, parser::*, morphism::*};
 
 #[test]
 fn test_heuristic() {

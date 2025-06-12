@@ -1,6 +1,6 @@
 use {
     crate::{
-        morphism_graph::{Morphism, MorphismInstance, MorphismType}, HashMapSubst, StructMember, TypeDict, TypeTerm
+        morphism::{Morphism, MorphismInstance, MorphismType}, HashMapSubst, StructMember, TypeDict, TypeTerm
     }, std::io::Write
 };
 

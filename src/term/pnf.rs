@@ -3,7 +3,7 @@ use crate::{term::TypeTerm, constraint_system, EnumVariant, StructMember};
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 pub fn splice_ladders( mut upper: Vec< TypeTerm >, mut lower: Vec< TypeTerm >  ) -> Vec< TypeTerm > {
-    eprintln!("splice ladders {:?} <<<====>>>  {:?} ", upper, lower);
+    //eprintln!("splice ladders {:?} <<<====>>>  {:?} ", upper, lower);
     // check for overlap
     if lower.len() > 0 {
         for i in 0 .. upper.len() {

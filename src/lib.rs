@@ -5,7 +5,7 @@
 pub mod term;
 pub mod context;
 pub mod constraint_system;
-pub mod morphism_graph;
+pub mod morphism;
 
 #[cfg(test)]
 mod test;
@@ -15,5 +15,5 @@ pub use {
     desugared_term::*,
     term::*,
     constraint_system::*,
-    morphism_graph::*,
+    morphism::*,
 };

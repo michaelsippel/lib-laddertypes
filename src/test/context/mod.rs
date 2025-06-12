@@ -9,8 +9,12 @@ use crate::{
 #[test]
 fn test_context() {
 
-    let root_ctx = Context::new();
 
+    /*
+     * Set up variable scopes
+     */
+
+    let root_ctx = Context::new();
     root_ctx.add_variable(
         "DstRadix",
         TypeKind::ValueUInt
@@ -22,6 +26,12 @@ fn test_context() {
     let mut sub2_ctx = root_ctx.scope();
     assert_eq!( sub2_ctx.add_variable("SrcRadix", TypeKind::ValueUInt), 0 );
 
+
+
+    /*
+     * check variable IDs
+     */
+
     assert_eq!( sub1_ctx.get_typeid("Radix"), Some(TypeID::Var(0)) );
     assert_eq!( sub1_ctx.get_typeid("DstRadix"), Some(TypeID::Var(1)) );
 
@@ -30,22 +40,51 @@ fn test_context() {
 
     assert_eq!( sub1_ctx.parse("Radix"), Ok(TypeTerm::Var(0)) );
 
+
+
+    /*
+     * assign variables in scoped context
+     */
+
     // Radix
     sub1_ctx.bind(0, TypeTerm::Num(10));
 
     // SrcRadix
     sub2_ctx.bind(0, TypeTerm::Num(10));
 
-    // DstRadix
+    // Dst Radix
     sub2_ctx.bind(1, TypeTerm::Num(16));
+
+
+
+    /*
+     * test that bound variables are substituted
+     */
+
+    assert_eq!(
+        sub1_ctx
+            .parse("<PosInt Radix LittleEndian> ~ <Seq <Digit Radix>>").expect("parse error")
+            .apply_subst(&sub1_ctx).clone(),
+
+        sub1_ctx
+            .parse("<PosInt 10 LittleEndian> ~ <Seq <Digit 10>>").expect("parse error")
+    );
 
     assert_eq!(
         sub2_ctx
-            .parse("<PosInt SrcRadix LittleEndian>").expect("parse error")
+            .parse("<PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix>>").expect("parse error")
             .apply_subst(&sub1_ctx).clone(),
 
         sub2_ctx
-            .parse("<PosInt 10 LittleEndian>").expect("parse error")
+            .parse("<PosInt 10 LittleEndian> ~ <Seq <Digit 10>>").expect("parse error")
     );
 
+    assert_eq!(
+        sub2_ctx
+            .parse("<PosInt DstRadix LittleEndian>").expect("parse error")
+            .apply_subst(&sub1_ctx).clone(),
+
+        sub2_ctx
+            .parse("<PosInt 16 LittleEndian>").expect("parse error")
+    );
 }
