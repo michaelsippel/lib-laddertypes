@@ -182,13 +182,11 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                 }
 
                 // all sub searches are solved
-                /*
                 n.ty = MorphismType {
                     bounds: Vec::new(),
-                    src_type: TypeTerm::Struct { struct_repr, items: vec![ item_morph.get_type().src_type ] },
-                    dst_type: TypeTerm::Struct { struct_repr, items: vec![ item_morph.get_type().dst_type ] },
+                    src_type: TypeTerm::Struct { struct_repr: Some(Box::new(struct_repr.clone())), members: members.iter().map(|(s,g)| StructMember{ symbol:s.clone(), ty: g.get_solution().unwrap().get_type().src_type }).collect() },
+                    dst_type: TypeTerm::Struct { struct_repr: Some(Box::new(struct_repr.clone())), members: members.iter().map(|(s,g)| StructMember{ symbol:s.clone(), ty: g.get_solution().unwrap().get_type().dst_type }).collect() },
                 };
-                */
                 return Ok(false);
             }
             Step::MapEnum { enum_repr, variants } => {
@@ -286,7 +284,10 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
 
         let seq_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
             TypeTerm::Seq { seq_repr, items } => {
-                seq_repr.unwrap().deref().clone()
+                match seq_repr.as_ref() {
+                    Some(s) => s.deref().clone(),
+                    None => TypeTerm::Id(0x59741) // <<= magic for native seq repr
+                }
             }
             _ => unreachable!()
         };
@@ -308,7 +309,10 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
 
         let struct_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
             TypeTerm::Struct { struct_repr, members } => {
-                struct_repr.unwrap().deref().clone()
+                match struct_repr.as_ref() {
+                    Some(s) => s.deref().clone(),
+                    None => TypeTerm::Id(0x59742) // <<= magic for native struct repr
+                }
             }
             _ => unreachable!()
         };
@@ -321,7 +325,9 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                 src_type: TypeTerm::Struct { struct_repr: Some(Box::new(struct_repr.clone())), members: goals.iter().map(|(s,t)| StructMember{ symbol: s.clone(), ty: t.src_type.clone() }).collect() },
                 dst_type: TypeTerm::Struct { struct_repr: Some(Box::new(struct_repr.clone())), members: goals.iter().map(|(s,t)| StructMember{ symbol: s.clone(), ty: t.dst_type.clone() }).collect() }
             },
-            step: Step::MapStruct { struct_repr, members: goals.into_iter().map(|(name,goal)| (name, GraphSearch::new(goal))).collect() },
+            step: Step::MapStruct {
+                struct_repr,
+                members: goals.into_iter().map(|(name,goal)| (name, GraphSearch::new(goal))).collect() },
             ψ: self.read().unwrap().ψ.clone()
         }))
     }
@@ -329,7 +335,10 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
     fn map_enum(&self, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>> {
         let enum_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
             TypeTerm::Enum { enum_repr, variants } => {
-                enum_repr.unwrap().deref().clone()
+                match enum_repr.as_ref() {
+                    Some(s) => s.deref().clone(),
+                    None => TypeTerm::Id(0x59743) // <<= magic for native enum repr
+                }
             }
             _ => unreachable!()
         };
@@ -544,7 +553,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                 Ok(_) => {
                     if ! node.is_ready() {
                         if ! node.creates_loop() {
-                           // self.skip_preview = true;
+                            self.skip_preview = true;
                             self.explore_queue.push(node);
                         }
                         return GraphSearchState::Continue;
@@ -600,7 +609,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                         }.set_sub(ψ.clone())
                     );
                     done.push((ψ, decomposition));
-                }else {
+                } else {
                     eprintln!("avoid duplicate decomposition");
                 }
             }
