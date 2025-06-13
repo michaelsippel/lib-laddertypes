@@ -48,6 +48,7 @@ impl Context {
     }
 }
 
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 impl TypeDict for Arc<RwLock<Context>> {
     fn add_typename(&mut self, tn: &str) -> u64 {
@@ -114,6 +115,8 @@ impl TypeDict for Arc<RwLock<Context>> {
     }
 }
 
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
+
 impl Substitution for Arc<RwLock<Context>> {
     fn saturate(&mut self) {
         let mut locked_self = self.read().unwrap();
@@ -137,13 +140,38 @@ impl Substitution for Arc<RwLock<Context>> {
     }
 }
 
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
+
 pub trait LayeredContext {
     fn add_variable(&self, symbol: &str, kind: TypeKind ) -> u64;
     fn bind(&self, var: u64, val: TypeTerm) -> Result<(), SubstError>;
     fn scope(&self) -> Self;
+
+    fn shift_variables(&self, other: &Arc<RwLock<Context>>, t: TypeTerm) -> TypeTerm;
 }
 
 impl LayeredContext for Arc<RwLock<Context>> {
+    fn shift_variables(&self, other: &Arc<RwLock<Context>>, mut t: TypeTerm) -> TypeTerm {
+        let mut σ = HashMapSubst::new();
+        let l = self.read().unwrap().γ.len() as u64;
+
+        for (i,entry) in other.read().unwrap().γ.iter().enumerate() {
+            let i = i as u64;
+
+            // make variable name unique
+            let mut s = entry.symbol.clone();
+            while self.get_typeid(&s).is_some() {
+                s.push_str("'");
+            }
+
+            self.add_variable(&s, entry.kind.clone());
+            σ.insert(i, TypeTerm::Var(i + l));
+        }
+
+        t.apply_subst(&σ);
+        t
+    }
+
     fn add_variable(&self, symbol: &str, kind: TypeKind ) -> u64 {
         //self.write().unwrap().dict.add_varname(symbol.into());
         let mut locked_self = self.write().unwrap();
@@ -159,7 +187,8 @@ impl LayeredContext for Arc<RwLock<Context>> {
 
     fn bind(&self, var: u64, val: TypeTerm) -> Result<(), SubstError> {
         let mut locked_self = self.write().unwrap();
-        if (var as usize) < locked_self.γ.len() {
+        let l = locked_self.γ.len() as u64;
+        if var < l {
             if locked_self.γ[var as usize].value.is_none() {
                 locked_self.γ[var as usize].value = Some(val);
                 Ok(())
@@ -167,10 +196,10 @@ impl LayeredContext for Arc<RwLock<Context>> {
                 Err(SubstError::AlreadyAssigned)
             }
         } else {
-            let l = locked_self.γ.len() as u64;
             if let Some(parent) = locked_self.parent.as_mut() {
                 parent.bind(var - l, val)
             } else {
+                eprintln!("ERROR: assign invalid variable");
                 Err(SubstError::InvalidVariable)
             }
         }

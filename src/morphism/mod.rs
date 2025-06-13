@@ -22,6 +22,7 @@ use {
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 pub trait Morphism : Sized {
+    fn ctx(&self) -> Arc<RwLock<Context>>;
     fn get_type(&self) -> MorphismType;
     fn weight(&self) -> u64 {
         1

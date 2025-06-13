@@ -243,5 +243,3 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
         }
     }
 }
-
-//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
