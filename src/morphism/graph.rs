@@ -133,16 +133,20 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
     }
 
     fn creates_loop(&self) -> bool {
-        /*
         let mut cur_node = self.read().unwrap().pred.clone();
         while let Some(n) = cur_node {
-            if n.get_type().dst_type == self.get_type().dst_type {
-                return true;
+            let s = &n.read().unwrap().step;
+            match s {
+                Step::Id { τ } => {}
+                _ => {
+                    if n.get_type().src_type == self.get_type().dst_type {
+                        return true;
+                    }
+                }
             }
 
             cur_node = n.read().unwrap().pred.clone();
         }
-        */
 
         false
     }
