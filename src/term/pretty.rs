@@ -35,7 +35,7 @@ impl TypeTerm {
                 format!("{}", dict.get_typename(*id).unwrap_or("??".bright_red())).blue().bold()
             }
             TypeTerm::Var(id) => {
-                format!("{}", dict.get_varname(*id).unwrap_or("??".bright_red())).bright_magenta()
+                format!("{}({})", dict.get_varname(*id).unwrap_or("??".bright_red()).bright_magenta(), id)
             },
 
             TypeTerm::Num(n) => {

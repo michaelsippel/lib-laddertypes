@@ -10,10 +10,10 @@ impl<T: TypeDict> UnparseLadderType for T {
     fn unparse(&self, t: &DesugaredTypeTerm) -> String {
         match t {
             DesugaredTypeTerm::TypeID(TypeID::Fun(id)) => {
-                self.get_typename(*id).unwrap()
+                self.get_typename(*id).unwrap_or("?Fun?".into())
             },
             DesugaredTypeTerm::TypeID(TypeID::Var(id)) => {
-                self.get_varname(*id).unwrap()
+                self.get_varname(*id).unwrap_or("?Var?".into())
             },
             DesugaredTypeTerm::Num(n) => format!("{}", n),
             DesugaredTypeTerm::Char(c) => match c {

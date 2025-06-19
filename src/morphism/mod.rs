@@ -1,4 +1,5 @@
 pub mod base;
+pub mod search_node;
 pub mod graph;
 pub mod instance;
 pub mod heuristic;
@@ -22,7 +23,7 @@ use {
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 pub trait Morphism : Sized {
-    fn ctx(&self) -> Arc<RwLock<Context>>;
+    fn ctx(&self) -> ContextPtr;
     fn get_type(&self) -> MorphismType;
     fn weight(&self) -> u64 {
         1

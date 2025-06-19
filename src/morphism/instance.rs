@@ -10,36 +10,91 @@ use {
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MorphismInstance<M: Morphism + Clone> {
     Id { τ: TypeTerm },
-    Primitive{ m: M },
+    Primitive{ σs: HashMapSubst, m: M },
     Sub {
         ψ: TypeTerm,
         m: Box<MorphismInstance<M>>
     },
-    Specialize{
-        σ: HashMapSubst,
+    Specialize {
+        Γ: ContextPtr,
         m: Box<MorphismInstance<M>>
     },
-    Chain{ path: Vec<MorphismInstance<M>> },
-    MapSeq{
+    Chain {
+        path: Vec<MorphismInstance<M>>
+    },
+    MapSeq {
         seq_repr: Option<Box<TypeTerm>>,
         item_morph: Box<MorphismInstance<M>>,
     },
-    MapStruct{
-        src_struct_repr: Option<Box<TypeTerm>>,
-        dst_struct_repr: Option<Box<TypeTerm>>,
+    MapStruct {
+        struct_repr: Option<Box<TypeTerm>>,
         member_morph: Vec< (String, MorphismInstance<M>) >
     },
-    MapEnum{
+    MapEnum {
         enum_repr: Option<Box<TypeTerm>>,
         variant_morph: Vec< (String, MorphismInstance<M>) >
     }
 }
 
-
 impl<M: Morphism + Clone> MorphismInstance<M> {
+
+    #[cfg(feature = "pretty")]
+    pub fn pretty(&self, Γ: &ContextPtr) -> String {
+        let mut s = String::new();
+
+        match self {
+            MorphismInstance::Id { τ } => {
+                s.push_str( &τ.pretty(&mut Γ.clone(), 0) );
+            },
+            MorphismInstance::Primitive { σs, m } => {
+                let ty = m.get_type().apply_subst(σs);//.apply_subst(Γ);
+                s.push_str(&format!("{}\n    -morph->\n{}\n", ty.src_type.pretty(&mut Γ.clone(), 0), ty.dst_type.pretty(&mut Γ.clone(), 0)));
+            },
+            MorphismInstance::Sub { ψ, m } => {
+                s.push_str("Sub {\n");
+                s.push_str(&format!("ψ = {}\n", ψ.pretty(&mut Γ.clone(), 0)));
+                s.push_str(&m.pretty(Γ));
+                s.push_str("}");
+            },
+            MorphismInstance::Specialize { Γ, m } => {
+                s.push_str(&format!("(Γ:{})", Γ.pretty()));
+                s.push_str(&m.pretty(Γ));
+            },
+            MorphismInstance::Chain { path } => {
+                s.push_str("Chain {\n");
+                for m in path.iter() {
+                    s.push_str(&m.pretty(Γ));
+                    s.push_str(",");
+                }
+                s.push_str("}");
+            },
+            MorphismInstance::MapSeq { seq_repr, item_morph } => {
+                s.push_str("MapSeq {\n");
+                s.push_str(&item_morph.pretty(Γ));
+                s.push_str("}");
+            },
+            MorphismInstance::MapStruct { struct_repr, member_morph } => {
+                s.push_str("MapStruct {\n");
+                for m in member_morph.iter() {
+                    s.push_str(&format!("{} ↦ {}\n", m.0, m.1.pretty(&mut Γ.clone())));
+                }
+                s.push_str("}");
+            },
+            MorphismInstance::MapEnum { enum_repr, variant_morph } => {
+                s.push_str("MapEnum {\n");
+                for m in variant_morph.iter() {
+                    s.push_str(&format!("{} ↦ {}\n", m.0, m.1.pretty(&mut Γ.clone())));
+                }
+                s.push_str("}");
+            },
+        }
+
+        s
+    }
+
     pub fn get_action_type(&self) -> MorphismType {
         self.get_type().strip_common_rungs()
     }
@@ -58,11 +113,11 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
         match self {
             MorphismInstance::Id { τ } => 0,
             MorphismInstance::Sub { ψ, m } => m.get_weight(),
-            MorphismInstance::Specialize { σ, m } => m.get_weight(),
-            MorphismInstance::Primitive { m } => 10,
+            MorphismInstance::Specialize { Γ, m } => m.get_weight(),
+            MorphismInstance::Primitive { σs, m } => 10,
             MorphismInstance::Chain { path } => path.iter().map(|m| m.get_weight()).sum(),
-            MorphismInstance::MapSeq {  seq_repr, item_morph } => item_morph.get_weight() + 15,
-            MorphismInstance::MapStruct { src_struct_repr, dst_struct_repr, member_morph } => member_morph.iter().map(|m| m.1.get_weight()).sum(),
+            MorphismInstance::MapSeq { seq_repr, item_morph } => item_morph.get_weight() + 15,
+            MorphismInstance::MapStruct { struct_repr, member_morph } => member_morph.iter().map(|m| m.1.get_weight()).sum(),
             MorphismInstance::MapEnum { enum_repr, variant_morph } => variant_morph.iter().map(|m| m.1.get_weight()).sum()
         }
     }
@@ -76,7 +131,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
                     dst_type: τ.clone()
                 }
             }
-            MorphismInstance::Primitive { m } => { m.get_type() },
+            MorphismInstance::Primitive { σs, m } => { m.get_type().apply_subst(σs) },
             MorphismInstance::Sub { ψ, m } =>
                 MorphismType {
                     bounds: m.get_type().bounds,
@@ -90,28 +145,23 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
                             m.get_type().dst_type
                         ]),
                 },
-            MorphismInstance::Specialize { σ, m } =>
-                MorphismType {
-                    bounds: Vec::new(),
-                    src_type: m.get_type().src_type.apply_subst(σ).clone(),
-                    dst_type: m.get_type().dst_type.apply_subst(σ).clone(),
-                },
+            MorphismInstance::Specialize { Γ, m } => {
+                m.get_type().apply_subst(Γ)
+            }
             MorphismInstance::Chain { path } => {
                 if path.len() > 0 {
-                    //let s = self.get_subst();
                     MorphismType {
-                        //bounds: path.iter().map(|m| m.get_type().bounds.iter()).flatten().collect(),
-                        // here we would need to "move up" the remaining variables
-                        bounds: Vec::new(), // <-- fixme: but first implement variable scopes
+                        bounds: Vec::new(),//Γ.get_bounds(),
                         src_type: path.first().unwrap().get_type().src_type.clone(),
                         dst_type: path.last().unwrap().get_type().dst_type.clone()
-                    }//.apply_subst(&s)
+                    }
                 } else {
-                    MorphismType {
+                    unreachable!();
+                    /*MorphismType {
                         bounds: Vec::new(),
                         src_type: TypeTerm::Id(45454),
                         dst_type: TypeTerm::Id(45454)
-                    }
+                    }*/
                 }
             }
             MorphismInstance::MapSeq { seq_repr, item_morph } => {
@@ -123,11 +173,11 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
                             items: vec![ item_morph.get_type().dst_type ]},
                 }
             }
-            MorphismInstance::MapStruct { src_struct_repr, dst_struct_repr, member_morph } => {
+            MorphismInstance::MapStruct { struct_repr, member_morph } => {
                 MorphismType {
                     bounds: Vec::new(), // <-- fixme: same as with chain
                     src_type: TypeTerm::Struct{
-                                struct_repr: src_struct_repr.clone(),
+                                struct_repr: struct_repr.clone(),
                                 members:
                                     member_morph.iter().map(|(symbol, morph)| {
                                        StructMember{ symbol:symbol.clone(), ty: morph.get_type().src_type }
@@ -135,7 +185,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
                             },
 
                     dst_type: TypeTerm::Struct {
-                                struct_repr: dst_struct_repr.clone(),
+                                struct_repr: struct_repr.clone(),
                                 members: member_morph.iter().map(|(symbol, morph)| {
                                     StructMember { symbol: symbol.clone(), ty: morph.get_type().dst_type}
                                 }).collect()
@@ -166,12 +216,11 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
     pub fn get_subst(&self) -> HashMapSubst {
         match self {
             MorphismInstance::Id { τ } => HashMap::new(),
-            MorphismInstance::Primitive { m } => HashMap::new(),
+            MorphismInstance::Primitive { σs, m } => σs.clone(),
             MorphismInstance::Sub { ψ, m } => m.get_subst(),
-            MorphismInstance::Specialize { σ, m } => {
-                let mut σ0 = m.get_subst();
-                σ0.append(σ);
-                σ0
+            MorphismInstance::Specialize { Γ, m } => {
+                todo!();
+                HashMap::new()
             }
             MorphismInstance::Chain { path } => {
                 path.iter().fold(
@@ -185,7 +234,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
             MorphismInstance::MapSeq { seq_repr, item_morph } => {
                 item_morph.get_subst()
             },
-            MorphismInstance::MapStruct { src_struct_repr, dst_struct_repr, member_morph } => {
+            MorphismInstance::MapStruct { struct_repr, member_morph } => {
                 let mut σ = HashMap::new();
                 for (symbol, m) in member_morph.iter() {
                     σ.append(&mut m.get_subst());
@@ -199,29 +248,25 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
         }
     }
 
-    pub fn apply_subst(&mut self, γ: &HashMapSubst) {
+    pub fn apply_subst(&mut self, γ: &impl Substitution) {
         let ty = self.get_type();
         match self {
             MorphismInstance::Id { τ } => {
                 τ.apply_subst( γ );
             }
-            MorphismInstance::Primitive { m } => { },
+            MorphismInstance::Primitive { σs, m } => { },
             MorphismInstance::Sub { ψ, m } => {
                 ψ.apply_subst(γ);
                 m.apply_subst(γ);
             }
-            MorphismInstance::Specialize { σ, m } => {
-                for (n,t) in σ.iter_mut() {
-                    t.apply_subst(γ);
+            MorphismInstance::Specialize { Γ, m } => {
+                todo!();
+                /*
+                for (v,t) in Γ.0.
+                    Γ.bind(*i + Γ.0.read().unwrap().γ.len() as u64, t.clone()).expect("cant bind");
                 }
-                for (i,t) in γ.iter() {
-                    if m.get_type().src_type.apply_subst(σ).contains_var(*i)
-                    || m.get_type().dst_type.apply_subst(σ).contains_var(*i) {
-                        σ.insert(*i, t.clone());
-                }
-
-                }
-            },
+                */
+            }
             MorphismInstance::Chain { path } => {
                 for n in path.iter_mut() {
                     n.apply_subst(γ);
@@ -230,7 +275,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
             MorphismInstance::MapSeq { seq_repr, item_morph } => {
                 item_morph.apply_subst(γ);
             }
-            MorphismInstance::MapStruct { src_struct_repr, dst_struct_repr, member_morph } => {
+            MorphismInstance::MapStruct { struct_repr, member_morph } => {
                 for (_,ty) in member_morph {
                     ty.apply_subst(γ);
                 }

@@ -1,4 +1,4 @@
-use crate::bimap::Bimap;
+use crate::{bimap::Bimap, TypeKind};
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
@@ -13,6 +13,7 @@ pub trait TypeDict : Send + Sync {
     fn get_typeid(&self, tn: &str) -> Option<TypeID>;
     fn get_typename(&self, tid: u64) -> Option<String>;
     fn get_varname(&self, var_id: u64) -> Option<String>;
+    fn get_varkind(&self, var_id: u64) -> Option<TypeKind>;
 
     fn get_name(&self, id: TypeID) -> Option<String> {
         match id {
@@ -85,6 +86,10 @@ impl TypeDict for BimapTypeDict {
     fn get_typeid(&self, tn: &str) -> Option<TypeID> {
         self.typenames.mλ.get(tn).cloned()
     }
+
+    fn get_varkind(&self, id: u64) -> Option<TypeKind> {
+        None
+    }
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>
@@ -103,6 +108,9 @@ impl<T: TypeDict> TypeDict for Arc<RwLock<T>> {
     }
     fn get_typeid(&self, tn: &str) -> Option<TypeID> {
         self.read().unwrap().get_typeid(tn)
+    }
+    fn get_varkind(&self, id: u64) -> Option<TypeKind> {
+        self.read().unwrap().get_varkind(id)
     }
 }
 

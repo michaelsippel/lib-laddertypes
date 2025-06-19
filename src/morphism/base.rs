@@ -1,7 +1,7 @@
 use {
     crate::{
-        morphism::{Morphism, MorphismInstance, MorphismType}, HashMapSubst, StructMember, TypeDict, TypeTerm
-    }, std::io::Write
+        morphism::{Morphism, MorphismInstance, MorphismType}, Context, ContextPtr, HashMapSubst, LayeredContext, StructMember, TypeDict, TypeTerm
+    }, std::{arch::x86_64::_MM_ROUND_NEAREST, collections::HashMap, io::Write, sync::{Arc, RwLock}}
 };
 
 pub trait MorphBase<
@@ -28,16 +28,22 @@ pub enum DecomposedMorphismType {
 
 #[derive(Clone)]
 pub struct MorphismBase<M: Morphism + Clone> {
+    Γ: ContextPtr,
     morphisms: Vec< M >
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 impl<M: Morphism + Clone> MorphismBase<M> {
-    pub fn new() -> Self {
+    pub fn new(Γ: ContextPtr) -> Self {
         MorphismBase {
+            Γ,
             morphisms: Vec::new()
         }
+    }
+
+    pub fn ctx(&self) -> ContextPtr {
+        self.Γ.clone()
     }
 
     pub fn add_morphism(&mut self, m: M) {
@@ -76,6 +82,9 @@ impl<M: Morphism + Clone> MorphismBase<M> {
                     for StructMember{ symbol: symbol_lhs, ty: ty_lhs } in members_lhs.iter() {
                         if symbol_rhs == symbol_lhs {
                             found_src_member = true;
+
+                            // todo: check if member-morph-type is parallel
+
                             member_morph_types.push((symbol_rhs.clone(), MorphismType {
                                 bounds: Vec::new(),
                                 src_type: ty_lhs.clone(), dst_type: ty_rhs.clone()
@@ -130,34 +139,51 @@ impl<M: Morphism + Clone> MorphismBase<M> {
         }
     }
 
-    pub fn enum_morphisms_from(&self, src_type: &TypeTerm) -> Vec< (TypeTerm, HashMapSubst, M) > {
+    pub fn enum_morphisms_from(&self, Γ0: &ContextPtr, src_type: &TypeTerm) -> Vec< (TypeTerm, ContextPtr, HashMapSubst, M) > {
         let mut morphs = Vec::new();
 
         for m in self.morphisms.iter() {
-            let m_src_type = m.get_type().src_type.normalize();
-            let m_dst_type = m.get_type().dst_type.normalize();
+            let mut m_src_type = m.get_type().src_type.normalize();
+            let mut m_dst_type = m.get_type().dst_type.normalize();
 
-            /* 1. primitive morphisms */
+            let Γ = Γ0.scope();
+            let σs = Γ.shift_variables(&m.ctx());
+            m_src_type.apply_subst(&σs);
+            m_dst_type.apply_subst(&σs);
+
+            let mut src_type = src_type.clone();
+            src_type.apply_subst(&Γ.shift_from_parent());
+
 
             // check if the given source type is compatible with the
             // morphisms source type,
             // i.e. check if `src_type` is a subtype of `m_src_type`
-            if let Ok((ψ, σ)) = crate::constraint_system::subtype_unify(src_type, &m_src_type) {
-                morphs.push((ψ, σ, m.clone()));
+            if let Ok((ψ, σ)) = crate::constraint_system::subtype_unify(&src_type, &m_src_type) {
+                for (v,t) in σ.iter() {
+                    Γ.bind(*v, t.clone()).expect("cant bind variable");
+                }
+                morphs.push((ψ, Γ, σs, m.clone()));
             }
         }
 
         morphs
     }
 
-    pub fn enum_complex_morphisms(&self, src_type: &TypeTerm) -> Vec<(TypeTerm, DecomposedMorphismType)> {
-        let mut morphs = Vec::new();
+    pub fn enum_complex_morphisms(&self, Γ0: &ContextPtr, src_type: &TypeTerm) -> Vec<(TypeTerm, ContextPtr, HashMapSubst, DecomposedMorphismType)> {
+        let mut morphs = Vec::<(TypeTerm, ContextPtr, HashMapSubst, DecomposedMorphismType)>::new();
         for m in self.morphisms.iter() {
-            let m_src_type = m.get_type().src_type.normalize();
+            let mut src_type = src_type.clone();
+            let mut m_src_type = m.get_type().src_type.normalize();
+
+            let Γ = Γ0.scope();
+            let σs = Γ.shift_variables(&m.ctx());
+            m_src_type.apply_subst(&σs);
+
+            src_type.apply_subst(&Γ.shift_from_parent());
 
             /* 2. check complex types */
-            if let Some(decomposition) = self.morphism_decomposition(src_type, &m_src_type) {
-                morphs.push(decomposition);
+            if let Some((ψ,decomposition)) = self.morphism_decomposition(&src_type, &m_src_type) {
+                morphs.push((ψ,Γ,σs,decomposition));
             }
         }
         morphs
