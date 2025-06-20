@@ -288,6 +288,10 @@ impl<T: LayeredContext> ParseLadderType for T {
             | Some(Ok(LadderTypeToken::AssignSubType))
             | Some(Ok(LadderTypeToken::AssignTraitType))
             | Some(Ok(LadderTypeToken::AssignParallelType))
+
+            | Some(Ok(LadderTypeToken::ArrowFunc))
+            | Some(Ok(LadderTypeToken::ArrowMorph))
+
             => Err(ParseError::UnexpectedToken),
 
             Some(Ok(LadderTypeToken::Ladder)) => Err(ParseError::UnexpectedLadder),

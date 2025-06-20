@@ -15,7 +15,8 @@ pub enum LadderTypeToken {
     AssignSubType,
     AssignTraitType,
     AssignParallelType,
-    // todo: Func, Morph
+    ArrowFunc,
+    ArrowMorph
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -35,7 +36,8 @@ enum LexerState {
     Assign,
     Sym( String ),
     Num( i64 ),
-    Char( Option<char> )
+    Char( Option<char> ),
+    Arrow( String ),
 }
 
 impl LexerState {
@@ -46,6 +48,11 @@ impl LexerState {
             LexerState::Num(n) => Some(LadderTypeToken::Num(n)),
             LexerState::Char(c) => Some(LadderTypeToken::Char(c?)),
             LexerState::Assign => Some(LadderTypeToken::AssignType),
+            LexerState::Arrow(s) => match s.as_str() {
+                "-->" => Some(LadderTypeToken::ArrowFunc),
+                "-morph->" => Some(LadderTypeToken::ArrowMorph),
+                _ => None
+            }
         }
     }
 }
@@ -99,6 +106,7 @@ where It: Iterator<Item = char>
                             self.chars.next();
                             state = LexerState::Assign;
                         },
+                        '-' => { state = LexerState::Arrow(String::new()); },
                         c => {
                             if c.is_whitespace() {
                                 self.chars.next();
@@ -179,6 +187,17 @@ where It: Iterator<Item = char>
                     }
                 }
 
+                LexerState::Arrow(s) => {
+                    let c = self.chars.next().unwrap();
+                    s.push(c);
+                    if c == '>' {
+                        // end of arrow
+                        if let Some(token) = state.clone().into_token() {
+                            return Some(Ok(token));
+                        }
+                    }
+                }
+
                 _ => {
 
                     if c.is_whitespace()
@@ -199,7 +218,6 @@ where It: Iterator<Item = char>
                             LexerState::Sym(s) => {
                                 s.push(c);
                             }
-
                             LexerState::Num(n) => {
                                 if let Some(d) = c.to_digit(10) {
                                     *n = (*n) * 10 + d as i64;

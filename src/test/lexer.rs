@@ -96,6 +96,14 @@ fn test_lexer_constraints() {
 }
 
 #[test]
+fn test_lexer_arrows() {
+    let mut lex = LadderTypeLexer::from(" -->  -morph-> ".chars());
+
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::ArrowFunc)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::ArrowMorph)) );
+}
+
+#[test]
 fn test_lexer_struct() {
     let mut lex = LadderTypeLexer::from("{ a: { |x:X |y:Y }; b: B; }".chars());
 
