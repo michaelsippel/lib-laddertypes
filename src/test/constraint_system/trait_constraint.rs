@@ -1,10 +1,7 @@
 use {
-    crate::{dict::*, parser::*,
-        constraint_system::{
-            ConstraintSystem,
-            ConstraintPair,
-            ConstraintError
-        }
+    crate::{constraint_system::{
+            ConstraintError, ConstraintPair, ConstraintSystem
+        }, dict::*, parser::*, Context
     }
 };
 
@@ -12,7 +9,7 @@ use {
 
 #[test]
 fn test_trait_bound1() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
@@ -66,7 +63,7 @@ fn test_trait_bound1() {
 
 #[test]
 fn test_trait_bound_spec() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
@@ -85,14 +82,14 @@ fn test_trait_bound_spec() {
 
 #[test]
 fn test_trait_bound_struct() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
             ConstraintPair {
                 addr: Vec::new(),
-                lhs : dict.parse("<Struct <a S~A> <b T~B>>").unwrap(),
-                rhs : dict.parse("<Struct <a S> <b T>>").unwrap()
+                lhs : dict.parse("{ a:S~A; b:T~B; }").unwrap(),
+                rhs : dict.parse("{ a:S; b:T; }").unwrap()
             }
         ]).solve(),
         Ok((
@@ -105,8 +102,8 @@ fn test_trait_bound_struct() {
         ConstraintSystem::new_trait(vec![
             ConstraintPair {
                 addr: Vec::new(),
-                lhs : dict.parse("<Struct <a S~A> <b T~B>>").unwrap(),
-                rhs : dict.parse("<Struct <a S>>").unwrap()
+                lhs : dict.parse("{ a: S; b: T~B; }").unwrap(),
+                rhs : dict.parse("{ a: S; }").unwrap()
             }
         ]).solve(),
         Ok((
@@ -119,8 +116,8 @@ fn test_trait_bound_struct() {
         ConstraintSystem::new_trait(vec![
             ConstraintPair {
                 addr: Vec::new(),
-                lhs : dict.parse("<Struct <a S~A> <b T~B>>").unwrap(),
-                rhs : dict.parse("<Struct <a A>>").unwrap()
+                lhs : dict.parse("{ a: S~A; b: T~B; }").unwrap(),
+                rhs : dict.parse("{ a: A; }").unwrap()
             }
         ]).solve(),
         Ok((
@@ -133,8 +130,8 @@ fn test_trait_bound_struct() {
         ConstraintSystem::new_trait(vec![
             ConstraintPair {
                 addr: Vec::new(),
-                lhs : dict.parse("<Struct <a S~A> <b T~B>>").unwrap(),
-                rhs : dict.parse("<Struct <a T>>").unwrap()
+                lhs : dict.parse("{ a: S~A; b: T~B; }").unwrap(),
+                rhs : dict.parse("{ a: T; }").unwrap()
             }
         ]).solve(),
         Err(ConstraintError { addr: vec![0], t1: dict.parse("S~A").unwrap(), t2: dict.parse("T").unwrap() })

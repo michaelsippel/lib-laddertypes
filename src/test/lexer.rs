@@ -68,10 +68,10 @@ fn test_lexer_ladder_space() {
 fn test_lexer_app() {
     let mut lex = LadderTypeLexer::from("<Seq Char>".chars());
 
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Char".into()))) );
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)) );
     assert_eq!( lex.next(), None );
 }
 
@@ -79,12 +79,35 @@ fn test_lexer_app() {
 fn test_lexer_app_space() {
     let mut lex = LadderTypeLexer::from("   <Seq      Char  >".chars());
 
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Char".into()))) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)) );
+    assert_eq!( lex.next(), None );
+}
+
+#[test]
+fn test_lexer_constraints() {
+    let mut lex = LadderTypeLexer::from(":<= :>< :||".chars());
+
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignSubType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignTraitType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignParallelType)) );
+}
+
+#[test]
+fn test_lexer_univ() {
+    let mut lex = LadderTypeLexer::from("∀(α:<=A)".chars());
+
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Univ)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("α".into()))) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignSubType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("A".into()))) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)) );
     assert_eq!( lex.next(), None );
 }
+
 
 #[test]
 fn test_lexer_large() {
@@ -100,57 +123,56 @@ fn test_lexer_large() {
          ~UTF-8
          ~<Seq Byte>".chars());
 
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Date".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("TimeSince".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("UnixEpoch".into()))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Duration".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seconds".into()))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));            
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("ℕ".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("PosInt".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Num(10))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("BigEndian".into()))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Digit".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Num(10))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Unicode".into()))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("SepSeq".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Unicode".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Char(':'))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Unicode".into()))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("UTF-8".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Ladder)));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenSpec)));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Seq".into()))));
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Byte".into()))));
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseSpec)));
 
     assert_eq!( lex.next(), None );
 }
-

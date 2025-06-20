@@ -1,7 +1,7 @@
 use {
     crate::{constraint_system::{
             subtype_unify, ConstraintError, ConstraintPair, ConstraintSystem
-        }, dict::*, parser::*, term::*, HashMapSubst
+        }, dict::*, parser::*, term::*, Context, HashMapSubst, LayeredContext, TypeKind
     }
 };
 
@@ -12,8 +12,8 @@ use {
 */
 #[test]
 fn test_subtype_unification1() {
-    let mut dict = BimapTypeDict::new();
-    dict.add_varname("T");
+    let mut dict = Context::new();
+    dict.add_variable("T", TypeKind::Type);
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
@@ -82,12 +82,12 @@ fn test_subtype_unification1() {
  */
 #[test]
 fn test_subtype_unification2() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
-    dict.add_varname("T");
-    dict.add_varname("U");
-    dict.add_varname("V");
-    dict.add_varname("W");
+    dict.add_variable("T", TypeKind::Type);
+    dict.add_variable("U", TypeKind::Type);
+    dict.add_variable("V", TypeKind::Type);
+    dict.add_variable("W", TypeKind::Type);
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
@@ -192,7 +192,7 @@ fn test_subtype_unification2() {
  */
 #[test]
 fn test_subtype_unification3() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
@@ -242,7 +242,7 @@ fn test_subtype_unification3() {
  */
 #[test]
 fn test_trait_not_subtype() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     assert_eq!(
         subtype_unify(
@@ -262,7 +262,7 @@ fn test_trait_not_subtype() {
             &dict.parse("<Seq~List~Vec Char~ReprTree>").expect("")
         ),
         Err(ConstraintError {
-            addr: vec![1],
+            addr: vec![1,1],
             t1: dict.parse("Char").expect(""),
             t2: dict.parse("ReprTree").expect("")
         })
@@ -274,9 +274,9 @@ fn test_trait_not_subtype() {
 */
 #[test]
 fn test_reprtree_list_subtype() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
-    dict.add_varname("Item".into());
+    dict.add_variable("Item", TypeKind::Type);
 
     assert_eq!(
         subtype_unify(
@@ -294,10 +294,10 @@ fn test_reprtree_list_subtype() {
 
 #[test]
 pub fn test_subtype_delim() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
-    dict.add_varname("T");
-    dict.add_varname("Delim");
+    dict.add_variable("T", TypeKind::Type);
+    dict.add_variable("Delim", TypeKind::ValueUInt);
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![

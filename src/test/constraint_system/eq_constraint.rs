@@ -98,34 +98,34 @@ fn test_unification() {
         true
     );
 */
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
-    dict.add_varname("T");
-    dict.add_varname("U");
-    dict.add_varname("V");
-    dict.add_varname("W");
+    dict.add_variable("T", TypeKind::Type);
+    dict.add_variable("U", TypeKind::Type);
+    dict.add_variable("V", TypeKind::Type);
+    dict.add_variable("W", TypeKind::Type);
 
     assert_eq!(
         ConstraintSystem::new_eq(vec![
             ConstraintPair {
                 addr: Vec::new(),
                 lhs: dict.parse("U").unwrap(),
-                rhs: dict.parse("<Seq Char>").unwrap()
+                rhs: dict.parse("[Char]").unwrap()
             },
             ConstraintPair {
                 addr: Vec::new(),
                 lhs: dict.parse("T").unwrap(),
-                rhs: dict.parse("<Seq U>").unwrap()
+                rhs: dict.parse("[U]").unwrap()
             }
         ]).solve(),
         Ok((
             vec![],
             vec![
                 // T
-                (0, dict.parse("<Seq <Seq Char>>").unwrap()),
+                (0, dict.parse("[[Char]]").unwrap()),
 
                 // U
-                (1, dict.parse("<Seq Char>").unwrap())
+                (1, dict.parse("[Char]").unwrap())
             ].into_iter().collect()
         ))
     );
@@ -134,13 +134,13 @@ fn test_unification() {
         ConstraintSystem::new_eq(vec![
             ConstraintPair {
                 addr: Vec::new(),
-                lhs : dict.parse("<Seq T>").unwrap(),
-                rhs : dict.parse("<Seq W~<Seq Char>>").unwrap()
+                lhs : dict.parse("[T]").unwrap(),
+                rhs : dict.parse("[W~[Char]]").unwrap()
             },
             ConstraintPair {
                 addr: Vec::new(),
-                lhs : dict.parse("<Seq ℕ>").unwrap(),
-                rhs : dict.parse("<Seq W>").unwrap(),
+                lhs : dict.parse("[ℕ]").unwrap(),
+                rhs : dict.parse("[W]").unwrap(),
             }
         ]).solve(),
         Ok((
@@ -150,7 +150,7 @@ fn test_unification() {
                 (3, dict.parse("ℕ").unwrap()),
 
                 // T
-                (0, dict.parse("ℕ~<Seq Char>").unwrap())
+                (0, dict.parse("ℕ~[Char]").unwrap())
             ].into_iter().collect()
         ))
     );

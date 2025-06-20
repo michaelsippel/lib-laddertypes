@@ -242,7 +242,7 @@ impl Substitution for ContextPtr {
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-pub trait LayeredContext {
+pub trait LayeredContext : TypeDict {
     fn add_variable(&self, symbol: &str, kind: TypeKind ) -> u64;
     fn bind(&self, var: u64, val: TypeTerm) -> Result<(), SubstError>;
     fn scope(&self) -> Self;

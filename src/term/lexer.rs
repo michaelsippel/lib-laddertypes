@@ -6,9 +6,16 @@ pub enum LadderTypeToken {
     Symbol( String ),
     Char( char ),
     Num( i64 ),
-    Open,
-    Close,
+    Univ,
+    Open, OpenSpec, OpenSeq, OpenStruct,
+    Close, CloseSpec, CloseSeq, CloseStruct,
     Ladder,
+    EnumSep, StructSep,
+    AssignType,
+    AssignSubType,
+    AssignTraitType,
+    AssignParallelType,
+    // todo: Func, Morph
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -25,6 +32,7 @@ pub enum LexError {
 #[derive(PartialEq, Eq, Clone, Debug)]
 enum LexerState {
     Any,
+    Assign,
     Sym( String ),
     Num( i64 ),
     Char( Option<char> )
@@ -36,7 +44,8 @@ impl LexerState {
             LexerState::Any => None,
             LexerState::Sym(s) => Some(LadderTypeToken::Symbol(s)),
             LexerState::Num(n) => Some(LadderTypeToken::Num(n)),
-            LexerState::Char(c) => Some(LadderTypeToken::Char(c?))
+            LexerState::Char(c) => Some(LadderTypeToken::Char(c?)),
+            LexerState::Assign => Some(LadderTypeToken::AssignType),
         }
     }
 }
@@ -73,10 +82,23 @@ where It: Iterator<Item = char>
                 // determine token type
                 LexerState::Any => {
                     match c {
-                        '<' => { self.chars.next(); return Some(Ok(LadderTypeToken::Open)); },
-                        '>' => { self.chars.next(); return Some(Ok(LadderTypeToken::Close)); },
+                        '∀' => { self.chars.next(); return Some(Ok(LadderTypeToken::Univ)); },
+                        '(' => { self.chars.next(); return Some(Ok(LadderTypeToken::Open)); },
+                        ')' => { self.chars.next(); return Some(Ok(LadderTypeToken::Close)); },
+                        '<' => { self.chars.next(); return Some(Ok(LadderTypeToken::OpenSpec)); },
+                        '>' => { self.chars.next(); return Some(Ok(LadderTypeToken::CloseSpec)); },
+                        '[' => { self.chars.next(); return Some(Ok(LadderTypeToken::OpenSeq)); },
+                        ']' => { self.chars.next(); return Some(Ok(LadderTypeToken::CloseSeq)); },
+                        '{' => { self.chars.next(); return Some(Ok(LadderTypeToken::OpenStruct)); },
+                        '}' => { self.chars.next(); return Some(Ok(LadderTypeToken::CloseStruct)); },
+                        ';' => { self.chars.next(); return Some(Ok(LadderTypeToken::StructSep)); },
+                        '|' => { self.chars.next(); return Some(Ok(LadderTypeToken::EnumSep)); },
                         '~' => { self.chars.next(); return Some(Ok(LadderTypeToken::Ladder)); },
                         '\'' => { self.chars.next(); state = LexerState::Char(None); },
+                        ':' => {
+                            self.chars.next();
+                            state = LexerState::Assign;
+                        },
                         c => {
                             if c.is_whitespace() {
                                 self.chars.next();
@@ -113,7 +135,7 @@ where It: Iterator<Item = char>
                         Some('\'') => {
                             if let Some(token) = state.clone().into_token() {
                                 return Some(Ok(token));
-                            }                            
+                            }
                         }
                         _ => {
                             return Some(Err(LexError::InvalidChar));
@@ -121,9 +143,48 @@ where It: Iterator<Item = char>
                     }
                 }
 
+                LexerState::Assign => {
+                    match c {
+                        '<' => {
+                            // subtype
+                            self.chars.next();
+                            match self.chars.next() {
+                                Some('=') => { return Some(Ok(LadderTypeToken::AssignSubType)); },
+                                Some(_) => { return Some(Err(LexError::InvalidChar)); },
+                                None => { return Some(Err(LexError::InvalidChar)); }
+                            }
+                        }
+                        '>' => {
+                            // traittype
+                            self.chars.next();
+                            match self.chars.next() {
+                                Some('<') => { return Some(Ok(LadderTypeToken::AssignTraitType)); },
+                                Some(_) => { return Some(Err(LexError::InvalidChar)); },
+                                None => { return Some(Err(LexError::InvalidChar)); }
+                            }
+                        }
+                        '|' => {
+                            // paralleltype
+                            self.chars.next();
+
+                            match self.chars.next() {
+                                Some('|') => { return Some(Ok(LadderTypeToken::AssignParallelType)); },
+                                Some(_) => { return Some(Err(LexError::InvalidChar)); },
+                                None => { return Some(Err(LexError::InvalidChar)); }
+                            }
+                        }
+                        _ => {
+                            return Some(Ok(LadderTypeToken::AssignType));
+                        }
+                    }
+                }
+
                 _ => {
 
-                    if c.is_whitespace() || *c == '>' || *c == '~' {
+                    if c.is_whitespace()
+                    || *c == ')' || *c == '>' || *c == ']' || *c=='}'
+                    || *c == '~' || *c==':' || *c==';'
+                    {
                         // finish the current token
 
                         if let Some(token) = state.clone().into_token() {

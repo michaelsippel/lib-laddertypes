@@ -48,8 +48,8 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
         Γ.add_variable("Radix", TypeKind::ValueUInt);
         DummyMorphism(Γ.clone(), MorphismType{
             bounds: Vec::new(),
-            src_type: Γ.parse("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap(),
-            dst_type: Γ.parse("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap()
+            src_type: Γ.parse("ℕ ~ <PosInt Radix BigEndian> ~ [<Digit Radix>~ℤ_2^64~machine.UInt64]").unwrap(),
+            dst_type: Γ.parse("ℕ ~ <PosInt Radix LittleEndian> ~ [<Digit Radix>~ℤ_2^64~machine.UInt64]").unwrap()
         })
     });
 
@@ -58,8 +58,8 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
         Γ.add_variable("Radix", TypeKind::ValueUInt);
         DummyMorphism(Γ.clone(), MorphismType{
             bounds: Vec::new(),
-            src_type: Γ.parse("ℕ ~ <PosInt Radix LittleEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap(),
-            dst_type: Γ.parse("ℕ ~ <PosInt Radix BigEndian> ~ <Seq <Digit Radix>~ℤ_2^64~machine.UInt64>").unwrap()
+            src_type: Γ.parse("ℕ ~ <PosInt Radix LittleEndian> ~ [<Digit Radix>~ℤ_2^64~machine.UInt64]").unwrap(),
+            dst_type: Γ.parse("ℕ ~ <PosInt Radix BigEndian> ~ [<Digit Radix>~ℤ_2^64~machine.UInt64]").unwrap()
         })
     });
 
@@ -69,8 +69,8 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
         Γ.add_variable("DstRadix", TypeKind::ValueUInt);
         DummyMorphism(Γ.clone(), MorphismType{
             bounds: Vec::new(),
-            src_type: Γ.parse("ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix>~ℤ_2^64~machine.UInt64>").unwrap(),
-            dst_type: Γ.parse("ℕ ~ <PosInt DstRadix LittleEndian> ~ <Seq <Digit DstRadix>~ℤ_2^64~machine.UInt64>").unwrap()
+            src_type: Γ.parse("ℕ ~ <PosInt SrcRadix LittleEndian> ~ [<Digit SrcRadix>~ℤ_2^64~machine.UInt64]").unwrap(),
+            dst_type: Γ.parse("ℕ ~ <PosInt DstRadix LittleEndian> ~ [<Digit DstRadix>~ℤ_2^64~machine.UInt64]").unwrap()
         })
     });
 
@@ -79,7 +79,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
         Γ.add_variable("SrcRadix", TypeKind::ValueUInt);
         DummyMorphism(Γ.clone(), MorphismType{
             bounds: Vec::new(),
-            src_type: Γ.parse("ℤ_2^64 ~ ℕ ~ <PosInt SrcRadix LittleEndian> ~ <Seq <Digit SrcRadix>~ℤ_2^64~machine.UInt64>").unwrap(),
+            src_type: Γ.parse("ℤ_2^64 ~ ℕ ~ <PosInt SrcRadix LittleEndian> ~ [<Digit SrcRadix>~ℤ_2^64~machine.UInt64]").unwrap(),
             dst_type: Γ.parse("ℤ_2^64 ~ machine.UInt64").unwrap()
         })
     });
@@ -88,7 +88,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
         DummyMorphism(Γ.clone(), MorphismType{
             bounds: Vec::new(),
             src_type: Γ.parse("ℤ_2^64 ~ machine.UInt64").unwrap(),
-            dst_type: Γ.parse("ℤ_2^64 ~ ℕ ~ <PosInt 0 LittleEndian> ~ <Seq <Digit 0>~ℤ_2^64~machine.UInt64>").unwrap()
+            dst_type: Γ.parse("ℤ_2^64 ~ ℕ ~ <PosInt 0 LittleEndian> ~ [<Digit 0>~ℤ_2^64~machine.UInt64]").unwrap()
         })
     });
 
@@ -178,7 +178,7 @@ fn test_morphgraph_chain() {
         morph_graph.search(MorphismType {
             bounds: Vec::new(),
             src_type: Γ.parse("<Digit 10> ~ Char").expect("parse"),
-            dst_type: Γ.parse("<Digit 10> ~ ℤ_2^64 ~ ℕ ~ <PosInt 0 LittleEndian> ~ <Seq <Digit 0>~ℤ_2^64~machine.UInt64>").expect("parse"),
+            dst_type: Γ.parse("<Digit 10> ~ ℤ_2^64 ~ ℕ ~ <PosInt 0 LittleEndian> ~ [<Digit 0>~ℤ_2^64~machine.UInt64]").expect("parse"),
         }),
 
         Ok(
@@ -201,7 +201,7 @@ fn test_morphgraph_chain() {
                                 m: DummyMorphism(Γm2.clone(), MorphismType{
                                     bounds: Vec::new(),
                                     src_type: Γm2.parse("ℤ_2^64 ~ machine.UInt64").unwrap(),
-                                    dst_type: Γm2.parse("ℤ_2^64 ~ ℕ ~ <PosInt 0 LittleEndian> ~ <Seq <Digit 0>~ℤ_2^64~machine.UInt64>").unwrap()
+                                    dst_type: Γm2.parse("ℤ_2^64 ~ ℕ ~ <PosInt 0 LittleEndian> ~ [<Digit 0>~ℤ_2^64~machine.UInt64]").unwrap()
                                 })
                             })
                         }

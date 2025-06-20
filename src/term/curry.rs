@@ -1,12 +1,12 @@
-use crate::desugared_term::*;
+use crate::term::*;
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-impl DesugaredTypeTerm {
+impl TypeTerm {
     /// transform term to have at max 2 entries in Application list
-    pub fn curry(self) -> DesugaredTypeTerm {
+    pub fn curry(self) -> TypeTerm {
         match self {
-            DesugaredTypeTerm::App(args) => {
+            TypeTerm::Spec(args) => {
                 if args.len() >= 2 {
                     let mut old_args = args.into_iter();
                     let mut new_args = vec![
@@ -16,19 +16,19 @@ impl DesugaredTypeTerm {
 
                     for x in old_args {
                         new_args = vec![
-                            DesugaredTypeTerm::App(new_args),
+                            TypeTerm::Spec(new_args),
                             x
                         ];
                     }
 
-                    DesugaredTypeTerm::App(new_args)
+                    TypeTerm::Spec(new_args)
                 } else {
-                    DesugaredTypeTerm::App(args)
+                    TypeTerm::Spec(args)
                 }
             }
 
-            DesugaredTypeTerm::Ladder(rungs) => {
-                DesugaredTypeTerm::Ladder(rungs.into_iter().map(|r| r.curry()).collect())
+            TypeTerm::Ladder(rungs) => {
+                TypeTerm::Ladder(rungs.into_iter().map(|r| r.curry()).collect())
             }
 
             _ => self
@@ -38,11 +38,11 @@ impl DesugaredTypeTerm {
     /// summarize all curried applications into one vec
     pub fn decurry(self) -> Self {
         match self {
-            DesugaredTypeTerm::App(mut args) => {
+            TypeTerm::Spec(mut args) => {
                 if args.len() > 0 {
                     let a0 = args.remove(0).decurry();
                     match a0 {
-                        DesugaredTypeTerm::App(sub_args) => {
+                        TypeTerm::Spec(sub_args) => {
                             for (i,x) in sub_args.into_iter().enumerate() {
                                 args.insert(i, x);
                             }
@@ -50,10 +50,10 @@ impl DesugaredTypeTerm {
                         other => { args.insert(0, other); }
                     }
                 }
-                DesugaredTypeTerm::App(args)
+                TypeTerm::Spec(args)
             }
-            DesugaredTypeTerm::Ladder(args) => {
-                DesugaredTypeTerm::Ladder(args.into_iter().map(|a| a.decurry()).collect())
+            TypeTerm::Ladder(args) => {
+                TypeTerm::Ladder(args.into_iter().map(|a| a.decurry()).collect())
             }
             _ => self
         }

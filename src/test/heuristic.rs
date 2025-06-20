@@ -1,8 +1,8 @@
-use crate::{heuristic::*, dict::*, parser::*, morphism::*};
+use crate::{dict::*, heuristic::*, morphism::*, parser::*, Context};
 
 #[test]
 fn test_heuristic() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     assert_eq!(
         MorphismType {

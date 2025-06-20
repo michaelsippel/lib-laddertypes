@@ -1,29 +1,24 @@
 
 use {
-    crate::{dict::*, parser::*,}
+    crate::{dict::*, parser::*, Context, LayeredContext, TypeKind,}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[test]
 fn test_subst() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     let mut σ = std::collections::HashMap::new();
 
     // T  -->  ℕ
-    σ.insert
-        (dict.add_varname("T"),
-         dict.parse_desugared("ℕ").unwrap().sugar(&mut dict));
+    σ.insert(dict.add_variable("T", TypeKind::Type), dict.parse("ℕ").unwrap());
 
     // U  -->  <Seq Char>
-    σ.insert
-        (dict.add_varname("U"),
-         dict.parse_desugared("<Seq Char>").unwrap().sugar(&mut dict));
-
+    σ.insert(dict.add_variable("U", TypeKind::Type), dict.parse("<Seq Char>").unwrap());
 
     assert_eq!(
-        dict.parse_desugared("<Seq T~U>").unwrap().sugar(&mut dict).apply_subst(&σ).clone(),
-        dict.parse_desugared("<Seq ℕ~<Seq Char>>").unwrap().sugar(&mut dict)
+        dict.parse("<Seq T~U>").unwrap().apply_subst(&σ).clone(),
+        dict.parse("<Seq ℕ~<Seq Char>>").unwrap()
     );
 }

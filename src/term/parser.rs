@@ -1,7 +1,7 @@
 use {
     crate::{
-        context::dict::*, desugared_term::*, lexer::*, term::*
-    }, std::{iter::Peekable}
+        context::dict::*, lexer::*, term::*, LayeredContext, TypeKind
+    }, std::iter::Peekable
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -18,26 +18,29 @@ pub enum ParseError {
 pub trait ParseLadderType {
     fn parse(&mut self, s:&str) -> Result<TypeTerm, ParseError>;
 
-    fn parse_desugared(&mut self, s: &str) -> Result<DesugaredTypeTerm, ParseError>;
-
-    fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<DesugaredTypeTerm, ParseError>
+    fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>;
 
-    fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<DesugaredTypeTerm, ParseError>
+    fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>;
 
-    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<DesugaredTypeTerm, ParseError>
+    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>;
+
+    fn parse_seq<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>;
+
+    fn parse_struct<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>;
+
+    fn parse_univ<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>;
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-impl<T: TypeDict> ParseLadderType for T {
-    fn parse(&mut self, s:&str) -> Result<TypeTerm, ParseError> {
-        Ok(self.parse_desugared(s)?.sugar(self))
-    }
-
-    fn parse_desugared(&mut self, s: &str) -> Result<DesugaredTypeTerm, ParseError> {
+impl<T: LayeredContext> ParseLadderType for T {
+    fn parse(&mut self, s: &str) -> Result<TypeTerm, ParseError> {
         let mut tokens = LadderTypeLexer::from(s.chars()).peekable();
 
         match self.parse_ladder(&mut tokens) {
@@ -52,15 +55,15 @@ impl<T: TypeDict> ParseLadderType for T {
         }
     }
 
-    fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<DesugaredTypeTerm, ParseError>
+    fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>
     {
         let mut args = Vec::new();
         while let Some(tok) = tokens.peek() {
             match tok {
-                Ok(LadderTypeToken::Close) => {
+                Ok(LadderTypeToken::CloseSpec) => {
                     tokens.next();
-                    return Ok(DesugaredTypeTerm::App(args));
+                    return Ok(TypeTerm::Spec(args));
                 }
                 _ => {
                     match self.parse_ladder(tokens) {
@@ -73,29 +76,199 @@ impl<T: TypeDict> ParseLadderType for T {
         Err(ParseError::UnexpectedEnd)
     }
 
-    fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<DesugaredTypeTerm, ParseError>
+    fn parse_seq<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>
+    {
+        let mut seq_repr = None;
+        let mut items = Vec::new();
+
+        if let Some(Ok(LadderTypeToken::Ladder)) = tokens.peek() {
+            tokens.next();
+            seq_repr = Some(Box::new(self.parse_ladder(tokens)?));
+        }
+
+        while let Some(tok) = tokens.peek() {
+            match tok {
+                Ok(LadderTypeToken::CloseSeq) => {
+                    tokens.next();
+                    return Ok(TypeTerm::Seq { seq_repr, items });
+                }
+                _ => {
+                    match self.parse_ladder(tokens) {
+                        Ok(a) => { items.push(a);  }
+                        Err(err) => { return Err(err); }
+                    }
+                }
+            }
+        }
+        Err(ParseError::UnexpectedEnd)
+    }
+
+    fn parse_struct<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>
+    {
+        let mut struct_repr = None;
+        let mut members = Vec::new();
+
+        if let Some(Ok(LadderTypeToken::Ladder)) = tokens.peek() {
+            tokens.next();
+            struct_repr = Some(Box::new(self.parse_ladder(tokens)?));
+        }
+
+        while let Some(tok) = tokens.peek() {
+            match tok {
+                Ok(LadderTypeToken::CloseStruct) => {
+                    tokens.next();
+                    return Ok(TypeTerm::Struct { struct_repr, members });
+                }
+
+                Ok(LadderTypeToken::Symbol(symbol)) => {
+                    let symbol = symbol.clone();
+                    tokens.next();
+
+                    // `:` between identifier and type
+                    match tokens.next() {
+                        Some(Ok(LadderTypeToken::AssignType)) => {}
+                        Some(Err(err)) => { return Err(ParseError::LexError(err)); }
+                        Some(_) => { return Err(ParseError::UnexpectedToken); }
+                        None => { return Err(ParseError::UnexpectedEnd); }
+                    }
+
+                    let ty = self.parse_ladder(tokens)?;
+                    members.push(StructMember { symbol, ty });
+
+                    // `;` at end
+                    match tokens.next() {
+                        Some(Ok(LadderTypeToken::StructSep)) => {}
+                        Some(Err(err)) => { return Err(ParseError::LexError(err)); }
+                        Some(_) => { return Err(ParseError::UnexpectedToken); }
+                        None => { return Err(ParseError::UnexpectedEnd); }
+                    }
+                }
+
+                Ok(_) => { return Err(ParseError::UnexpectedToken); }
+                Err(err) => { return Err(ParseError::LexError(err.clone())); }
+            }
+        }
+
+        Err(ParseError::UnexpectedEnd)
+    }
+
+    fn parse_univ<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>
     {
         match tokens.next() {
-            Some(Ok(LadderTypeToken::Open)) => self.parse_app(tokens),
-            Some(Ok(LadderTypeToken::Close)) => Err(ParseError::UnexpectedClose),
+            Some(Ok(LadderTypeToken::Open)) => {
+                let symbol = match tokens.next() {
+                    Some(Ok(LadderTypeToken::Symbol(symbol))) => {
+                        symbol
+                    }
+                    Some(Err(err)) => { return Err(ParseError::LexError(err)); }
+                    Some(_) => { return Err(ParseError::UnexpectedToken); }
+                    None => { return Err(ParseError::UnexpectedEnd); }
+                };
+
+                let var_bound = match tokens.next() {
+                    Some(Ok(LadderTypeToken::AssignType)) => {
+                        let t = self.parse_ladder(tokens)?;
+                        VariableConstraint::ValueUInt
+                    }
+                    Some(Ok(LadderTypeToken::AssignSubType)) => {
+                        let t = self.parse_ladder(tokens)?;
+                        VariableConstraint::Subtype(t)
+                    }
+                    Some(Ok(LadderTypeToken::AssignTraitType)) => {
+                        let t = self.parse_ladder(tokens)?;
+                        VariableConstraint::Trait(t)
+                    }
+                    Some(Ok(LadderTypeToken::AssignParallelType)) => {
+                        let t = self.parse_ladder(tokens)?;
+                        VariableConstraint::Parallel(t)
+                    }
+
+                    Some(Err(err)) => { return Err(ParseError::LexError(err)); }
+                    Some(_) => { return Err(ParseError::UnexpectedToken); }
+                    None => { return Err(ParseError::UnexpectedEnd); }
+                };
+
+                // `)` at end
+                match tokens.next() {
+                    Some(Ok(LadderTypeToken::Close)) => {
+                        let mut ctx = self.scope();
+                        self.add_variable(&symbol, match &var_bound {
+                            VariableConstraint::ValueUInt => TypeKind::ValueUInt,
+                            VariableConstraint::Subtype(t) => TypeKind::Type,
+                            VariableConstraint::Trait(t) => TypeKind::Type,
+                            VariableConstraint::Parallel(t) => TypeKind::Type,
+                            VariableConstraint::UnconstrainedType => TypeKind::Type
+                        });
+
+                        let ty = self.parse_ladder(tokens)?;
+                        // todo: return CTX here!
+                        return Ok(TypeTerm::Univ(Box::new(var_bound), Box::new(ty)));
+                    }
+                    Some(Err(err)) => { return Err(ParseError::LexError(err)); }
+                    Some(_) => { return Err(ParseError::UnexpectedToken); }
+                    None => { return Err(ParseError::UnexpectedEnd); }
+                }
+
+            }
+            Some(Err(err)) => { return Err(ParseError::LexError(err)); }
+            Some(_) => { return Err(ParseError::UnexpectedToken); }
+            None => { return Err(ParseError::UnexpectedEnd); }
+        }
+    }
+
+    fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>
+    {
+        match tokens.next() {
+            Some(Ok(LadderTypeToken::Univ)) => self.parse_univ(tokens),
+            Some(Ok(LadderTypeToken::OpenSpec)) => self.parse_app(tokens),
+            Some(Ok(LadderTypeToken::OpenSeq)) => self.parse_seq(tokens),
+            Some(Ok(LadderTypeToken::OpenStruct)) => self.parse_struct(tokens),
+
+            Some(Ok(LadderTypeToken::Open)) => {
+                let t = self.parse_ladder(tokens)?;
+
+                match tokens.next() {
+                    Some(Ok(LadderTypeToken::Close)) => {
+                        return Ok(t);
+                    }
+                    Some(Ok(_)) => Err(ParseError::UnexpectedToken),
+                    Some(Err(err)) => Err(ParseError::LexError(err)),
+                    None => Err(ParseError::UnexpectedEnd)
+                }
+            }
+
+            Some(Ok(LadderTypeToken::Close))
+            | Some(Ok(LadderTypeToken::CloseSpec))
+            | Some(Ok(LadderTypeToken::CloseSeq))
+            | Some(Ok(LadderTypeToken::CloseStruct))
+                => Err(ParseError::UnexpectedClose),
+
+            Some(Ok(LadderTypeToken::StructSep))
+            | Some(Ok(LadderTypeToken::EnumSep))
+            | Some(Ok(LadderTypeToken::AssignType))
+            | Some(Ok(LadderTypeToken::AssignSubType))
+            | Some(Ok(LadderTypeToken::AssignTraitType))
+            | Some(Ok(LadderTypeToken::AssignParallelType))
+            => Err(ParseError::UnexpectedToken),
+
             Some(Ok(LadderTypeToken::Ladder)) => Err(ParseError::UnexpectedLadder),
             Some(Ok(LadderTypeToken::Symbol(s))) =>
-                Ok(DesugaredTypeTerm::TypeID(
-                    if let Some(tyid) = self.get_typeid(s.as_str()) {
-                        tyid
-                    } else {
-                        TypeID::Fun(self.add_typename(s.as_str()))
-                    }
-                )),
-            Some(Ok(LadderTypeToken::Char(c))) => Ok(DesugaredTypeTerm::Char(c)),
-            Some(Ok(LadderTypeToken::Num(n))) => Ok(DesugaredTypeTerm::Num(n)),
+                Ok(match self.get_typeid_creat(&s) {
+                    TypeID::Fun(id) => TypeTerm::Id(id),
+                    TypeID::Var(id) => TypeTerm::Var(id)
+                }),
+            Some(Ok(LadderTypeToken::Char(c))) => Ok(TypeTerm::Char(c)),
+            Some(Ok(LadderTypeToken::Num(n))) => Ok(TypeTerm::Num(n)),
             Some(Err(err)) => Err(ParseError::LexError(err)),
             None => Err(ParseError::UnexpectedEnd)
         }
     }
 
-    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<DesugaredTypeTerm, ParseError>
+    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>
     {
         let mut rungs = Vec::new();
@@ -131,7 +304,7 @@ impl<T: TypeDict> ParseLadderType for T {
         match rungs.len() {
             0 => Err(ParseError::UnexpectedEnd),
             1 => Ok(rungs[0].clone()),
-            _ => Ok(DesugaredTypeTerm::Ladder(rungs)),
+            _ => Ok(TypeTerm::Ladder(rungs)),
         }
     }
 }
