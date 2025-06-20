@@ -287,6 +287,42 @@ fn test_parser_enum() {
 }
 
 #[test]
+fn test_parser_func() {
+    assert_eq!(
+        Context::new().parse("A --> B"),
+        Ok(TypeTerm::Func(vec![
+            TypeTerm::Id(0),
+            TypeTerm::Id(1)
+        ]))
+    );
+    assert_eq!(
+        Context::new().parse("A~X --> B~Y"),
+        Ok(TypeTerm::Func(vec![
+            TypeTerm::Ladder(vec![ TypeTerm::Id(0), TypeTerm::Id(1) ]),
+            TypeTerm::Ladder(vec![ TypeTerm::Id(2), TypeTerm::Id(3) ])
+        ]))
+    );
+}
+
+#[test]
+fn test_parser_morph() {
+    assert_eq!(
+        Context::new().parse("A -morph-> B"),
+        Ok(TypeTerm::Morph(
+            Box::new(TypeTerm::Id(0)),
+            Box::new(TypeTerm::Id(1))
+        ))
+    );
+    assert_eq!(
+        Context::new().parse("A~X -morph-> B~Y"),
+        Ok(TypeTerm::Morph(
+            Box::new(TypeTerm::Ladder(vec![ TypeTerm::Id(0), TypeTerm::Id(1) ])),
+            Box::new(TypeTerm::Ladder(vec![ TypeTerm::Id(2), TypeTerm::Id(3) ]))
+        ))
+    );
+}
+
+#[test]
 fn test_parser_univ_val() {
     assert_eq!(
         Context::new().parse("∀(Len:ℕ) [~<array.Static Len> Char]"),
@@ -319,6 +355,23 @@ fn test_parser_univ2() {
                 TypeTerm::Univ(
                     Box::new(VariableConstraint::Subtype(TypeTerm::Id(1))),
                     Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(2))), items: vec![ TypeTerm::Var(1) ] })
+                )
+            )
+        ))
+    );
+}
+
+#[test]
+fn test_parser_univ_morph() {
+    assert_eq!(
+        Context::new().parse("∀(T:<=X) [~A T] -morph-> [~B T]"),
+        Ok(TypeTerm::Univ(
+            Box::new(VariableConstraint::Subtype(TypeTerm::Id(0))),
+
+            Box::new(
+                TypeTerm::Morph(
+                    Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(1))), items: vec![ TypeTerm::Var(0) ] }),
+                    Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(2))), items: vec![ TypeTerm::Var(0) ] }),
                 )
             )
         ))

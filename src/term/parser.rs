@@ -18,6 +18,9 @@ pub enum ParseError {
 pub trait ParseLadderType {
     fn parse(&mut self, s:&str) -> Result<TypeTerm, ParseError>;
 
+    fn parse_top<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>;
+
     fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>;
 
@@ -43,7 +46,7 @@ impl<T: LayeredContext> ParseLadderType for T {
     fn parse(&mut self, s: &str) -> Result<TypeTerm, ParseError> {
         let mut tokens = LadderTypeLexer::from(s.chars()).peekable();
 
-        match self.parse_ladder(&mut tokens) {
+        match self.parse_top(&mut tokens) {
             Ok(t) => {
                 if let Some(_tok) = tokens.peek() {
                     Err(ParseError::UnexpectedToken)
@@ -52,6 +55,35 @@ impl<T: LayeredContext> ParseLadderType for T {
                 }
             }
             Err(err) => Err(err)
+        }
+    }
+
+    fn parse_top<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
+    where It: Iterator<Item = char>
+    {
+        // 1. Ladders
+        let t1 = self.parse_ladder(tokens)?;
+
+        // 2. Arrows
+        match tokens.peek() {
+            Some(Ok(LadderTypeToken::ArrowFunc)) => {
+                tokens.next();
+                let t2 = self.parse_top(tokens)?;
+                return Ok(TypeTerm::Func(vec![
+                    t1, t2
+                ]));
+            }
+            Some(Ok(LadderTypeToken::ArrowMorph)) => {
+                tokens.next();
+                let t2 = self.parse_top(tokens)?;
+                return Ok(TypeTerm::Morph(Box::new(t1), Box::new(t2)));
+            }
+            Some(Err(err)) => {
+                return Err(ParseError::LexError(err.clone()));
+            }
+            _ => {
+                return Ok(t1);
+            }
         }
     }
 
@@ -66,7 +98,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                     return Ok(TypeTerm::Spec(args));
                 }
                 _ => {
-                    match self.parse_ladder(tokens) {
+                    match self.parse_top(tokens) {
                         Ok(a) => { args.push(a); }
                         Err(err) => { return Err(err); }
                     }
@@ -84,7 +116,7 @@ impl<T: LayeredContext> ParseLadderType for T {
 
         if let Some(Ok(LadderTypeToken::Ladder)) = tokens.peek() {
             tokens.next();
-            seq_repr = Some(Box::new(self.parse_ladder(tokens)?));
+            seq_repr = Some(Box::new(self.parse_top(tokens)?));
         }
 
         while let Some(tok) = tokens.peek() {
@@ -94,7 +126,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                     return Ok(TypeTerm::Seq { seq_repr, items });
                 }
                 _ => {
-                    match self.parse_ladder(tokens) {
+                    match self.parse_top(tokens) {
                         Ok(a) => { items.push(a);  }
                         Err(err) => { return Err(err); }
                     }
@@ -114,7 +146,7 @@ impl<T: LayeredContext> ParseLadderType for T {
 
         if let Some(Ok(LadderTypeToken::Ladder)) = tokens.peek() {
             tokens.next();
-            struct_repr = Some(Box::new(self.parse_ladder(tokens)?));
+            struct_repr = Some(Box::new(self.parse_top(tokens)?));
         }
 
         while let Some(tok) = tokens.peek() {
@@ -144,7 +176,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                                 None => { return Err(ParseError::UnexpectedEnd); }
                             }
 
-                            let ty = self.parse_ladder(tokens)?;
+                            let ty = self.parse_top(tokens)?;
                             variants.push(EnumVariant { symbol, ty });
                         }
 
@@ -169,7 +201,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                         None => { return Err(ParseError::UnexpectedEnd); }
                     }
 
-                    let ty = self.parse_ladder(tokens)?;
+                    let ty = self.parse_top(tokens)?;
                     members.push(StructMember { symbol, ty });
 
                     // `;` at end
@@ -238,7 +270,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                             VariableConstraint::UnconstrainedType => TypeKind::Type
                         });
 
-                        let ty = ctx.parse_ladder(tokens)?;
+                        let ty = ctx.parse_top(tokens)?;
                         // todo: return CTX here!
                         return Ok(TypeTerm::Univ(Box::new(var_bound), Box::new(ty)));
                     }
@@ -288,7 +320,6 @@ impl<T: LayeredContext> ParseLadderType for T {
             | Some(Ok(LadderTypeToken::AssignSubType))
             | Some(Ok(LadderTypeToken::AssignTraitType))
             | Some(Ok(LadderTypeToken::AssignParallelType))
-
             | Some(Ok(LadderTypeToken::ArrowFunc))
             | Some(Ok(LadderTypeToken::ArrowMorph))
 
