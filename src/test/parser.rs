@@ -1,6 +1,6 @@
 
 use {
-    crate::{dict::*, parser::*, Context, LayeredContext, StructMember, TypeKind, TypeTerm, VariableConstraint}
+    crate::{dict::*, parser::*, Context, EnumVariant, LayeredContext, StructMember, TypeKind, TypeTerm, VariableConstraint}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -272,21 +272,19 @@ fn test_parser_struct_repr() {
     );
 }
 
-/*
 #[test]
 fn test_parser_enum() {
     assert_eq!(
-        Context::new().parse("a: A | b: B"),
-        Ok(TypeTerm::Struct{
-            struct_repr: None,
-            members: vec![
-                StructMember{ symbol: "a".into(), ty: TypeTerm::Id(0) },
-                StructMember{ symbol: "b".into(), ty: TypeTerm::Id(1) },
+        Context::new().parse("{ | a: A | b: B }"),
+        Ok(TypeTerm::Enum{
+            enum_repr: None,
+            variants: vec![
+                EnumVariant{ symbol: "a".into(), ty: TypeTerm::Id(0) },
+                EnumVariant{ symbol: "b".into(), ty: TypeTerm::Id(1) },
             ]
         })
     );
 }
-*/
 
 #[test]
 fn test_parser_univ_val() {

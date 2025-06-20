@@ -96,6 +96,33 @@ fn test_lexer_constraints() {
 }
 
 #[test]
+fn test_lexer_struct() {
+    let mut lex = LadderTypeLexer::from("{ a: { |x:X |y:Y }; b: B; }".chars());
+
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenStruct)) );
+
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("a".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::OpenStruct)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::EnumSep)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("x".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("X".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::EnumSep)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("y".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("Y".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseStruct)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::StructSep)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("b".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("B".into()))));
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::StructSep)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::CloseStruct)) );
+    assert_eq!( lex.next(), None );
+}
+
+#[test]
 fn test_lexer_univ() {
     let mut lex = LadderTypeLexer::from("∀(α:<=A)".chars());
 

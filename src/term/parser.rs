@@ -108,6 +108,8 @@ impl<T: LayeredContext> ParseLadderType for T {
     where It: Iterator<Item = char>
     {
         let mut struct_repr = None;
+        let mut is_enum = false;
+        let mut variants = Vec::new();
         let mut members = Vec::new();
 
         if let Some(Ok(LadderTypeToken::Ladder)) = tokens.peek() {
@@ -119,10 +121,43 @@ impl<T: LayeredContext> ParseLadderType for T {
             match tok {
                 Ok(LadderTypeToken::CloseStruct) => {
                     tokens.next();
-                    return Ok(TypeTerm::Struct { struct_repr, members });
+                    if is_enum {
+                        return Ok(TypeTerm::Enum { enum_repr: struct_repr, variants })
+                    } else {
+                        return Ok(TypeTerm::Struct { struct_repr, members });
+                    }
                 }
 
+                Ok(LadderTypeToken::EnumSep) => {
+                    tokens.next();
+                    is_enum = true;
+
+                    match tokens.next() {
+                        Some(Ok(LadderTypeToken::Symbol(symbol))) => {
+                            let symbol = symbol.clone();
+
+                            // `:` between identifier and type
+                            match tokens.next() {
+                                Some(Ok(LadderTypeToken::AssignType)) => {}
+                                Some(Err(err)) => { return Err(ParseError::LexError(err)); }
+                                Some(_) => { return Err(ParseError::UnexpectedToken); }
+                                None => { return Err(ParseError::UnexpectedEnd); }
+                            }
+
+                            let ty = self.parse_ladder(tokens)?;
+                            variants.push(EnumVariant { symbol, ty });
+                        }
+
+                        Some(Err(err)) => { return Err(ParseError::LexError(err)); }
+                        Some(_) => { return Err(ParseError::UnexpectedToken); }
+                        None => { return Err(ParseError::UnexpectedEnd); }
+                    }
+                }
                 Ok(LadderTypeToken::Symbol(symbol)) => {
+                    if is_enum {
+                        return Err(ParseError::UnexpectedToken);
+                    }
+
                     let symbol = symbol.clone();
                     tokens.next();
 
@@ -195,7 +230,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                 match tokens.next() {
                     Some(Ok(LadderTypeToken::Close)) => {
                         let mut ctx = self.scope();
-                        self.add_variable(&symbol, match &var_bound {
+                        ctx.add_variable(&symbol, match &var_bound {
                             VariableConstraint::ValueUInt => TypeKind::ValueUInt,
                             VariableConstraint::Subtype(t) => TypeKind::Type,
                             VariableConstraint::Trait(t) => TypeKind::Type,
@@ -203,7 +238,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                             VariableConstraint::UnconstrainedType => TypeKind::Type
                         });
 
-                        let ty = self.parse_ladder(tokens)?;
+                        let ty = ctx.parse_ladder(tokens)?;
                         // todo: return CTX here!
                         return Ok(TypeTerm::Univ(Box::new(var_bound), Box::new(ty)));
                     }

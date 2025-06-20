@@ -183,7 +183,7 @@ where It: Iterator<Item = char>
 
                     if c.is_whitespace()
                     || *c == ')' || *c == '>' || *c == ']' || *c=='}'
-                    || *c == '~' || *c==':' || *c==';'
+                    || *c == '~' || *c==':' || *c==';' || *c=='|'
                     {
                         // finish the current token
 
