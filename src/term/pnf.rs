@@ -23,6 +23,73 @@ pub fn splice_ladders( mut upper: Vec< TypeTerm >, mut lower: Vec< TypeTerm >  )
     upper
 }
 
+pub fn overlaps( a: &TypeTerm, b: &TypeTerm ) -> bool {
+    match (a,b) {
+        (TypeTerm::Ladder(rs1), TypeTerm::Ladder(rs2)) => {
+            for i in 0 .. rs1.len() {
+                let mut diff = false;
+                for j in 0 .. usize::min(rs1.len()-i, rs2.len()) {
+                    if rs1[i+j] != rs2[j] {
+                        diff = true;
+                        break;
+                    }
+                }
+
+                if !diff {
+                    return true;
+                }
+            }
+
+            false
+        }
+
+        (TypeTerm::Ladder(rs1), b) => overlaps(rs1.last().unwrap(),b),
+        (a, TypeTerm::Ladder(rs2)) => overlaps(a,rs2.first().unwrap()),
+
+        (TypeTerm::Spec(args1), TypeTerm::Spec(args2)) => {
+            if args1 == args2 {
+                for (a1,a2) in args1.iter().zip(args2.iter()) {
+                    if !overlaps(a1,a2) {
+                        return false;
+                    }
+                }
+                true
+            } else {
+                false
+            }
+        }
+
+        (TypeTerm::Seq { seq_repr, item }, TypeTerm::Seq { seq_repr:sr2, item:i2 }) => {
+            todo!()
+        }
+
+        (TypeTerm::Struct { struct_repr, members }, TypeTerm::Struct { struct_repr:sr2, members:m2 }) => {
+            todo!()
+        }
+
+        (TypeTerm::Enum { enum_repr, variants }, TypeTerm::Enum { enum_repr:er2, variants:v2 }) => {
+            todo!()
+        }
+
+        (TypeTerm::Univ { Γ, bounds, τ }, TypeTerm::Univ { Γ:Γ2, bounds:b2, τ:τ2 }) => {
+            todo!()
+        }
+        (TypeTerm::Morph(m1c, m1d), TypeTerm::Morph(m2c, m2d)) => {
+            todo!()
+        }
+        (TypeTerm::Func(f1s), TypeTerm::Func(f2s)) => {
+            todo!()
+        }
+
+        (TypeTerm::Id(id1), TypeTerm::Id(id2)) => id1==id2,
+        (TypeTerm::Var(id1), TypeTerm::Var(id2)) => id1==id2,
+        (TypeTerm::Num(n1), TypeTerm::Num(n2)) => n1==n2,
+        (TypeTerm::Char(c1), TypeTerm::Char(c2)) => c1==c2,
+
+        (_,_) => false
+    }
+}
+
 impl TypeTerm {
     /// transmute type into Parameter-Normal-Form (PNF)
     ///
@@ -82,7 +149,7 @@ impl TypeTerm {
                                 let i1 = args.remove(0);
                                 let i2 = args.remove(0);
 
-                                if item.deref() == &i2 {
+                                if overlaps(item.deref(), &i2) {
                                     r2 = TypeTerm::Seq {
                                         seq_repr: Some(Box::new(TypeTerm::Ladder(vec![
                                             if let Some(seq_repr) = seq_repr {
