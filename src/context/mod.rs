@@ -266,7 +266,7 @@ pub trait LayeredContext : TypeDict {
     fn bind(&self, var: u64, val: TypeTerm) -> Result<(), SubstError>;
     fn scope(&self) -> Self;
 
-    fn shift_variables(&self, other: &ContextPtr) -> HashMapSubst;
+    fn shift_variables(&self, other: &Vec<ContextEntry>) -> HashMapSubst;
     fn shift_from_parent(&self) -> HashMapSubst;
 }
 
@@ -277,8 +277,8 @@ impl LayeredContext for ContextPtr {
      * Return a substitution to map terms under context `other`
      * to context `self`.
      */
-    fn shift_variables(&self, other: &ContextPtr) -> HashMapSubst {
-        eprintln!("shift Vars from {:?} to {:?}", other.get_ctxname(), self.get_ctxname());
+    fn shift_variables(&self, other: &Vec<ContextEntry>) -> HashMapSubst {
+        eprintln!("shift Vars to {:?}", self.get_ctxname());
 
         // substitution mapping Variables of `other` to variables of `self`
         let mut σs = HashMapSubst::new();
@@ -286,7 +286,7 @@ impl LayeredContext for ContextPtr {
         // number of local variables in `self`
         let l = self.0.read().unwrap().γ.len() as u64;
 
-        for (i, entry) in other.0.read().unwrap().γ.iter().enumerate() {
+        for (i, entry) in other.iter().enumerate() {
             let i = i as u64;
 
             // make variable name unique

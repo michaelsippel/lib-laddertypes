@@ -26,14 +26,10 @@ use {
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct DummyMorphism(ContextPtr, MorphismType);
+pub struct DummyMorphism(MorphismType);
 impl Morphism for DummyMorphism {
-    fn ctx(&self) -> ContextPtr {
-        self.0.clone()
-    }
-
     fn get_type(&self) -> MorphismType {
-        self.1.clone()
+        self.0.clone()
     }
 }
 
@@ -45,7 +41,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
     base.add_morphism({
         let mut Γ = Γ.scope();
         Γ.add_variable("Radix", TypeKind::Value(Γ.clone().parse("ℕ").expect("parse")));
-        DummyMorphism(Γ.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: Γ.parse("<Digit Radix> ~ Char").unwrap(),
@@ -56,7 +52,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
     base.add_morphism({
         let mut Γ = Γ.scope();
         Γ.add_variable("Radix", TypeKind::Value(Γ.clone().parse("ℕ").expect("parse")));
-        DummyMorphism(Γ.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: Γ.parse("<Digit Radix> ~ ℤ_2^64 ~ machine.UInt64").unwrap(),
@@ -67,7 +63,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
     base.add_morphism({
         let mut Γ = Γ.scope();
         Γ.add_variable("Radix", TypeKind::Value(Γ.clone().parse("ℕ").expect("parse")));
-        DummyMorphism(Γ.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: Γ.parse("ℕ ~ <PosInt Radix BigEndian> ~ [<Digit Radix>~ℤ_2^64~machine.UInt64]").unwrap(),
@@ -78,7 +74,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
     base.add_morphism({
         let mut Γ = Γ.scope();
         Γ.add_variable("Radix", TypeKind::Value(Γ.clone().parse("ℕ").expect("parse")));
-        DummyMorphism(Γ.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: Γ.parse("ℕ ~ <PosInt Radix LittleEndian> ~ [<Digit Radix>~ℤ_2^64~machine.UInt64]").unwrap(),
@@ -90,7 +86,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
         let mut Γ = Γ.scope();
         Γ.add_variable("SrcRadix", TypeKind::Value(Γ.clone().parse("ℕ").expect("parse")));
         Γ.add_variable("DstRadix", TypeKind::Value(Γ.clone().parse("ℕ").expect("parse")));
-        DummyMorphism(Γ.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: Γ.parse("ℕ ~ <PosInt SrcRadix LittleEndian> ~ [<Digit SrcRadix>~ℤ_2^64~machine.UInt64]").unwrap(),
@@ -101,7 +97,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
     base.add_morphism({
         let mut Γ = Γ.scope();
         Γ.add_variable("SrcRadix", TypeKind::Value(Γ.clone().parse("ℕ").expect("parse")));
-        DummyMorphism(Γ.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: Γ.parse("ℤ_2^64 ~ ℕ ~ <PosInt SrcRadix LittleEndian> ~ [<Digit SrcRadix>~ℤ_2^64~machine.UInt64]").unwrap(),
@@ -110,7 +106,7 @@ fn morphism_test_setup() -> MorphismBase<DummyMorphism> {
     });
     base.add_morphism({
         let mut Γ = Γ.scope();
-        DummyMorphism(Γ.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: Γ.parse("ℤ_2^64 ~ machine.UInt64").unwrap(),
@@ -154,7 +150,7 @@ fn test_morphgraph_prim() {
 
     let mut Γ1 = Γ.scope();
     let mut Γ3 = Γ1.scope();
-    let σs = Γ3.shift_variables(&Γm1);
+    let σs = Γ3.shift_variables(&vec![ ContextEntry{ symbol: String::from("Radix"), kind: TypeKind::Value(Γ.clone().parse("ℕ").expect("parse")) } ]);
     assert!( Γ3.bind(Γ3.get_varid("Radix").unwrap(), TypeTerm::Num(10)).is_ok() );
 
     assert_eq!(
@@ -170,7 +166,7 @@ fn test_morphgraph_prim() {
             m: Box::new(
                 MorphismInstance::Primitive {
                     σs,
-                    m: DummyMorphism(Γm1.clone(), MorphismType {
+                    m: DummyMorphism(MorphismType {
                         Γ: Vec::new(),
                         bounds: Vec::new(),
                         src_type: Γm1.parse("<Digit Radix> ~ Char").expect("parse"),
@@ -195,8 +191,8 @@ fn test_morphgraph_chain() {
 
     // first instance
     let mut Γ3 = Γ2.scope();
-    let σs1 = Γ.shift_variables(&Γm1);
-    let σs2 = Γ.shift_variables(&Γm2);
+    let σs1 = Γ.shift_variables(&Γm1.0.read().unwrap().γ);
+    let σs2 = Γ.shift_variables(&Γm1.0.read().unwrap().γ);
 
     // second instance
     let mut Γ4 = Γ3.scope();
@@ -218,7 +214,7 @@ fn test_morphgraph_chain() {
                     path: vec![
                         MorphismInstance::Primitive {
                             σs: σs1,
-                            m: DummyMorphism(Γm1.clone(), MorphismType{
+                            m: DummyMorphism(MorphismType{
                                 Γ: Vec::new(),
                                 bounds: Vec::new(),
                                 src_type: Γm1.parse("<Digit Radix> ~ Char").expect("parse"),
@@ -229,7 +225,7 @@ fn test_morphgraph_chain() {
                             ψ: Γ3.parse("<Digit 10>").expect("parse"),
                             m: Box::new(MorphismInstance::Primitive {
                                 σs: σs2,
-                                m: DummyMorphism(Γm2.clone(), MorphismType{
+                                m: DummyMorphism(MorphismType{
                                     Γ: Vec::new(),
                                     bounds: Vec::new(),
                                     src_type: Γm2.parse("ℤ_2^64 ~ machine.UInt64").unwrap(),
@@ -252,7 +248,7 @@ fn test_morphgraph_spec1() {
     let mut Γm1 = Γ.scope();
     base.add_morphism({
         Γm1.add_variable("X", TypeKind::Type);
-        DummyMorphism(Γm1.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: vec![ ContextEntry{ symbol: "X".into(), kind: TypeKind::Type } ],
             bounds: Vec::new(),
             src_type: Γm1.parse("T ~ A").expect(""),
@@ -263,7 +259,7 @@ fn test_morphgraph_spec1() {
     let mut Γm2 = Γ.scope();
     base.add_morphism({
         Γm2.add_variable("Y", TypeKind::Type);
-        DummyMorphism(Γm2.clone(), MorphismType{
+        DummyMorphism(MorphismType{
             Γ: vec![ ContextEntry{ symbol: "Y".into(), kind: TypeKind::Type } ],
             bounds: Vec::new(),
             src_type: Γm2.parse("T ~ <B Y> ~ U").expect(""),
@@ -274,7 +270,7 @@ fn test_morphgraph_spec1() {
     let morph_graph = MorphismGraph::new(base);
 
     let mut Γ1 = Γ.scope();
-    let σs1 = Γ1.shift_variables(&Γm1);
+    let σs1 = Γ1.shift_variables(&Γm1.0.read().unwrap().γ);
     assert!( Γ1.clone().bind(Γ1.get_varid("X").expect(""), Γ1.parse("test").expect("")).is_ok() );
 
     assert_eq!(
@@ -290,9 +286,9 @@ fn test_morphgraph_spec1() {
                 m: Box::new(
                     MorphismInstance::Primitive {
                         σs:σs1.clone(),
-                        m: DummyMorphism(Γm1.clone(),
+                        m: DummyMorphism(
                             MorphismType {
-                                Γ: vec![ ContextEntry{ symbol: "X".into(), kind: TypeKind::Type } ],
+                                Γ: Γm1.clone().0.read().unwrap().γ.clone(),
                                 bounds: Vec::new(),
                                 src_type: Γm1.parse("T ~ A").expect("parse"),
                                 dst_type: Γm1.parse("T ~ <B X> ~ U").expect("parse")
@@ -313,10 +309,8 @@ fn test_morphgraph_spec2() {
     let mut Γm1 = Γ.scope();
     base.add_morphism({
         Γm1.add_variable("X", TypeKind::Type);
-        DummyMorphism(Γm1.clone(), MorphismType{
-            Γ: vec![
-                ContextEntry{ symbol: "X".into(), kind: TypeKind::Type }
-            ],
+        DummyMorphism(MorphismType{
+            Γ: Γm1.clone().0.read().unwrap().γ.clone(),
             bounds: Vec::new(),
             src_type: Γm1.parse("T ~ A").expect(""),
             dst_type: Γm1.parse("T ~ <B X> ~ U").expect("")
@@ -326,10 +320,8 @@ fn test_morphgraph_spec2() {
     let mut Γm2 = Γ.scope();
     base.add_morphism({
         Γm2.add_variable("Y", TypeKind::Type);
-        DummyMorphism(Γm2.clone(), MorphismType{
-            Γ: vec![
-                ContextEntry{ symbol: "Y".into(), kind: TypeKind::Type }
-            ],
+        DummyMorphism(MorphismType{
+            Γ: Γm2.clone().0.read().unwrap().γ.clone(),
             bounds: Vec::new(),
             src_type: Γm2.parse("T ~ <B Y> ~ U").expect(""),
             dst_type: Γm2.parse("T ~ <B Y> ~ V").expect("")
@@ -339,10 +331,10 @@ fn test_morphgraph_spec2() {
     let morph_graph = MorphismGraph::new(base);
 
     let mut Γ4 = Γ.scope();
-    let σs1 = Γ4.shift_variables(&Γm1);
+    let σs1 = Γ4.shift_variables(&Γm1.0.read().unwrap().γ);
 
     //let mut Γ5 = Γ4.scope();
-    let σs2 = Γ4.shift_variables(&Γm2);
+    let σs2 = Γ4.shift_variables(&Γm2.0.read().unwrap().γ);
 
     //assert!( Γ4.clone().bind(Γ4.get_varid("X").expect(""), Γ4.parse("test").expect("")).is_ok() );
     assert!( Γ4.clone().bind(Γ4.get_varid("Y").expect(""), Γ4.parse("test").expect("")).is_ok() );
@@ -367,7 +359,7 @@ fn test_morphgraph_spec2() {
                     path: vec![
                         MorphismInstance::Primitive {
                             σs:σs1,
-                            m: DummyMorphism(Γm2.clone(), MorphismType {
+                            m: DummyMorphism(MorphismType {
                                 Γ: Vec::new(),
                                 bounds: Vec::new(),
                                 src_type: Γm1.parse("T ~ A").expect("parse"),
@@ -376,8 +368,8 @@ fn test_morphgraph_spec2() {
                         },
                         MorphismInstance::Primitive {
                             σs:σs2,
-                            m: DummyMorphism(Γm2.clone(), MorphismType {
-                                Γ: Vec::new(),
+                            m: DummyMorphism(MorphismType {
+                                Γ: Γm2.clone().0.read().unwrap().γ.clone(),
                                 bounds: Vec::new(),
                                 src_type: Γm2.parse("T ~ <B Y> ~ U").expect("parse"),
                                 dst_type: Γm2.parse("T ~ <B Y> ~ V").expect("parse")

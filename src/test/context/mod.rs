@@ -140,21 +140,21 @@ fn test_morphism_compat() {
     };
 
     // pull t1 & t2 into root ctx
-    let mut t1 = t1.dst_type.clone();
-    t1.apply_subst(&ctx.shift_variables(&c1));
-    let mut t2 = t2.src_type.clone();
-    t2.apply_subst(&ctx.shift_variables(&c2));
+    let mut t1_src = t1.dst_type.clone();
+    t1_src.apply_subst(&ctx.shift_variables(&t1.Γ));
+    let mut t2_src = t2.src_type.clone();
+    t2_src.apply_subst(&ctx.shift_variables(&t2.Γ));
 
     let csp = ConstraintSystem::new_sub(vec![
         CP2 {
-            lhs: t1.clone(),
-            rhs: t2.clone(),
+            lhs: t1_src.clone(),
+            rhs: t2_src.clone(),
             addr: vec![]
         }
     ]);
 
-    eprintln!("t1 = {:?} = {}", t1, t1.pretty(&mut ctx.clone(), 0));
-    eprintln!("t2 = {:?} = {}", t2, t2.pretty(&mut ctx.clone(), 0));
+    eprintln!("t1 = {:?} = {}", t1_src, t1_src.pretty(&mut ctx.clone(), 0));
+    eprintln!("t2 = {:?} = {}", t2_src, t2_src.pretty(&mut ctx.clone(), 0));
 
     match csp.solve() {
         Ok((Ψ,σ)) => {

@@ -46,7 +46,6 @@ use {
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 pub trait Morphism : Sized {
-    fn ctx(&self) -> ContextPtr;
     fn get_type(&self) -> MorphismType;
     fn weight(&self) -> u64 {
         1

@@ -165,7 +165,7 @@ impl<M: Morphism + Clone> MorphismBase<M> {
             let mut m_dst_type = m.get_type().dst_type.normalize();
 
             let Γ = Γ0.scope();
-            let σs = Γ.shift_variables(&m.ctx());
+            let σs = Γ.shift_variables(&m.get_type().Γ);
             m_src_type.apply_subst(&σs);
             m_dst_type.apply_subst(&σs);
 
@@ -194,7 +194,7 @@ impl<M: Morphism + Clone> MorphismBase<M> {
             let mut m_src_type = m.get_type().src_type.normalize();
 
             let Γ = Γ0.scope();
-            let σs = Γ.shift_variables(&m.ctx());
+            let σs = Γ.shift_variables(&m.get_type().Γ);
             m_src_type.apply_subst(&σs);
 
             src_type.apply_subst(&Γ.shift_from_parent());
