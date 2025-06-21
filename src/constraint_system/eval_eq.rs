@@ -1,14 +1,13 @@
 use {
     crate::{
-        term::TypeTerm, EnumVariant, StructMember,
-        ConstraintSystem, ConstraintPair, ConstraintError
-    }
+        term::TypeTerm, ConstraintError, CP2, ConstraintSystem, EnumVariant, StructMember
+    }, std::ops::Deref
 };
 
 impl ConstraintSystem {
 
 
-    pub fn eval_equation(&mut self, unification_pair: ConstraintPair) -> Result<(), ConstraintError> {
+    pub fn eval_equation(&mut self, unification_pair: CP2) -> Result<(), ConstraintError> {
         match (&unification_pair.lhs, &unification_pair.rhs) {
             (TypeTerm::Var(varid), t) |
             (t, TypeTerm::Var(varid)) => {
@@ -40,7 +39,7 @@ impl ConstraintSystem {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
                         self.equal_pairs.push(
-                            ConstraintPair {
+                            CP2 {
                                 lhs: x,
                                 rhs: y,
                                 addr: new_addr
@@ -52,32 +51,25 @@ impl ConstraintSystem {
                 }
             }
 
-            (TypeTerm::Seq{ seq_repr: lhs_seq_repr, items: lhs_items },
-                TypeTerm::Seq { seq_repr: rhs_seq_repr, items: rhs_items })
+            (TypeTerm::Seq{ seq_repr: lhs_seq_repr, item: lhs_item },
+                TypeTerm::Seq { seq_repr: rhs_seq_repr, item: rhs_item })
             => {
                 let mut new_addr = unification_pair.addr.clone();
                 new_addr.push(0);
 
                 if let Some(rhs_seq_repr) = rhs_seq_repr.as_ref() {
                     if let Some(lhs_seq_repr) = lhs_seq_repr.as_ref() {
-                        let _seq_repr_ψ = self.eval_equation(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_seq_repr.clone(), rhs: *rhs_seq_repr.clone() })?;
+                        let _seq_repr_ψ = self.eval_equation(CP2 { addr: new_addr.clone(), lhs: *lhs_seq_repr.clone(), rhs: *rhs_seq_repr.clone() })?;
                     } else {
                         return Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
                 }
 
+                let mut new_addr = unification_pair.addr.clone();
+                new_addr.push(1);
+                self.equal_pairs.push( CP2 { addr: new_addr, lhs: lhs_item.deref().clone(), rhs: rhs_item.deref().clone() } );
 
-                if lhs_items.len() == rhs_items.len() {
-                    for (i, (lhs_ty, rhs_ty)) in lhs_items.into_iter().zip(rhs_items.into_iter()).enumerate()
-                    {
-                        let mut new_addr = unification_pair.addr.clone();
-                        new_addr.push(i);
-                        self.equal_pairs.push( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
-                    }
-                    Ok(())
-                } else {
-                    Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
-                }
+                Ok(())
             }
             (TypeTerm::Struct{ struct_repr: lhs_struct_repr, members: lhs_members },
                 TypeTerm::Struct{ struct_repr: rhs_struct_repr, members: rhs_members })
@@ -85,7 +77,7 @@ impl ConstraintSystem {
                 let new_addr = unification_pair.addr.clone();
                 if let Some(rhs_struct_repr) = rhs_struct_repr.as_ref() {
                     if let Some(lhs_struct_repr) = lhs_struct_repr.as_ref() {
-                        let _struct_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_struct_repr.clone(), rhs: *rhs_struct_repr.clone() })?;
+                        let _struct_repr_ψ = self.eval_subtype(CP2 { addr: new_addr.clone(), lhs: *lhs_struct_repr.clone(), rhs: *rhs_struct_repr.clone() })?;
                     } else {
                         return Err(ConstraintError{ addr: new_addr.clone(), t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
@@ -100,7 +92,7 @@ impl ConstraintSystem {
                     {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
-                        self.equal_pairs.push( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
+                        self.equal_pairs.push( CP2 { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
                     }
                     Ok(())
                 } else {
@@ -113,7 +105,7 @@ impl ConstraintSystem {
                 let mut new_addr = unification_pair.addr.clone();
                 if let Some(rhs_enum_repr) = rhs_enum_repr.as_ref() {
                     if let Some(lhs_enum_repr) = lhs_enum_repr.as_ref() {
-                        let _enum_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_enum_repr.clone(), rhs: *rhs_enum_repr.clone() })?;
+                        let _enum_repr_ψ = self.eval_subtype(CP2 { addr: new_addr.clone(), lhs: *lhs_enum_repr.clone(), rhs: *rhs_enum_repr.clone() })?;
                     } else {
                         return Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
@@ -129,7 +121,7 @@ impl ConstraintSystem {
                     {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
-                        self.equal_pairs.push( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
+                        self.equal_pairs.push( CP2 { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } );
                     }
                     Ok(())
                 } else {

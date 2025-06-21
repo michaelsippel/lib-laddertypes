@@ -1,6 +1,6 @@
 use {
     crate::{
-        term::TypeTerm, ConstraintError, ConstraintPair, ConstraintSystem
+        term::TypeTerm, ConstraintError, CP2, ConstraintSystem
     }, std::ops::Deref
 };
 
@@ -9,7 +9,7 @@ impl ConstraintSystem {
     */
     pub fn eval_trait(
         &mut self,
-        pair: ConstraintPair
+        pair: CP2
     ) -> Result<(), ConstraintError> {
         match (pair.lhs.clone().strip(), pair.rhs.clone().strip()) {
 
@@ -19,7 +19,7 @@ impl ConstraintSystem {
                     let mut addr = pair.addr.clone();
                     addr.push(i);
 
-                    if self.eval_trait(ConstraintPair{
+                    if self.eval_trait(CP2{
                         addr,
                         lhs: rung.clone(),
                         rhs: τ.clone()
@@ -65,7 +65,7 @@ impl ConstraintSystem {
                         let mut new_addr = pair.addr.clone();
                         new_addr.push(i);
                         self.trait_pairs.push(
-                            ConstraintPair {
+                            CP2 {
                                 lhs: x,
                                 rhs: y,
                                 addr: new_addr
@@ -77,26 +77,24 @@ impl ConstraintSystem {
                 }
             }
 
-            (TypeTerm::Seq { seq_repr: lhs_sr, items: lhs_it },
-                TypeTerm::Seq { seq_repr: rhs_sr, items: rhs_it })
+            (TypeTerm::Seq { seq_repr: lhs_sr, item: lhs_it },
+                TypeTerm::Seq { seq_repr: rhs_sr, item: rhs_it })
             => {
                 {
                     let mut addr = pair.addr.clone();
                     addr.push(0);
                     if let Some(rhs_sr) = rhs_sr {
                         if let Some(lhs_sr) = lhs_sr {
-                            self.trait_pairs.push(ConstraintPair { addr, lhs: lhs_sr.deref().clone(), rhs: rhs_sr.deref().clone() });
+                            self.trait_pairs.push(CP2 { addr, lhs: lhs_sr.deref().clone(), rhs: rhs_sr.deref().clone() });
                         } else {
                             return Err(ConstraintError{ addr, t1: TypeTerm::unit(), t2: rhs_sr.deref().clone() });
                         }
                     }
                 }
 
-                for (i, (lhs_member, rhs_member)) in lhs_it.into_iter().zip(rhs_it.into_iter()).enumerate() {
-                    let mut addr = pair.addr.clone();
-                    addr.push(0);
-                    self.trait_pairs.push(ConstraintPair { addr, lhs: lhs_member, rhs: rhs_member });
-                }
+                let mut addr = pair.addr.clone();
+                addr.push(1);
+                self.trait_pairs.push(CP2 { addr, lhs: lhs_it.deref().clone(), rhs: rhs_it.deref().clone() });
 
                 Ok(())
             }
@@ -108,7 +106,7 @@ impl ConstraintSystem {
                     addr.push(0);
                     if let Some(rhs_sr) = rhs_sr {
                         if let Some(lhs_sr) = lhs_sr {
-                            self.trait_pairs.push(ConstraintPair { addr, lhs: lhs_sr.deref().clone(), rhs: rhs_sr.deref().clone() });
+                            self.trait_pairs.push(CP2 { addr, lhs: lhs_sr.deref().clone(), rhs: rhs_sr.deref().clone() });
                         } else {
                             return Err(ConstraintError{ addr, t1: TypeTerm::unit(), t2: rhs_sr.deref().clone() });
                         }
@@ -121,7 +119,7 @@ impl ConstraintSystem {
                         if lhs_member.symbol == rhs_member.symbol {
                             let mut addr = pair.addr.clone();
                             addr.push(0);
-                            self.trait_pairs.push(ConstraintPair { addr, lhs: lhs_member.ty.clone(), rhs: rhs_member.ty.clone() });
+                            self.trait_pairs.push(CP2 { addr, lhs: lhs_member.ty.clone(), rhs: rhs_member.ty.clone() });
                             found = true;
                             break;
                         }
@@ -144,7 +142,7 @@ impl ConstraintSystem {
                     addr.push(0);
                     if let Some(rhs_sr) = rhs_sr {
                         if let Some(lhs_sr) = lhs_sr {
-                            self.trait_pairs.push(ConstraintPair { addr, lhs: lhs_sr.deref().clone(), rhs: rhs_sr.deref().clone() });
+                            self.trait_pairs.push(CP2 { addr, lhs: lhs_sr.deref().clone(), rhs: rhs_sr.deref().clone() });
                         } else {
                             return Err(ConstraintError{ addr, t1: TypeTerm::unit(), t2: rhs_sr.deref().clone() });
                         }
@@ -157,7 +155,7 @@ impl ConstraintSystem {
                         if lhs_member.symbol == rhs_member.symbol {
                             let mut addr = pair.addr.clone();
                             addr.push(0);
-                            self.trait_pairs.push(ConstraintPair { addr, lhs: lhs_member.ty.clone(), rhs: rhs_member.ty.clone() });
+                            self.trait_pairs.push(CP2 { addr, lhs: lhs_member.ty.clone(), rhs: rhs_member.ty.clone() });
                             found = true;
                             break;
                         }

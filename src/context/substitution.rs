@@ -98,9 +98,11 @@ impl TypeTerm {
                 }
             }
 
-            TypeTerm::Univ(bound, t) => {
-                bound.apply_subst(σ);
-                t.apply_subst(σ);
+            TypeTerm::Univ{ Γ, bounds, τ } => {
+                for b in bounds.iter_mut(){
+                    b.apply_subst(σ);
+                }
+                τ.apply_subst(σ);
             }
 
             TypeTerm::Morph(src, dst) => {
@@ -124,13 +126,11 @@ impl TypeTerm {
                     ty.apply_subst(σ);
                 }
             }
-            TypeTerm::Seq { seq_repr, items } => {
+            TypeTerm::Seq { seq_repr, item } => {
                 if let Some(seq_repr) = seq_repr {
                     seq_repr.apply_subst(σ);
                 }
-                for ty in items.iter_mut() {
-                    ty.apply_subst(σ);
-                }
+                item.apply_subst(σ);
             },
         }
 

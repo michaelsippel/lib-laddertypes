@@ -1,4 +1,6 @@
-use crate::{term::TypeTerm, constraint_system, EnumVariant, StructMember};
+use std::ops::Deref;
+
+use crate::{constraint_system, subtype_unify, term::TypeTerm, EnumVariant, StructMember};
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
@@ -43,8 +45,8 @@ impl TypeTerm {
                 while let Some(r1) = rungs.pop() {
                     let r1 = r1.strip();
                     match (r1.clone(), r2.clone()) {
-                        (TypeTerm::Seq { seq_repr: seq_repr1, items: items1 },
-                         TypeTerm::Seq { seq_repr: seq_repr2, items: items2 })
+                        (TypeTerm::Seq { seq_repr: seq_repr1, item: item1 },
+                         TypeTerm::Seq { seq_repr: seq_repr2, item: item2 })
                         => {
                             r2 = TypeTerm::Seq {
                                     seq_repr:
@@ -65,45 +67,38 @@ impl TypeTerm {
                                         } else {
                                             None
                                         },
-                                    items:
-                                        items1.into_iter()
-                                            .zip(items2.into_iter())
-                                            .map(|(item1, item2)| {
-                                                if item1 == item2 {
-                                                    item1
-                                                } else {
-                                                    TypeTerm::Ladder(vec![ item1.clone(), item2 ])
-                                                }
-                                            })
-                                            .collect()
+                                    item:       if item1.deref() == item2.deref() {
+                                        item1.clone()
+                                    } else {
+                                        Box::new(TypeTerm::Ladder(vec![ item1.deref().clone(), item2.deref().clone() ]).normalize())
+                                    }
                                 };
                         }
 
-                        (TypeTerm::Seq { seq_repr, items },
+                        (TypeTerm::Seq { seq_repr, item },
                          TypeTerm::Spec( mut args )
                         ) => {
-                            if args.len() == items.len()+1 {
-                                r2 = TypeTerm::Seq {
-                                    seq_repr: Some(Box::new(TypeTerm::Ladder(vec![
-                                        if let Some(seq_repr) = seq_repr {
-                                            *seq_repr.clone()
-                                        } else {
-                                            TypeTerm::unit()
-                                        },
-                                        args.remove(0)
-                                    ]).normalize())),
+                            if args.len() == 2 {
+                                let i1 = args.remove(0);
+                                let i2 = args.remove(0);
 
-                                    items: items.into_iter()
-                                        .zip(args.into_iter())
-                                        .map(|(i1, i2)| {
-                                            if i1 == i2 {
-                                                i1
+                                if item.deref() == &i2 {
+                                    r2 = TypeTerm::Seq {
+                                        seq_repr: Some(Box::new(TypeTerm::Ladder(vec![
+                                            if let Some(seq_repr) = seq_repr {
+                                                *seq_repr.clone()
                                             } else {
-                                                TypeTerm::Ladder(vec![ i1, i2 ]).normalize()
-                                            }
-                                        })
-                                        .collect()
-                                };
+                                                TypeTerm::unit()
+                                            },
+                                            i1.clone()
+                                        ]).normalize())),
+
+                                        item: Box::new(TypeTerm::Ladder(vec![ item.deref().clone(), i2 ]).normalize())
+                                    };
+                                } else {
+                                    new_rungs.push(r2);
+                                    r2 = r1;
+                                }
                             } else {
                                 new_rungs.push(r2);
                                 r2 = r1;
@@ -241,7 +236,7 @@ impl TypeTerm {
                             }
                         }
 
-                        (TypeTerm::Univ(bound1, args1), TypeTerm::Univ(bound2, args2)) => {
+                        (TypeTerm::Univ{ Γ:Γ1, bounds:bs1, τ:τ1 }, TypeTerm::Univ{ Γ:Γ2, bounds:bs2, τ:τ2 }) => {
                             todo!();
                         }
 
@@ -309,9 +304,9 @@ impl TypeTerm {
                         .collect())
             }
 
-            TypeTerm::Seq { seq_repr, items } => TypeTerm::Seq {
+            TypeTerm::Seq { seq_repr, item } => TypeTerm::Seq {
                 seq_repr: if let Some(seq_repr) = seq_repr { Some(Box::new(seq_repr.normalize())) } else { None },
-                items: items.into_iter().map(|p| p.normalize()).collect()
+                item: Box::new(item.normalize())
             },
             TypeTerm::Struct { struct_repr, members } => TypeTerm::Struct {
                 struct_repr: if let Some(struct_repr) = struct_repr { Some(Box::new(struct_repr.normalize())) } else { None },

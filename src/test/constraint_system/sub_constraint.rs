@@ -1,6 +1,6 @@
 use {
     crate::{constraint_system::{
-            subtype_unify, ConstraintError, ConstraintPair, ConstraintSystem
+            subtype_unify, ConstraintError, CP2, ConstraintSystem
         }, dict::*, parser::*, term::*, Context, HashMapSubst, LayeredContext, TypeKind
     }
 };
@@ -17,7 +17,7 @@ fn test_subtype_unification1() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A ~ B").unwrap(),
                 rhs : dict.parse("B").unwrap()
@@ -31,7 +31,7 @@ fn test_subtype_unification1() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A ~ B ~ C ~ D").unwrap(),
                 rhs : dict.parse("C ~ D").unwrap()
@@ -45,7 +45,7 @@ fn test_subtype_unification1() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A ~ B ~ C ~ D").unwrap(),
                 rhs : dict.parse("T ~ D").unwrap()
@@ -62,7 +62,7 @@ fn test_subtype_unification1() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A ~ B ~ C ~ D").unwrap(),
                 rhs : dict.parse("B ~ T ~ D").unwrap(),
@@ -91,7 +91,7 @@ fn test_subtype_unification2() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair{
+            CP2{
                 addr: Vec::new(),
                 lhs: dict.parse("<Seq~T <Digit 10> ~ Char ~ Ascii>").unwrap(),
                 rhs: dict.parse("<Seq~<LengthPrefix x86.UInt64> Char ~ Ascii>").unwrap(),
@@ -110,12 +110,12 @@ fn test_subtype_unification2() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs: dict.parse("U").unwrap(),
                 rhs: dict.parse("<Seq Char>").unwrap()
             },
-            ConstraintPair {
+            CP2 {
                 addr : Vec::new(),
                 lhs :  dict.parse("T").unwrap(),
                 rhs : dict.parse("<Seq U>").unwrap(),
@@ -138,12 +138,12 @@ fn test_subtype_unification2() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("<Seq T>").unwrap(),
                 rhs : dict.parse("<Seq W~<Seq Char>>").unwrap(),
             },
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("<Seq~<LengthPrefix x86.UInt64> ℕ~<PosInt 10 BigEndian>>").unwrap(),
                 rhs : dict.parse("<<LengthPrefix x86.UInt64> W>").unwrap()
@@ -196,7 +196,7 @@ fn test_subtype_unification3() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs: dict.parse("<A1~A2  B  C  D1~D2 E F1~F2>").expect("parse"),
                 rhs: dict.parse("<A2 B C D2 E F2>").expect("parse")
@@ -217,7 +217,7 @@ fn test_subtype_unification3() {
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs: dict.parse("<Seq~List  B  C  D1~D2 E F1~F2>").expect("parse"),
                 rhs: dict.parse("<List      B  C     D2 E F2>").expect("parse")
@@ -297,12 +297,12 @@ pub fn test_subtype_delim() {
     let mut dict = Context::new();
 
     dict.add_variable("T", TypeKind::Type);
-    dict.add_variable("Delim", TypeKind::ValueUInt);
+    dict.add_variable("Delim", TypeKind::Value(dict.clone().parse("T").expect("")));
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
 
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 // given type
                 lhs : dict.parse("
@@ -320,7 +320,7 @@ pub fn test_subtype_delim() {
             },
 
             // subtype bounds
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("T").expect(""),
                 rhs : dict.parse("UInt8").expect("")

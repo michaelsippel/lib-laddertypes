@@ -49,7 +49,7 @@ impl<T: TypeDict> UnparseLadderType for T {
                 s.push('>');
                 s
             }
-            TypeTerm::Seq { seq_repr, items } => {
+            TypeTerm::Seq { seq_repr, item } => {
                 todo!()
             }
             TypeTerm::Struct { struct_repr, members } => {
@@ -58,7 +58,7 @@ impl<T: TypeDict> UnparseLadderType for T {
             TypeTerm::Enum { enum_repr, variants } => {
                 todo!()
             }
-            TypeTerm::Univ(bound, t) => {
+            TypeTerm::Univ{ Γ, bounds, τ } => {
                 todo!()
             }
             TypeTerm::Func(ts) => {

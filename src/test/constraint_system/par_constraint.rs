@@ -2,7 +2,7 @@ use {
     crate::{dict::*, parser::*,
         constraint_system::{
             ConstraintSystem,
-            ConstraintPair,
+            CP2,
             ConstraintError
         }
     }

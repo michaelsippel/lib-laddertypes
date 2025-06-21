@@ -4,9 +4,13 @@ pub mod graph;
 pub mod instance;
 pub mod heuristic;
 
+use std::ops::Deref;
+
 pub use base::*;
 pub use graph::*;
 pub use instance::*;
+
+use crate::{ConstraintPair, CP2};
 
 use {
     crate::{
@@ -34,7 +38,8 @@ pub trait Morphism : Sized {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MorphismType {
-    pub bounds: Vec< VariableConstraint >,
+    pub Γ: Vec< ContextEntry >,
+    pub bounds: Vec< ConstraintPair >,
     pub src_type: TypeTerm,
     pub dst_type: TypeTerm
 }
@@ -47,6 +52,7 @@ impl MorphismType {
                 let mut lhs_iter = rungs_lhs.iter();
                 let mut rhs_iter = rungs_rhs.iter();
                 let mut last = MorphismType {
+                    Γ: self.Γ.clone(),
                     bounds: self.bounds.clone(),
                     src_type: TypeTerm::unit(),
                     dst_type: TypeTerm::unit()
@@ -58,7 +64,8 @@ impl MorphismType {
 
                     if lhs_top != rhs_top {
                         let x = MorphismType {
-                            bounds: Vec::new(),
+                            Γ: self.Γ.clone(),
+                            bounds: self.bounds.clone(),
                             src_type: lhs_top.clone(),
                             dst_type: rhs_top.clone()
                         }.strip_common_rungs();
@@ -69,6 +76,7 @@ impl MorphismType {
                         rr.insert(0, x.dst_type);
 
                         return MorphismType {
+                            Γ: self.Γ.clone(),
                             bounds: self.bounds.clone(),
                             src_type: TypeTerm::Ladder(rl),
                             dst_type: TypeTerm::Ladder(rr)
@@ -83,7 +91,8 @@ impl MorphismType {
 
                 let (rl, rr) = args_lhs.iter().zip(args_rhs.iter()).map(
                     |(al,ar)| MorphismType{
-                        bounds: Vec::new(),
+                        Γ: self.Γ.clone(),
+                        bounds: self.bounds.clone(),
                         src_type: al.clone(),
                         dst_type: ar.clone()
                     }.strip_common_rungs()
@@ -95,31 +104,28 @@ impl MorphismType {
                 });
 
                 MorphismType {
+                    Γ: self.Γ.clone(),
                     bounds: self.bounds.clone(),
                     src_type: TypeTerm::Spec(rl),
                     dst_type: TypeTerm::Spec(rr)
                 }
             }
 
-            (TypeTerm::Seq { seq_repr:seq_repr_lhs, items:items_lhs },
-                TypeTerm::Seq { seq_repr: seq_repr_rhs, items:items_rhs })
+            (TypeTerm::Seq { seq_repr:seq_repr_lhs, item:item_lhs },
+                TypeTerm::Seq { seq_repr: seq_repr_rhs, item:item_rhs })
             => {
-                let (rl, rr) = items_lhs.iter().zip(items_rhs.iter()).map(
-                    |(al,ar)| MorphismType{
-                        bounds: Vec::new(),
-                        src_type: al.clone(),
-                        dst_type: ar.clone()
-                    }.strip_common_rungs()
-                )
-                .fold((vec![], vec![]), |(mut rl, mut rr), x| {
-                    rl.push(x.src_type);
-                    rr.push(x.dst_type);
-                    (rl,rr)
-                });
+                let i = MorphismType{
+                        Γ: self.Γ.clone(),
+                        bounds: self.bounds.clone(),
+                        src_type: item_lhs.deref().clone(),
+                        dst_type: item_rhs.deref().clone()
+                    }.strip_common_rungs();
+
                 MorphismType  {
+                    Γ: self.Γ.clone(),
                     bounds: self.bounds.clone(),
-                    src_type: TypeTerm::Seq{ seq_repr: seq_repr_lhs.clone(), items: rl },
-                    dst_type: TypeTerm::Seq { seq_repr: seq_repr_rhs.clone(), items: rr }
+                    src_type: TypeTerm::Seq{ seq_repr: seq_repr_lhs.clone(), item: Box::new(i.src_type) },
+                    dst_type: TypeTerm::Seq { seq_repr: seq_repr_rhs.clone(), item: Box::new(i.dst_type) }
                 }
             }
 
@@ -134,7 +140,8 @@ impl MorphismType {
                     for al in members_lhs.iter() {
                         if al.symbol == ar.symbol {
                             let x = MorphismType{
-                                bounds: Vec::new(),
+                                Γ: self.Γ.clone(),
+                                bounds: self.bounds.clone(),
                                 src_type: al.ty.clone(),
                                 dst_type: ar.ty.clone()
                             }.strip_common_rungs();
@@ -154,6 +161,7 @@ impl MorphismType {
 
                     if !found {
                         return MorphismType {
+                            Γ: self.Γ.clone(),
                             bounds: self.bounds.clone(),
                             src_type: TypeTerm::Struct { struct_repr: struct_repr_lhs.clone(), members:members_lhs.clone() },
                             dst_type: TypeTerm::Struct { struct_repr: struct_repr_rhs.clone(), members:members_rhs.clone() }
@@ -162,6 +170,7 @@ impl MorphismType {
                 }
 
                 MorphismType  {
+                    Γ: self.Γ.clone(),
                     bounds: self.bounds.clone(),
                     src_type: TypeTerm::Struct{ struct_repr: struct_repr_lhs.clone(), members: rl },
                     dst_type: TypeTerm::Struct{ struct_repr: struct_repr_rhs.clone(), members: rr }
@@ -179,6 +188,7 @@ impl MorphismType {
                     for al in variants_lhs.iter() {
                         if al.symbol == ar.symbol {
                             let x = MorphismType {
+                                Γ: self.Γ.clone(),
                                 bounds: self.bounds.clone(),
                                 src_type: al.ty.clone(),
                                 dst_type: ar.ty.clone()
@@ -199,6 +209,7 @@ impl MorphismType {
 
                     if !found {
                         return MorphismType {
+                            Γ: self.Γ.clone(),
                             bounds: self.bounds.clone(),
                             src_type: TypeTerm::Enum { enum_repr: enum_repr_lhs.clone(), variants:variants_lhs.clone() },
                             dst_type: TypeTerm::Enum { enum_repr: enum_repr_rhs.clone(), variants:variants_rhs.clone() }
@@ -207,19 +218,26 @@ impl MorphismType {
                 }
 
                 MorphismType  {
+                    Γ: self.Γ.clone(),
                     bounds: self.bounds.clone(),
                     src_type: TypeTerm::Enum{ enum_repr: enum_repr_lhs.clone(), variants: rl },
                     dst_type: TypeTerm::Enum { enum_repr: enum_repr_rhs.clone(), variants: rr }
                 }
             }
 
-            (x,y) => MorphismType { bounds: self.bounds.clone(), src_type: x.clone(), dst_type: y.clone() }
+            (x,y) => MorphismType {
+                Γ: self.Γ.clone(),
+                bounds: self.bounds.clone(),
+                src_type: x.clone(),
+                dst_type: y.clone()
+            }
         }
     }
 
     pub fn apply_subst(&self, σ: &impl Substitution) -> MorphismType {
         MorphismType {
-            bounds: self.bounds.iter().map(|b| b.clone().apply_subst(σ).clone()).collect(),
+            Γ: self.Γ.clone(),
+            bounds: self.bounds.iter().map(|cp| cp.clone().apply_subst(σ).clone()).collect(),
             src_type: self.src_type.clone().apply_subst(σ).clone(),
             dst_type: self.dst_type.clone().apply_subst(σ).clone()
         }
@@ -227,7 +245,8 @@ impl MorphismType {
 
     pub fn normalize(&self) -> MorphismType {
         MorphismType {
-            bounds: self.bounds.iter().map(|bound| bound.normalize()).collect(),
+            Γ: self.Γ.clone(),
+            bounds: self.bounds.iter().map(|cp| cp.normalize()).collect(),
             src_type: self.src_type.clone().normalize(),
             dst_type: self.dst_type.clone().normalize(),
         }

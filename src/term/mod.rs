@@ -10,12 +10,8 @@ mod pretty;
 
 use {
     crate::{
-        parser::ParseLadderType,
-        MorphismType,
-        Substitution,
-        TypeDict,
-        TypeID},
-    std::{ops::Deref}
+        parser::ParseLadderType, ConstraintPair, ContextEntry, MorphismType, Substitution, TypeDict, TypeID, CP2},
+    std::ops::Deref
 };
 
 
@@ -25,7 +21,7 @@ pub enum VariableConstraint {
     Subtype(TypeTerm),
     Trait(TypeTerm),
     Parallel(TypeTerm),
-    ValueUInt,
+    ValueOf(TypeTerm),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -46,7 +42,11 @@ pub enum TypeTerm {
     Var(u64),
     Num(i64),
     Char(char),
-    Univ(Box< VariableConstraint >, Box< TypeTerm >),
+    Univ{
+        Γ: Vec< ContextEntry >,
+        bounds: Vec< ConstraintPair >,
+        τ: Box< TypeTerm >
+    },
     Spec(Vec< TypeTerm >),
     Func(Vec< TypeTerm >),
     Morph(Box< TypeTerm >, Box< TypeTerm >),
@@ -61,7 +61,7 @@ pub enum TypeTerm {
     },
     Seq{
         seq_repr: Option<Box< TypeTerm >>,
-        items: Vec< TypeTerm >
+        item: Box<TypeTerm>
     },
 
     /*
@@ -72,18 +72,28 @@ pub enum TypeTerm {
 impl TypeTerm {
     pub fn into_morphism_type(self) -> Option< MorphismType > {
         match self.normalize() {
-            TypeTerm::Univ(bound, τ) => {
+            TypeTerm::Univ{ Γ, bounds, τ } => {
                 let mut m = τ.into_morphism_type()?;
-                m.bounds.push(bound.deref().clone());
+                m.Γ = Γ;
+                m.bounds = bounds;
                 Some(m)
             }
             TypeTerm::Morph(src,dst) => {
                 Some(MorphismType {
+                    Γ: Vec::new(),
                     bounds: Vec::new(),
                     src_type: src.deref().clone(),
                     dst_type: dst.deref().clone()
                 })
             },
+            TypeTerm::Func(args) => {
+                Some(MorphismType {
+                    Γ: Vec::new(),
+                    bounds: Vec::new(),
+                    src_type: args[0].clone(),
+                    dst_type: args[1].clone()
+                })
+            }
             _ => None
         }
     }
@@ -96,7 +106,7 @@ impl VariableConstraint {
             VariableConstraint::Subtype(τ) => VariableConstraint::Subtype(τ.clone().normalize()),
             VariableConstraint::Trait(τ) => VariableConstraint::Trait(τ.clone().normalize()),
             VariableConstraint::Parallel(τ) => VariableConstraint::Parallel(τ.clone().normalize()),
-            VariableConstraint::ValueUInt => VariableConstraint::ValueUInt
+            VariableConstraint::ValueOf(τ) => VariableConstraint::ValueOf(τ.clone().normalize())
         }
     }
 
@@ -132,9 +142,9 @@ impl TypeTerm {
             TypeTerm::Morph(src,dst) => {
                 src.contains_var(var_id) || dst.contains_var(var_id)
             }
-            TypeTerm::Univ(bound,t) => {
+            TypeTerm::Univ{ Γ, bounds, τ } => {
                 // todo: capture avoidance (via debruijn)
-                t.contains_var(var_id)
+                τ.contains_var( var_id + Γ.len() as u64 )
             }
             TypeTerm::Struct { struct_repr, members } => {
                 if let Some(struct_repr) =  struct_repr {
@@ -164,19 +174,14 @@ impl TypeTerm {
                 }
                 false
             }
-            TypeTerm::Seq { seq_repr, items } => {
+            TypeTerm::Seq { seq_repr, item } => {
                 if let Some(seq_repr) =  seq_repr {
                     if seq_repr.contains_var(var_id) {
                         return true;
                     }
                 }
 
-                for ty in items {
-                    if ty.contains_var(var_id) {
-                        return true;
-                    }
-                }
-                false
+                item.contains_var(var_id)
             }
 
             TypeTerm::Num(_) |
@@ -226,15 +231,13 @@ impl TypeTerm {
             TypeTerm::Func(args) => TypeTerm::Func(args.into_iter().map(|arg| arg.strip()).collect()),
             TypeTerm::Morph(src, dst) => TypeTerm::Morph(Box::new(src.strip()), Box::new(dst.strip())),
 
-            TypeTerm::Seq{ mut seq_repr, mut items } => {
+            TypeTerm::Seq{ mut seq_repr, mut item } => {
                 if let Some(seq_repr) = seq_repr.as_mut() {
                     *seq_repr = Box::new(seq_repr.clone().strip());
                 }
-                for i in items.iter_mut() {
-                    *i = i.clone().strip();
-                }
+                *item = item.clone().strip();
 
-                TypeTerm::Seq { seq_repr, items }
+                TypeTerm::Seq { seq_repr, item }
             }
             TypeTerm::Struct { mut struct_repr, mut members } => {
                 if let Some(struct_repr) = struct_repr.as_mut() {
@@ -282,15 +285,19 @@ impl TypeTerm {
                     Box::new(dst.get_interface_type())
                 ),
 
-            TypeTerm::Univ(bound, t)
-                => TypeTerm::Univ(bound.clone(), Box::new(t.get_interface_type())),
+            TypeTerm::Univ{ Γ, bounds, τ }
+                => TypeTerm::Univ{
+                    Γ:Γ.clone(),
+                    bounds:bounds.clone(),
+                    τ: Box::new(τ.get_interface_type())
+                },
 
-            TypeTerm::Seq { seq_repr, items } => {
+            TypeTerm::Seq { seq_repr, item } => {
                 TypeTerm::Seq {
                     seq_repr: if let Some(sr) = seq_repr {
                         Some(Box::new(sr.clone().get_interface_type()))
                     } else { None },
-                    items: items.iter().map(|t| t.get_interface_type()).collect()
+                    item: Box::new(item.get_interface_type())
                 }
             }
             TypeTerm::Struct { struct_repr, members } => {
@@ -393,7 +400,7 @@ impl TypeTerm {
             TypeTerm::Var(_) => false,
             TypeTerm::Num(_) => false,
             TypeTerm::Char(_) => false,
-            TypeTerm::Univ(bound, t) => t.is_empty(),
+            TypeTerm::Univ{ Γ, bounds, τ } => τ.is_empty(),
             TypeTerm::Spec(ts) |
             TypeTerm::Ladder(ts) |
             TypeTerm::Func(ts) => {
@@ -402,9 +409,7 @@ impl TypeTerm {
             TypeTerm::Morph(src,dst) => {
                 src.is_empty() && dst.is_empty()
             }
-            TypeTerm::Seq{ seq_repr, items } => {
-                items.iter().fold(true, |s,t| s && t.is_empty() )
-            }
+            TypeTerm::Seq{ seq_repr, item } => { item.is_empty() }
             TypeTerm::Struct{ struct_repr, members } => {
                 members.iter()
                     .fold(true, |s,member_decl| s && member_decl.ty.is_empty() )

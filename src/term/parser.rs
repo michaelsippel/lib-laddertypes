@@ -112,7 +112,6 @@ impl<T: LayeredContext> ParseLadderType for T {
     where It: Iterator<Item = char>
     {
         let mut seq_repr = None;
-        let mut items = Vec::new();
 
         if let Some(Ok(LadderTypeToken::Ladder)) = tokens.peek() {
             tokens.next();
@@ -122,12 +121,19 @@ impl<T: LayeredContext> ParseLadderType for T {
         while let Some(tok) = tokens.peek() {
             match tok {
                 Ok(LadderTypeToken::CloseSeq) => {
-                    tokens.next();
-                    return Ok(TypeTerm::Seq { seq_repr, items });
+                    return Err(ParseError::UnexpectedClose);
                 }
                 _ => {
                     match self.parse_top(tokens) {
-                        Ok(a) => { items.push(a);  }
+                        Ok(item) => {
+                            while let Some(tok) = tokens.next() {
+                                match tok {
+                                    Ok(LadderTypeToken::CloseSeq) => { return Ok(TypeTerm::Seq { seq_repr, item: Box::new(item.clone()) }); }
+                                    Ok(_) => { return Err(ParseError::UnexpectedToken); }
+                                    Err(err)=> { return Err(ParseError::LexError(err)); }
+                                }
+                            }
+                        }
                         Err(err) => { return Err(err); }
                     }
                 }
@@ -224,66 +230,100 @@ impl<T: LayeredContext> ParseLadderType for T {
     fn parse_univ<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
     where It: Iterator<Item = char>
     {
-        match tokens.next() {
-            Some(Ok(LadderTypeToken::Open)) => {
-                let symbol = match tokens.next() {
-                    Some(Ok(LadderTypeToken::Symbol(symbol))) => {
-                        symbol
-                    }
-                    Some(Err(err)) => { return Err(ParseError::LexError(err)); }
-                    Some(_) => { return Err(ParseError::UnexpectedToken); }
-                    None => { return Err(ParseError::UnexpectedEnd); }
-                };
+        let mut Γ = Vec::new();
+        let mut ctx = self.scope();
+        let mut bounds = Vec::new();
 
-                let var_bound = match tokens.next() {
-                    Some(Ok(LadderTypeToken::AssignType)) => {
-                        let t = self.parse_ladder(tokens)?;
-                        VariableConstraint::ValueUInt
+        // at least one symbol name follows
+        while let Some(tok) = tokens.next() {
+            match tok {
+                Ok(LadderTypeToken::Symbol(symbol)) => {
+                    match tokens.peek() {
+                        Some(Ok(LadderTypeToken::AssignType)) => {
+                            tokens.next();
+                            let t = ctx.parse_top(tokens)?;
+                            Γ.push(ContextEntry { symbol: symbol.clone(), kind: TypeKind::Value(t.clone()) });
+                            ctx.add_variable( &symbol, TypeKind::Value(t) );
+
+                            match tokens.peek() {
+                                Some(Ok(LadderTypeToken::Univ)) => {
+                                    tokens.next();
+                                    continue;
+                                }
+                                _ => { break; }
+                            }
+                        }
+                        Some(Ok(LadderTypeToken::Univ)) => {
+                            tokens.next();
+                            Γ.push(ContextEntry { symbol: symbol.clone(), kind: TypeKind::Type });
+                            ctx.add_variable( &symbol, TypeKind::Type );
+                            continue;
+                        }
+                        Some(Ok(_)) => {
+                            Γ.push(ContextEntry { symbol: symbol.clone(), kind: TypeKind::Type });
+                            ctx.add_variable(&symbol, TypeKind::Type );
+                            break; }
+                        Some(Err(err)) => { return Err(ParseError::LexError(err.clone())); }
+                        None => {
+                            break;
+                        }
                     }
-                    Some(Ok(LadderTypeToken::AssignSubType)) => {
-                        let t = self.parse_ladder(tokens)?;
-                        VariableConstraint::Subtype(t)
-                    }
-                    Some(Ok(LadderTypeToken::AssignTraitType)) => {
-                        let t = self.parse_ladder(tokens)?;
-                        VariableConstraint::Trait(t)
-                    }
-                    Some(Ok(LadderTypeToken::AssignParallelType)) => {
-                        let t = self.parse_ladder(tokens)?;
-                        VariableConstraint::Parallel(t)
+                }
+                Ok(_) => {
+                    return Err(ParseError::UnexpectedToken);
+                }
+                Err(err) => { return Err(ParseError::LexError(err.clone())); }
+            }
+        }
+
+        while let Some(tok) = tokens.peek() {
+            match tok {
+                Ok(LadderTypeToken::Open) => {
+                    // another constraint
+                    tokens.next(); // take opening
+                    let lhs = ctx.parse_top(tokens)?;
+                    let rel_token = tokens.next();
+                    let rhs = ctx.parse_top(tokens)?;
+
+                    match rel_token {
+                        Some(Ok(LadderTypeToken::SubType)) => {
+                            bounds.push(ConstraintPair::Subtype(lhs, rhs));
+                        }
+                        Some(Ok(LadderTypeToken::TraitType)) => {
+                            bounds.push(ConstraintPair::Trait(lhs, rhs));
+                        }
+                        Some(Ok(LadderTypeToken::ParallelType)) => {
+                            bounds.push(ConstraintPair::Parallel(lhs, rhs));
+                        }
+                        _ => {
+                            todo!()
+                        }
                     }
 
-                    Some(Err(err)) => { return Err(ParseError::LexError(err)); }
-                    Some(_) => { return Err(ParseError::UnexpectedToken); }
-                    None => { return Err(ParseError::UnexpectedEnd); }
-                };
-
-                // `)` at end
-                match tokens.next() {
-                    Some(Ok(LadderTypeToken::Close)) => {
-                        let mut ctx = self.scope();
-                        ctx.add_variable(&symbol, match &var_bound {
-                            VariableConstraint::ValueUInt => TypeKind::ValueUInt,
-                            VariableConstraint::Subtype(t) => TypeKind::Type,
-                            VariableConstraint::Trait(t) => TypeKind::Type,
-                            VariableConstraint::Parallel(t) => TypeKind::Type,
-                            VariableConstraint::UnconstrainedType => TypeKind::Type
-                        });
-
-                        let ty = ctx.parse_top(tokens)?;
-                        // todo: return CTX here!
-                        return Ok(TypeTerm::Univ(Box::new(var_bound), Box::new(ty)));
+                    match tokens.next() {
+                        Some(Ok(LadderTypeToken::Close)) => {
+                            continue;
+                        }
+                        Some(Ok(_)) => { return Err(ParseError::UnexpectedToken); }
+                        Some(Err(err)) => { return Err(ParseError::LexError(err.clone())) }
+                        None => { return Err(ParseError::UnexpectedEnd); }
                     }
-                    Some(Err(err)) => { return Err(ParseError::LexError(err)); }
-                    Some(_) => { return Err(ParseError::UnexpectedToken); }
-                    None => { return Err(ParseError::UnexpectedEnd); }
+
                 }
 
+                Ok(_) => {
+                    break;
+                }
+                Err(err) => {
+                    return Err(ParseError::LexError(err.clone()));
+                }
             }
-            Some(Err(err)) => { return Err(ParseError::LexError(err)); }
-            Some(_) => { return Err(ParseError::UnexpectedToken); }
-            None => { return Err(ParseError::UnexpectedEnd); }
         }
+
+        let τ = ctx.parse_top(tokens)?;
+        return Ok(TypeTerm::Univ{
+            Γ, bounds, τ: Box::new(τ)
+        });
     }
 
     fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>) -> Result<TypeTerm, ParseError>
@@ -317,9 +357,9 @@ impl<T: LayeredContext> ParseLadderType for T {
             Some(Ok(LadderTypeToken::StructSep))
             | Some(Ok(LadderTypeToken::EnumSep))
             | Some(Ok(LadderTypeToken::AssignType))
-            | Some(Ok(LadderTypeToken::AssignSubType))
-            | Some(Ok(LadderTypeToken::AssignTraitType))
-            | Some(Ok(LadderTypeToken::AssignParallelType))
+            | Some(Ok(LadderTypeToken::SubType))
+            | Some(Ok(LadderTypeToken::TraitType))
+            | Some(Ok(LadderTypeToken::ParallelType))
             | Some(Ok(LadderTypeToken::ArrowFunc))
             | Some(Ok(LadderTypeToken::ArrowMorph))
 

@@ -1,8 +1,7 @@
 use {
     crate::{
-        term::TypeTerm, EnumVariant, StructMember,
-        ConstraintSystem, ConstraintPair, ConstraintError
-    }
+        term::TypeTerm, ConstraintError, CP2, ConstraintSystem, EnumVariant, StructMember
+    }, std::ops::Deref
 };
 
 impl ConstraintSystem {
@@ -20,7 +19,7 @@ impl ConstraintSystem {
         if let Some(lower_bound) = self.lower_bounds.get(&v).cloned() {
                         //eprintln!("var already exists. check max. type");
             if let Ok(halo) = self.eval_subtype(
-                ConstraintPair {
+                CP2 {
                     lhs: lower_bound.clone(),
                     rhs: new_lower_bound.clone(),
                     addr: vec![]
@@ -32,7 +31,7 @@ impl ConstraintSystem {
                 self.lower_bounds.insert(v, new_lower_bound);
                 Ok(())
             } else if let Ok(halo) = self.eval_subtype(
-                ConstraintPair{
+                CP2{
                     lhs: new_lower_bound,
                     rhs: lower_bound,
                     addr: vec![]
@@ -64,7 +63,7 @@ impl ConstraintSystem {
 
         if let Some(upper_bound) = self.upper_bounds.get(&v).cloned() {
             if let Ok(_halo) = self.eval_subtype(
-                ConstraintPair {
+                CP2 {
                     lhs: new_upper_bound.clone(),
                     rhs: upper_bound,
                     addr: vec![]
@@ -87,7 +86,7 @@ impl ConstraintSystem {
 
 
 
-    pub fn eval_subtype(&mut self, unification_pair: ConstraintPair) -> Result<
+    pub fn eval_subtype(&mut self, unification_pair: CP2) -> Result<
         // ok: halo type
         TypeTerm,
         // error
@@ -135,17 +134,19 @@ impl ConstraintSystem {
              Complex Types
             */
 
-            (TypeTerm::Seq{ seq_repr: lhs_seq_repr, items: lhs_items },
-                TypeTerm::Seq { seq_repr: rhs_seq_repr, items: rhs_items })
+            (TypeTerm::Seq{ seq_repr: lhs_seq_repr, item: lhs_item },
+                TypeTerm::Seq { seq_repr: rhs_seq_repr, item: rhs_item })
             => {
                 let mut new_addr = unification_pair.addr.clone();
                 new_addr.push(0);
+
+                let mut ψ_seq_repr = None;
 
                 if let Some(rhs_seq_repr) = rhs_seq_repr.as_ref() {
                     //eprintln!("subtype unify: rhs has seq-repr: {:?}", rhs_seq_repr);
                     if let Some(lhs_seq_repr) = lhs_seq_repr.as_ref() {
                         //eprintln!("check if it maches lhs seq-repr: {:?}", lhs_seq_repr);
-                        let _seq_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_seq_repr.clone(), rhs: *rhs_seq_repr.clone() })?;
+                        ψ_seq_repr = Some(Box::new(self.eval_subtype(CP2 { addr: new_addr.clone(), lhs: lhs_seq_repr.deref().clone(), rhs: rhs_seq_repr.deref().clone() })?));
                         //eprintln!("..yes!");
                     } else {
                         //eprintln!("...but lhs has none.");
@@ -155,20 +156,17 @@ impl ConstraintSystem {
 
                 let mut new_addr = unification_pair.addr.clone();
                 new_addr.push(1);
-                if lhs_items.len() == rhs_items.len() && lhs_items.len() > 0 {
-                    match self.eval_subtype( ConstraintPair { addr: new_addr.clone(), lhs: lhs_items[0].clone(), rhs: rhs_items[0].clone() } ) {
-                        Ok(ψ) => Ok(TypeTerm::Seq {
-                                seq_repr: None, // <<- todo
-                                items: vec![ψ]
-                            }.strip()),
-                        Err(e) => Err(ConstraintError{
-                                addr: new_addr,
-                                t1: e.t1,
-                                t2: e.t2,
-                            })
-                    }
-                } else {
-                    Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs })
+
+                match self.eval_subtype( CP2 { addr: new_addr.clone(), lhs: lhs_item.deref().clone(), rhs: rhs_item.deref().clone() } ) {
+                    Ok(ψ_item) => Ok(TypeTerm::Seq {
+                        seq_repr: ψ_seq_repr,
+                        item: Box::new(ψ_item)
+                    }.strip()),
+                    Err(e) => Err(ConstraintError{
+                        addr: new_addr,
+                        t1: e.t1,
+                        t2: e.t2,
+                    })
                 }
             }
             (TypeTerm::Struct{ struct_repr: lhs_struct_repr, members: lhs_members },
@@ -177,7 +175,7 @@ impl ConstraintSystem {
                 let new_addr = unification_pair.addr.clone();
                 if let Some(rhs_struct_repr) = rhs_struct_repr.as_ref() {
                     if let Some(lhs_struct_repr) = lhs_struct_repr.as_ref() {
-                        let _struct_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_struct_repr.clone(), rhs: *rhs_struct_repr.clone() })?;
+                        let _struct_repr_ψ = self.eval_subtype(CP2 { addr: new_addr.clone(), lhs: *lhs_struct_repr.clone(), rhs: *rhs_struct_repr.clone() })?;
                     } else {
                         return Err(ConstraintError{ addr: new_addr.clone(), t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
@@ -194,7 +192,7 @@ impl ConstraintSystem {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
 
-                        let ψ = self.eval_subtype( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } )?;
+                        let ψ = self.eval_subtype( CP2 { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } )?;
                         halo_members.push(StructMember { symbol: lhs_symbol, ty: ψ });
                     }
                     Ok(TypeTerm::Struct {
@@ -211,7 +209,7 @@ impl ConstraintSystem {
                 let mut new_addr = unification_pair.addr.clone();
                 if let Some(rhs_enum_repr) = rhs_enum_repr.as_ref() {
                     if let Some(lhs_enum_repr) = lhs_enum_repr.as_ref() {
-                        let _enum_repr_ψ = self.eval_subtype(ConstraintPair { addr: new_addr.clone(), lhs: *lhs_enum_repr.clone(), rhs: *rhs_enum_repr.clone() })?;
+                        let _enum_repr_ψ = self.eval_subtype(CP2 { addr: new_addr.clone(), lhs: *lhs_enum_repr.clone(), rhs: *rhs_enum_repr.clone() })?;
                     } else {
                         return Err(ConstraintError{ addr: new_addr, t1: unification_pair.lhs, t2: unification_pair.rhs });
                     }
@@ -227,7 +225,7 @@ impl ConstraintSystem {
                     {
                         let mut new_addr = unification_pair.addr.clone();
                         new_addr.push(i);
-                        let ψ = self.eval_subtype( ConstraintPair { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } )?;
+                        let ψ = self.eval_subtype( CP2 { addr: new_addr, lhs: lhs_ty.clone(), rhs: rhs_ty.clone() } )?;
                         halo_variants.push(EnumVariant { symbol: lhs_symbol, ty: ψ });
                     }
                     Ok(TypeTerm::Enum {
@@ -297,7 +295,7 @@ impl ConstraintSystem {
                             }
                             (lhs, rhs) => {
                                 if let Ok(ψ) = self.eval_subtype(
-                                    ConstraintPair {
+                                    CP2 {
                                         lhs: lhs.clone(),
                                         rhs: rhs.clone(),
                                         addr:addr.clone(),
@@ -335,63 +333,44 @@ impl ConstraintSystem {
                 Ok(TypeTerm::Ladder(halo_ladder).strip())//.param_normalize())
             },
 
-            (TypeTerm::Seq { seq_repr, items }, TypeTerm::Spec(mut args)) => {
+            (TypeTerm::Seq { seq_repr, item: item_lhs }, TypeTerm::Spec(mut args)) => {
                 let mut new_addr = unification_pair.addr.clone();
 
                 if args.len() > 1 {
                     if let Some(seq_repr) = seq_repr {
                         let repr_rhs = args.remove(0);
-                        let reprψinterface = repr_rhs.get_interface_type();
-                        let mut reprψ = self.eval_subtype(ConstraintPair{
+                        let item_rhs = args.remove(0);
+
+                        let mut reprψ = self.eval_subtype(CP2{
                             addr: new_addr.clone(),
                             lhs: seq_repr.as_ref().clone(),
-                            rhs: repr_rhs
+                            rhs: repr_rhs.clone()
                         })?;
 
-                        let mut itemsψ = Vec::new();
-                        let mut n_halos_required = 0;
-                        let mut next_arg_with_common_rung = 0;
+                        reprψ = TypeTerm::Ladder(vec![
+                            reprψ,
+                            repr_rhs.get_interface_type()
+                        ]).normalize();
 
-                        for (i,(item, arg)) in items.iter().zip(args.iter()).enumerate() {
-                            let mut new_addr = new_addr.clone();
-                            new_addr.push(i);
-                            let ψ = self.eval_subtype(ConstraintPair {
-                                addr: new_addr,
-                                lhs: item.clone(),
-                                rhs: arg.clone()
-                            })?;
+                        let mut new_addr = new_addr.clone();
+                        new_addr.push(1);
+                        let itemψ = self.eval_subtype(CP2 {
+                            addr: new_addr,
+                            lhs: item_lhs.deref().clone(),
+                            rhs: item_rhs.clone()
+                        })?;
 
-                            if ψ.is_empty() {
-                                itemsψ.push(item.get_interface_type());
-                            } else {
-                                while next_arg_with_common_rung < i {
-                                    let x = &mut itemsψ[next_arg_with_common_rung];
-                                    *x = TypeTerm::Ladder(vec![
-                                        x.clone(),
-                                        args[next_arg_with_common_rung].get_interface_type()
-                                    ]).normalize();
-                                    x.apply_subst(&self.σ);
-                                    next_arg_with_common_rung += 1;
-                                }
-
-                                n_halos_required += 1;
-                                itemsψ.push(ψ);
-                            }
-                        }
-                        eprintln!("itemsψ = {:?}", itemsψ);
-
-                        if n_halos_required > 0 {
-                            reprψ = TypeTerm::Ladder(vec![
-                                reprψ,
-                                reprψinterface
-                            ]);
-                        }
+                        let mut itemψ = TypeTerm::Ladder(vec![
+                            itemψ.clone(),
+                            item_rhs.get_interface_type()
+                        ]).normalize();
+                        itemψ.apply_subst(&self.σ);
 
                         Ok(
                             TypeTerm::Seq {
                                 seq_repr: if reprψ.is_empty() { None }
                                           else { Some(Box::new(reprψ)) },
-                                items: itemsψ
+                                item: Box::new(itemψ)
                             }
                         )
                     } else {
@@ -419,7 +398,7 @@ impl ConstraintSystem {
                     let mut new_addr = unification_pair.addr.clone();
                     new_addr.push( a1.len() - 1 );
                     if let Ok(halo) = self.eval_subtype(
-                        ConstraintPair {
+                        CP2 {
                             lhs: a1.pop().unwrap(),
                             rhs: t.clone(),
                             addr: new_addr
@@ -464,7 +443,7 @@ impl ConstraintSystem {
 //                        eprintln!("APP<> eval {:?} \n ?<=? {:?} ", x, y);
 
                         match self.eval_subtype(
-                            ConstraintPair {
+                            CP2 {
                                 lhs: x.clone(),
                                 rhs: y.clone(),
                                 addr: new_addr,

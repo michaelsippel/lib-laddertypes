@@ -17,14 +17,14 @@ pub use {
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TypeKind {
     Type,
     Arrow( Box<TypeKind>, Box<TypeKind> ),
-    ValueUInt
+    Value(TypeTerm)
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ContextEntry {
     pub symbol: String,
     pub kind: TypeKind,

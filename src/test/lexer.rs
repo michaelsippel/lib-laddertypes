@@ -90,9 +90,9 @@ fn test_lexer_app_space() {
 fn test_lexer_constraints() {
     let mut lex = LadderTypeLexer::from(":<= :>< :||".chars());
 
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignSubType)) );
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignTraitType)) );
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignParallelType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::SubType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::TraitType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::ParallelType)) );
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn test_lexer_univ() {
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Univ)) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Open)) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("α".into()))) );
-    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::AssignSubType)) );
+    assert_eq!( lex.next(), Some(Ok(LadderTypeToken::SubType)) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Symbol("A".into()))) );
     assert_eq!( lex.next(), Some(Ok(LadderTypeToken::Close)) );
     assert_eq!( lex.next(), None );

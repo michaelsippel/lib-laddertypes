@@ -20,16 +20,63 @@ pub struct ConstraintError {
     pub t2: TypeTerm
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct ConstraintPair {
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum ConstraintPair {
+    ValueOf(TypeTerm, TypeTerm),
+    Subtype(TypeTerm, TypeTerm),
+    Trait(TypeTerm, TypeTerm),
+    Parallel(TypeTerm, TypeTerm)
+}
+
+impl ConstraintPair {
+    pub fn normalize(&self) -> Self {
+        match self {
+            ConstraintPair::ValueOf(lhs,rhs) => Self::ValueOf(lhs.clone().normalize(), rhs.clone().normalize()),
+            ConstraintPair::Subtype(lhs,rhs) => Self::Subtype(lhs.clone().normalize(), rhs.clone().normalize()),
+            ConstraintPair::Trait(lhs,rhs) => Self::Trait(lhs.clone().normalize(), rhs.clone().normalize()),
+            ConstraintPair::Parallel(lhs,rhs) => Self::Parallel(lhs.clone().normalize(), rhs.clone().normalize()),
+        }
+    }
+
+    pub fn apply_subst(&mut self, σ: &impl Substitution) -> &mut Self{
+        match self {
+            ConstraintPair::ValueOf(lhs, rhs) => {
+                lhs.apply_subst(σ);
+                rhs.apply_subst(σ);
+            },
+            ConstraintPair::Subtype(lhs, rhs) => {
+                lhs.apply_subst(σ);
+                rhs.apply_subst(σ);
+            },
+            ConstraintPair::Trait(lhs, rhs) => {
+                lhs.apply_subst(σ);
+                rhs.apply_subst(σ);
+            },
+            ConstraintPair::Parallel(lhs, rhs) => {
+                lhs.apply_subst(σ);
+                rhs.apply_subst(σ);
+            },
+        }
+        self
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub struct ConstraintEntry {
+    pub addr: Vec<usize>,
+    pub bound: ConstraintPair
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub struct CP2 {
     pub addr: Vec<usize>,
     pub lhs: TypeTerm,
     pub rhs: TypeTerm,
 }
 
-impl ConstraintPair {
+impl CP2 {
     pub fn new(lhs: TypeTerm, rhs: TypeTerm) -> Self {
-        ConstraintPair {
+        CP2 {
             lhs,rhs, addr:vec![]
         }
     }
@@ -40,18 +87,22 @@ pub struct ConstraintSystem {
     upper_bounds: HashMap< u64, TypeTerm >,
     lower_bounds: HashMap< u64, TypeTerm >,
 
-    equal_pairs: Vec<ConstraintPair>,
-    subtype_pairs: Vec<ConstraintPair>,
-    trait_pairs: Vec<ConstraintPair>,
-    parallel_pairs: Vec<ConstraintPair>
+
+    // todo: switch CP2 to ConstraintEntry
+    //  ```bounds: Vec<ConstraintEntry>```
+
+    equal_pairs: Vec<CP2>,
+    subtype_pairs: Vec<CP2>,
+    trait_pairs: Vec<CP2>,
+    parallel_pairs: Vec<CP2>
 }
 
 impl ConstraintSystem {
     pub fn new(
-        equal_pairs: Vec<ConstraintPair>,
-        subtype_pairs: Vec<ConstraintPair>,
-        trait_pairs: Vec<ConstraintPair>,
-        parallel_pairs: Vec<ConstraintPair>
+        equal_pairs: Vec<CP2>,
+        subtype_pairs: Vec<CP2>,
+        trait_pairs: Vec<CP2>,
+        parallel_pairs: Vec<CP2>
     ) -> Self {
         ConstraintSystem {
             σ: HashMapSubst::new(),
@@ -66,19 +117,19 @@ impl ConstraintSystem {
         }
     }
 
-    pub fn new_eq(eqs: Vec<ConstraintPair>) -> Self {
+    pub fn new_eq(eqs: Vec<CP2>) -> Self {
         ConstraintSystem::new( eqs, Vec::new(), Vec::new(), Vec::new() )
     }
 
-    pub fn new_sub(subs: Vec<ConstraintPair>) -> Self {
+    pub fn new_sub(subs: Vec<CP2>) -> Self {
         ConstraintSystem::new( Vec::new(), subs, Vec::new(), Vec::new() )
     }
 
-    pub fn new_trait(traits: Vec<ConstraintPair>) -> Self {
+    pub fn new_trait(traits: Vec<CP2>) -> Self {
         ConstraintSystem::new( Vec::new(), Vec::new(), traits, Vec::new() )
     }
 
-    pub fn new_parallel(parallels: Vec<ConstraintPair>) -> Self {
+    pub fn new_parallel(parallels: Vec<CP2>) -> Self {
         ConstraintSystem::new( Vec::new(), Vec::new(), Vec::new(), parallels )
     }
 
@@ -141,7 +192,7 @@ pub fn unify(
     t1: &TypeTerm,
     t2: &TypeTerm
 ) -> Result<HashMapSubst, ConstraintError> {
-    let unification = ConstraintSystem::new_eq( vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
+    let unification = ConstraintSystem::new_eq( vec![ CP2{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
     Ok(unification.solve()?.1)
 }
 
@@ -149,7 +200,7 @@ pub fn subtype_unify(
     t1: &TypeTerm,
     t2: &TypeTerm
 ) -> Result<(TypeTerm, HashMapSubst), ConstraintError> {
-    let unification = ConstraintSystem::new_sub(vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
+    let unification = ConstraintSystem::new_sub(vec![ CP2{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
     unification.solve().map(|(halos, σ)| (halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
 }
 
@@ -157,7 +208,7 @@ pub fn parallel_unify(
     t1: &TypeTerm,
     t2: &TypeTerm
 ) -> Result<(TypeTerm, HashMapSubst), ConstraintError> {
-    let unification = ConstraintSystem::new_parallel(vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
+    let unification = ConstraintSystem::new_parallel(vec![ CP2{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
     unification.solve().map(|(halos, σ)| (halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
 }
 

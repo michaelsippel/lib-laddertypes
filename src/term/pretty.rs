@@ -1,34 +1,59 @@
 use {
-    crate::{term::TypeTerm, EnumVariant, StructMember, TypeDict, VariableConstraint},
+    crate::{term::TypeTerm, ConstraintPair, ContextEntry, ContextPtr, EnumVariant, LayeredContext, StructMember, TypeDict, TypeKind, VariableConstraint},
     tiny_ansi::TinyAnsi
 };
 
 
 impl StructMember {
-    pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
+    pub fn pretty(&self, dict: &ContextPtr, indent: u64) -> String {
         format!("{}: {}", self.symbol, self.ty.pretty(dict, indent+1))
     }
 }
 impl EnumVariant {
-    pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
+    pub fn pretty(&self, dict: &ContextPtr, indent: u64) -> String {
         format!("{}: {}", self.symbol, self.ty.pretty(dict, indent+1))
     }
 }
 
-impl VariableConstraint {
-    pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
+impl ConstraintPair {
+    pub fn pretty(&self, dict: &ContextPtr, indent: u64) -> String {
+        let mut s = String::new();
         match self {
-            VariableConstraint::UnconstrainedType => format!(""),
-            VariableConstraint::Subtype(τ) => format!(":<= {}", τ.pretty(dict, indent)),
-            VariableConstraint::Trait(τ) => format!(":>< {}", τ.pretty(dict, indent)),
-            VariableConstraint::Parallel(τ) => format!(":|| {}", τ.pretty(dict, indent)),
-            VariableConstraint::ValueUInt => format!(": ℤ"),
+            ConstraintPair::ValueOf(lhs, rhs) => {
+                s.push('(');
+                s.push_str(&lhs.pretty(dict, indent));
+                s.push_str(": ");
+                s.push_str(&rhs.pretty(dict, indent));
+                s.push(')');
+            },
+            ConstraintPair::Subtype(lhs, rhs) => {
+                s.push('(');
+                s.push_str(&lhs.pretty(dict, indent));
+                s.push_str(" <= ");
+                s.push_str(&rhs.pretty(dict, indent));
+                s.push(')');
+            },
+            ConstraintPair::Trait(lhs, rhs) => {
+                s.push('(');
+                s.push_str(&lhs.pretty(dict, indent));
+                s.push_str(" >< ");
+                s.push_str(&rhs.pretty(dict, indent));
+                s.push(')');
+            },
+            ConstraintPair::Parallel(lhs, rhs) => {
+                s.push('(');
+                s.push_str(&lhs.pretty(dict, indent));
+                s.push_str(" || ");
+                s.push_str(&rhs.pretty(dict, indent));
+                s.push(')');
+            }
         }
+        s
     }
 }
 
 impl TypeTerm {
-    pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
+    pub fn pretty(&self, dict: &ContextPtr, indent: u64) -> String {
         let indent_width = 4;
         match self {
             TypeTerm::Id(id) => {
@@ -50,13 +75,30 @@ impl TypeTerm {
                 }
             }
 
-            TypeTerm::Univ(bound, t) => {
-                format!("{} {}{} . {}",
-                    "∀".yellow().bold(),
-                    dict.get_varname(0).unwrap_or("??".into()).bright_blue(),
-                    bound.pretty(dict, indent),
-                    t.pretty(dict,indent)
-                )
+            TypeTerm::Univ{ Γ, bounds, τ } => {
+                let ctx = dict.scope();
+                ctx.0.write().unwrap().γ = Γ.to_vec();
+
+                let mut s = String::new();
+
+                for entry in Γ.iter() {
+                    s.push_str(&"∀".yellow().bold());
+                    match entry.kind {
+                        TypeKind::Type =>{
+                            s.push_str(&entry.symbol.bright_blue());
+                        }
+                        _ => {
+                            s.push_str(&format!("{}:{:?}", entry.symbol.bright_blue(), entry.kind));
+                        }
+                    }
+                }
+                for bound in bounds.iter() {
+                    s.push_str(&bound.pretty(&ctx, indent));
+                }
+
+                s.push_str(&τ.pretty(&ctx, indent));
+
+                s
             }
 
             TypeTerm::Spec(args) => {
@@ -126,7 +168,7 @@ impl TypeTerm {
                 s
             }
 
-            TypeTerm::Seq{ seq_repr, items } => {
+            TypeTerm::Seq{ seq_repr, item } => {
                 let mut s = String::new();
                 s.push_str(&"[".yellow().bold());
 
@@ -134,13 +176,7 @@ impl TypeTerm {
                     s.push_str(&format!("{}{}", "~".yellow(), seq_repr.pretty(dict, indent+1)));
                 }
                 s.push(' ');
-
-                for (i, item) in items.iter().enumerate() {
-                    if i > 0 {
-                        s.push(' ');
-                    }
-                    s.push_str(&item.pretty(dict, indent+1));
-                }
+                s.push_str(&item.pretty(dict, indent+1));
                 s.push_str(&" ]".yellow().bold());
                 s
             }

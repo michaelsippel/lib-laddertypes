@@ -3,7 +3,7 @@ use {
         context::*,
         constraint_system::{
             ConstraintSystem,
-            ConstraintPair,
+            CP2,
             ConstraintError
         }
     }
@@ -107,12 +107,12 @@ fn test_unification() {
 
     assert_eq!(
         ConstraintSystem::new_eq(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs: dict.parse("U").unwrap(),
                 rhs: dict.parse("[Char]").unwrap()
             },
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs: dict.parse("T").unwrap(),
                 rhs: dict.parse("[U]").unwrap()
@@ -132,12 +132,12 @@ fn test_unification() {
 
     assert_eq!(
         ConstraintSystem::new_eq(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("[T]").unwrap(),
                 rhs : dict.parse("[W~[Char]]").unwrap()
             },
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("[ℕ]").unwrap(),
                 rhs : dict.parse("[W]").unwrap(),

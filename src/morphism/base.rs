@@ -1,7 +1,7 @@
 use {
     crate::{
         morphism::{Morphism, MorphismInstance, MorphismType}, Context, ContextPtr, HashMapSubst, LayeredContext, StructMember, TypeDict, TypeTerm
-    }, std::{arch::x86_64::_MM_ROUND_NEAREST, collections::HashMap, io::Write, sync::{Arc, RwLock}}
+    }, std::{arch::x86_64::_MM_ROUND_NEAREST, collections::HashMap, io::Write, ops::Deref, sync::{Arc, RwLock}}
 };
 
 pub trait MorphBase<
@@ -86,6 +86,7 @@ impl<M: Morphism + Clone> MorphismBase<M> {
                             // todo: check if member-morph-type is parallel
 
                             member_morph_types.push((symbol_rhs.clone(), MorphismType {
+                                Γ: Vec::new(),
                                 bounds: Vec::new(),
                                 src_type: ty_lhs.clone(), dst_type: ty_rhs.clone()
                             }));
@@ -114,17 +115,15 @@ impl<M: Morphism + Clone> MorphismBase<M> {
             }
 
 
-            (TypeTerm::Seq{ seq_repr: seq_repr_lhs, items: items_lhs },
-                TypeTerm::Seq{ seq_repr: _seq_rerpr_rhs, items: items_rhs })
+            (TypeTerm::Seq{ seq_repr: seq_repr_lhs, item: item_lhs },
+                TypeTerm::Seq{ seq_repr: _seq_rerpr_rhs, item: item_rhs })
             => {
-                for (ty_lhs, ty_rhs) in items_lhs.iter().zip(items_rhs.iter()) {
-                    return Some((src_ψ, DecomposedMorphismType::SeqMap {
-                        item: MorphismType{
-                            bounds: Vec::new(),
-                            src_type: ty_lhs.clone(), dst_type: ty_rhs.clone() }
-                    }));
-                }
-                None
+                Some((src_ψ, DecomposedMorphismType::SeqMap {
+                    item: MorphismType {
+                        Γ: Vec::new(),
+                        bounds: Vec::new(),
+                        src_type: item_lhs.deref().clone(), dst_type: item_rhs.deref().clone() }
+                }))
             }
 
             (TypeTerm::Enum { enum_repr: enum_repr_lhs, variants: variants_lhs },

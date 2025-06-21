@@ -6,17 +6,11 @@ pub enum LadderTypeToken {
     Symbol( String ),
     Char( char ),
     Num( i64 ),
-    Univ,
     Open, OpenSpec, OpenSeq, OpenStruct,
     Close, CloseSpec, CloseSeq, CloseStruct,
-    Ladder,
-    EnumSep, StructSep,
-    AssignType,
-    AssignSubType,
-    AssignTraitType,
-    AssignParallelType,
-    ArrowFunc,
-    ArrowMorph
+    Univ, Ladder, EnumSep, StructSep,
+    AssignType, SubType, TraitType, ParallelType,
+    ArrowFunc, ArrowMorph
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -157,7 +151,7 @@ where It: Iterator<Item = char>
                             // subtype
                             self.chars.next();
                             match self.chars.next() {
-                                Some('=') => { return Some(Ok(LadderTypeToken::AssignSubType)); },
+                                Some('=') => { return Some(Ok(LadderTypeToken::SubType)); },
                                 Some(_) => { return Some(Err(LexError::InvalidChar)); },
                                 None => { return Some(Err(LexError::InvalidChar)); }
                             }
@@ -166,7 +160,7 @@ where It: Iterator<Item = char>
                             // traittype
                             self.chars.next();
                             match self.chars.next() {
-                                Some('<') => { return Some(Ok(LadderTypeToken::AssignTraitType)); },
+                                Some('<') => { return Some(Ok(LadderTypeToken::TraitType)); },
                                 Some(_) => { return Some(Err(LexError::InvalidChar)); },
                                 None => { return Some(Err(LexError::InvalidChar)); }
                             }
@@ -176,7 +170,7 @@ where It: Iterator<Item = char>
                             self.chars.next();
 
                             match self.chars.next() {
-                                Some('|') => { return Some(Ok(LadderTypeToken::AssignParallelType)); },
+                                Some('|') => { return Some(Ok(LadderTypeToken::ParallelType)); },
                                 Some(_) => { return Some(Err(LexError::InvalidChar)); },
                                 None => { return Some(Err(LexError::InvalidChar)); }
                             }

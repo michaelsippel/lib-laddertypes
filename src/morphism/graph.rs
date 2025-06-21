@@ -74,6 +74,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                     pred: None,
                     weight: 0,
                     ty: MorphismType {
+                        Γ: Vec::new(),
                         bounds: Vec::new(),
                         src_type: goal.src_type.clone(),
                         dst_type: goal.src_type.clone()
@@ -104,12 +105,14 @@ impl<M: Morphism+Clone> GraphSearch<M> {
      */
     pub fn est_remain(goal: &MorphismType, search_node: &Arc<RwLock<SearchNode<M>>>) -> u64 {
         MorphismType {
+            Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: goal.src_type.clone(),
             dst_type: search_node.get_type().src_type.clone()
         }.estimated_cost()
         +
         MorphismType {
+            Γ: Vec::new(),
             bounds: Vec::new(),
             src_type: search_node.get_type().dst_type.clone(),
             dst_type: goal.dst_type.clone()

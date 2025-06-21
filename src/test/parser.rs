@@ -1,6 +1,6 @@
 
 use {
-    crate::{dict::*, parser::*, Context, EnumVariant, LayeredContext, StructMember, TypeKind, TypeTerm, VariableConstraint}
+    crate::{dict::*, parser::*, ConstraintPair, Context, ContextEntry, EnumVariant, LayeredContext, StructMember, TypeKind, TypeTerm, VariableConstraint}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -229,7 +229,7 @@ fn test_parser_seq() {
         Context::new().parse("[A]"),
         Ok(TypeTerm::Seq{
             seq_repr: None,
-            items: vec![ TypeTerm::Id(0) ]
+            item: Box::new(TypeTerm::Id(0))
         })
     );
 }
@@ -240,7 +240,7 @@ fn test_parser_seq_repr() {
         Context::new().parse("[~A B]"),
         Ok(TypeTerm::Seq{
             seq_repr: Some(Box::new(TypeTerm::Id(0))),
-            items: vec![ TypeTerm::Id(1) ]
+            item: Box::new(TypeTerm::Id(1))
         })
     );
 }
@@ -323,57 +323,122 @@ fn test_parser_morph() {
 }
 
 #[test]
-fn test_parser_univ_val() {
-    assert_eq!(
-        Context::new().parse("∀(Len:ℕ) [~<array.Static Len> Char]"),
-        Ok(TypeTerm::Univ(
-            Box::new(VariableConstraint::ValueUInt),
-            Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Spec(vec![TypeTerm::Id(1), TypeTerm::Var(0)]))), items: vec![ TypeTerm::Id(2) ] })
-        ))
-    );
-}
-
-#[test]
 fn test_parser_univ() {
     assert_eq!(
-        Context::new().parse("∀(T:<=native.UInt8) [~A T]"),
-        Ok(TypeTerm::Univ(
-            Box::new(VariableConstraint::Subtype(TypeTerm::Id(0))),
-            Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(1))), items: vec![ TypeTerm::Var(0) ] })
-        ))
+        Context::new().parse("∀T (T:<=native.UInt8) [~A T]"),
+        Ok(TypeTerm::Univ{
+            Γ: vec![
+                ContextEntry{ symbol: "T".into(), kind: TypeKind::Type }
+            ],
+            bounds: vec![
+                ConstraintPair::Subtype(TypeTerm::Var(0), TypeTerm::Id(0))
+            ],
+            τ: Box::new(TypeTerm::Seq {
+                seq_repr: Some(Box::new(TypeTerm::Id(1))),
+                item: Box::new(TypeTerm::Var(0))
+            })
+        })
     );
 }
 
 #[test]
 fn test_parser_univ2() {
     assert_eq!(
-        Context::new().parse("∀(T:<=native.UInt8) ∀(U:<=native.UInt16) [~A T]"),
-        Ok(TypeTerm::Univ(
-            Box::new(VariableConstraint::Subtype(TypeTerm::Id(0))),
+        Context::new().parse("∀T ∀U (T:<=native.UInt8) (U:<=native.UInt16) [~A T]"),
 
-            Box::new(
-                TypeTerm::Univ(
-                    Box::new(VariableConstraint::Subtype(TypeTerm::Id(1))),
-                    Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(2))), items: vec![ TypeTerm::Var(1) ] })
-                )
-            )
-        ))
+        Ok(TypeTerm::Univ {
+            Γ: vec![
+                ContextEntry{ symbol: "T".into(), kind: TypeKind::Type },
+                ContextEntry{ symbol: "U".into(), kind: TypeKind::Type },
+            ],
+            bounds: vec![
+                ConstraintPair::Subtype(TypeTerm::Var(0), TypeTerm::Id(0)),
+                ConstraintPair::Subtype(TypeTerm::Var(1), TypeTerm::Id(1)),
+            ],
+            τ: Box::new(TypeTerm::Seq {
+                seq_repr: Some(Box::new(TypeTerm::Id(2))),
+                item: Box::new(TypeTerm::Var(0))
+            })
+        })
+    );
+}
+
+#[test]
+fn test_parser_univ_val1() {
+    assert_eq!(
+        Context::new().parse("∀X:ℕ A"),
+        Ok(TypeTerm::Univ{
+            Γ: vec![
+                ContextEntry{ symbol: "X".into(), kind: TypeKind::Value(TypeTerm::Id(0)) }
+            ],
+            bounds: Vec::new(),
+            τ: Box::new(TypeTerm::Id(1))
+        })
+    );
+}
+
+#[test]
+fn test_parser_univ_val() {
+    assert_eq!(
+        Context::new().parse("∀Len:ℕ [~<array.Static Len> Char]"),
+        Ok(TypeTerm::Univ{
+            Γ: vec![
+                ContextEntry{ symbol: "Len".into(), kind: TypeKind::Value(TypeTerm::Id(0)) }
+            ],
+            bounds: Vec::new(),
+            τ: Box::new(TypeTerm::Seq {
+                seq_repr: Some(Box::new(TypeTerm::Spec(vec![TypeTerm::Id(1), TypeTerm::Var(0)]))),
+                item: Box::new(TypeTerm::Id(2))
+            })
+        })
+    );
+}
+
+#[test]
+fn test_parser_univ3() {
+    assert_eq!(
+        Context::new().parse("
+                ∀T  ∀End:T  ∀LenType (LenType :>< ℕ)
+                         [~<array.ValueTerminated End> T]
+                -morph-> [~<array.LengthPrefix LenType> T]
+        "),
+
+        Ok(
+            TypeTerm::Univ {
+                Γ: vec![
+                    ContextEntry{ symbol: "T".into(), kind: TypeKind::Type },
+                    ContextEntry{ symbol: "End".into(), kind: TypeKind::Value(TypeTerm::Var(0)) },
+                    ContextEntry{ symbol: "LenType".into(), kind: TypeKind::Type }
+                ],
+                bounds: vec![
+                    ConstraintPair::Trait(TypeTerm::Var(2), TypeTerm::Id(0))
+                ],
+                τ: Box::new(TypeTerm::Morph(
+                    Box::new(TypeTerm::Seq{ seq_repr: Some(Box::new(TypeTerm::Spec(vec![ TypeTerm::Id(1), TypeTerm::Var(1) ]))), item: Box::new(TypeTerm::Var(0)) }),
+                    Box::new(TypeTerm::Seq{ seq_repr: Some(Box::new(TypeTerm::Spec(vec![ TypeTerm::Id(2), TypeTerm::Var(2) ]))), item: Box::new(TypeTerm::Var(0)) })
+                ))
+            }
+        )
     );
 }
 
 #[test]
 fn test_parser_univ_morph() {
     assert_eq!(
-        Context::new().parse("∀(T:<=X) [~A T] -morph-> [~B T]"),
-        Ok(TypeTerm::Univ(
-            Box::new(VariableConstraint::Subtype(TypeTerm::Id(0))),
-
-            Box::new(
+        Context::new().parse("∀T (T:<=X) [~A T] -morph-> [~B T]"),
+        Ok(TypeTerm::Univ{
+            Γ : vec![
+                ContextEntry{ symbol:"T".into(), kind: TypeKind::Type }
+            ],
+            bounds: vec![
+                ConstraintPair::Subtype(TypeTerm::Var(0), TypeTerm::Id(0))
+            ],
+            τ: Box::new(
                 TypeTerm::Morph(
-                    Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(1))), items: vec![ TypeTerm::Var(0) ] }),
-                    Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(2))), items: vec![ TypeTerm::Var(0) ] }),
+                    Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(1))), item: Box::new(TypeTerm::Var(0)) }),
+                    Box::new(TypeTerm::Seq { seq_repr: Some(Box::new(TypeTerm::Id(2))), item: Box::new(TypeTerm::Var(0)) }),
                 )
             )
-        ))
+        })
     );
 }

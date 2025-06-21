@@ -1,6 +1,6 @@
 use {
     crate::{constraint_system::{
-            ConstraintError, ConstraintPair, ConstraintSystem
+            ConstraintError, CP2, ConstraintSystem
         }, dict::*, parser::*, Context
     }
 };
@@ -13,7 +13,7 @@ fn test_trait_bound1() {
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A ~ B").unwrap(),
                 rhs : dict.parse("A").unwrap()
@@ -27,7 +27,7 @@ fn test_trait_bound1() {
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A ~ B").unwrap(),
                 rhs : dict.parse("B").unwrap()
@@ -41,7 +41,7 @@ fn test_trait_bound1() {
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A").unwrap(),
                 rhs : dict.parse("B").unwrap()
@@ -51,7 +51,7 @@ fn test_trait_bound1() {
     );
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A").unwrap(),
                 rhs : dict.parse("A~B").unwrap()
@@ -67,7 +67,7 @@ fn test_trait_bound_spec() {
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("A ~ <B~C D> ~ E").unwrap(),
                 rhs : dict.parse("<B D>").unwrap()
@@ -86,7 +86,7 @@ fn test_trait_bound_struct() {
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("{ a:S~A; b:T~B; }").unwrap(),
                 rhs : dict.parse("{ a:S; b:T; }").unwrap()
@@ -100,7 +100,7 @@ fn test_trait_bound_struct() {
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("{ a: S; b: T~B; }").unwrap(),
                 rhs : dict.parse("{ a: S; }").unwrap()
@@ -114,7 +114,7 @@ fn test_trait_bound_struct() {
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("{ a: S~A; b: T~B; }").unwrap(),
                 rhs : dict.parse("{ a: A; }").unwrap()
@@ -128,7 +128,7 @@ fn test_trait_bound_struct() {
 
     assert_eq!(
         ConstraintSystem::new_trait(vec![
-            ConstraintPair {
+            CP2 {
                 addr: Vec::new(),
                 lhs : dict.parse("{ a: S~A; b: T~B; }").unwrap(),
                 rhs : dict.parse("{ a: T; }").unwrap()
