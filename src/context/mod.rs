@@ -350,8 +350,6 @@ impl LayeredContext for ContextPtr {
      * to context `self`.
      */
     fn shift_variables(&self, other: &Vec<ContextEntry>) -> HashMapSubst {
-        eprintln!("shift Vars to {:?}", self.get_ctxname());
-
         // substitution mapping Variables of `other` to variables of `self`
         let mut σs = HashMapSubst::new();
 
@@ -366,11 +364,8 @@ impl LayeredContext for ContextPtr {
             // make variable name unique
             let mut s = entry.symbol.clone();
             while let Some(id) = self.get_typeid(&s) {
-                eprintln!("already have {} -> {:?}", s, id);
                 s.push_str("'");
             }
-
-            eprintln!("add {} ({} -> {})", s, i, i+l);
 
             self.add_variable(&s, entry.kind.clone());
 
@@ -401,11 +396,10 @@ impl LayeredContext for ContextPtr {
     }
 
     fn add_variable(&self, symbol: &str, kind: TypeKind ) -> u64 {
-        //self.write().unwrap().dict.add_varname(symbol.into());
         let mut locked_self = self.0.write().unwrap();
 
         let idx = locked_self.Γ.len();
-        eprintln!("Ctx {}, add {} : {:?} = {}", locked_self.ctxname, symbol, kind, idx);
+        //eprintln!("Ctx {}, add {} : {:?} = {}", locked_self.ctxname, symbol, kind, idx);
         locked_self.Γ.push(ContextEntry{
             symbol: symbol.into(),
             kind

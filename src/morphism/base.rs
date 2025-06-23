@@ -168,22 +168,22 @@ impl<M: Morphism + Clone> MorphismBase<M> {
             let σs = ctx.shift_variables(&m.get_type().Γ);
             m_src_type.apply_subst(&σs);
             m_dst_type.apply_subst(&σs);
-
+/*
             eprintln!("
                 enum_morph: check {} <=? {}
             ",
                 src_type.pretty(&ctx, 0),
                 m_src_type.pretty(&ctx, 0)
             );
-
+*/
 
             // check if the given source type is compatible with the
             // morphisms source type,
             // i.e. check if `src_type` is a subtype of `m_src_type`
             if let Ok((ψ, σ)) = crate::constraint_system::subtype_unify(&src_type, &m_src_type) {
-                eprintln!("Found subst:");
+  //              eprintln!("Found subst:");
                 for (v,t) in σ.iter() {
-                    eprintln!("{} -> {}", v, t.pretty(&mut ctx.clone(), 0));
+    //                eprintln!("{} -> {}", v, t.pretty(&mut ctx.clone(), 0));
                     ctx.bind(*v, t.clone()).expect("cant bind variable");
                 }
                 morphs.push((ψ, ctx, σs, m.clone()));

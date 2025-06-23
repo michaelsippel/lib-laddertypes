@@ -236,12 +236,9 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                 decompositions.push((ψ,node.read().unwrap().ctx.clone(),HashMap::new(),d));
             }
 
-            eprintln!("{} decompositions", decompositions.len());
-
             let mut done = Vec::new();
             for (ψ,Γ,σs,decomposition) in decompositions {
                 if ! done.contains(&(ψ.clone(),σs.clone(),decomposition.clone())) {
-                    eprintln!("decomposition {:?} ~ {:?}", ψ,decomposition);
                     let mut new_node =
                         match &decomposition {
                             DecomposedMorphismType::SeqMap { item } => { node.map_seq( item.clone() ) },
@@ -253,15 +250,12 @@ impl<M: Morphism+Clone> GraphSearch<M> {
 
                     self.add_explore_node(new_node);
                     done.push((ψ, σs, decomposition));
-                } else {
-                    eprintln!("avoid duplicate decomposition");
                 }
             }
 
             /* 2. Try to advance current path */
             //elprintln!("enumerate direct morphisms");
             for (ψ,Γ,σs,m) in base.enum_morphisms_from(&node.read().unwrap().ctx, &node.get_type().dst_type) {
-                eprintln!("add direct path with ψ={}, Γ={}, σs={:?}", ψ.pretty(&Γ, 0), Γ.pretty(), σs);
                 self.add_explore_node( node.chain(ψ,&Γ,σs,m) );
             }
 

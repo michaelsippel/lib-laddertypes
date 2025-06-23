@@ -143,10 +143,8 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
         let mut n = self.write().unwrap();
         match &mut n.step {
             Step::MapSeq { seq_repr, item } => {
-                //eprintln!("advance seq-map");
                 match item.advance(base) {
                     GraphSearchState::Solved(item_morph) => {
-                        //eprintln!("Sequence-Map Sub Graph Solved!!");
                         n.ty = MorphismType {
                             Γ: Vec::new(),
                             bounds: Vec::new(),
@@ -210,7 +208,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
     }
 
     fn chain(&self, ψ: TypeTerm, ctx_inst: &ContextPtr, σs: HashMapSubst, m: M) -> Arc<RwLock<SearchNode<M>>> {
-        eprintln!("CHAIN with σs: ={:?}, Γ={}", σs, ctx_inst.pretty());
+        //eprintln!("CHAIN with σs: ={:?}, Γ={}", σs, ctx_inst.pretty());
         let mut src_type = self.get_type().src_type;
         let mut dst_type = m.get_type().dst_type;
         dst_type.apply_subst(&σs);
