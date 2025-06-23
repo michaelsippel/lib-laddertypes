@@ -19,7 +19,7 @@
 
 use {
     crate::{
-        context::dict::*, lexer::*, term::*, LayeredContext, TypeKind
+        context::dict::*, lexer::*, term::*, AddressingMode, LayeredContext, TypeKind
     }, std::iter::Peekable
 };
 
@@ -250,7 +250,7 @@ impl<T: LayeredContext> ParseLadderType for T {
     where It: Iterator<Item = char>
     {
         let mut Γ = Vec::new();
-        let mut ctx = self.scope();
+        let mut ctx = self.scope(AddressingMode::StackDown);
         let mut bounds = Vec::new();
 
         // at least one symbol name follows

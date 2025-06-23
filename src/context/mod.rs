@@ -53,14 +53,21 @@ pub struct ContextEntry {
 pub struct ContextPtr(pub Arc<RwLock<Context>>);
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum AddressingMode {
+    StackUp,
+    StackDown,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Context {
     ctxname: String,
     sub_count: u64,
 
     parent: Option<ContextPtr>,
     names: Vec< String >,
-    pub γ: Vec<ContextEntry>,
+    pub Γ: Vec<ContextEntry>,
     pub σ: HashMapSubst,
+    mode: AddressingMode
 }
 
 static count: RwLock<u64> = RwLock::new(0);
@@ -75,13 +82,14 @@ impl Context {
 
             parent: None,
             names: Vec::new(),
-            γ: Vec::new(),
+            Γ: Vec::new(),
             σ: HashMapSubst::new(),
+            mode: AddressingMode::StackDown
         })))
     }
 
     pub fn n_variables(&self) -> u64 {
-        self.γ.len() as u64
+        self.Γ.len() as u64
         + if let Some(p) = self.parent.as_ref() {
             p.0.read().unwrap().n_variables()
         } else {
@@ -91,13 +99,16 @@ impl Context {
 }
 
 impl ContextPtr {
+    pub fn get_Γ(&self) -> Vec<crate::ContextEntry> {
+        self.0.read().unwrap().Γ.clone()
+    }
 
     pub fn pretty(&self) -> String {
         let locked_self = self.0.read().unwrap();
         let mut s = String::new();
 
         s.push_str(&format!("({}) ∀{{", self.get_ctxname()));
-        for entry in locked_self.γ.iter() {
+        for entry in locked_self.Γ.iter() {
             s.push_str(&format!("{} ↦ {:?};", entry.symbol, entry.kind));
         }
         s.push_str("}");
@@ -126,11 +137,11 @@ impl PartialEq for ContextPtr {
         let locked_rhs = other.0.read().unwrap();
 
         match (locked_lhs.clone(),locked_rhs.clone()) {
-            (Context { ctxname:_, sub_count: _, parent:p1, names:n1, σ:σ1, γ:γ1 },
-                Context { ctxname:_, sub_count: _, parent:p2, names:n2, σ:σ2, γ:γ2 }) => {
+            (Context { ctxname:_, sub_count: _, parent:p1, names:n1, σ:σ1, Γ:γ1, mode:mode1 },
+                Context { ctxname:_, sub_count: _, parent:p2, names:n2, σ:σ2, Γ:γ2, mode:mode2 }) => {
 
                     if let (Some(p1),Some(p2)) = (&p1,&p2) {
-                        if p1 == p2 && σ1==σ2 {
+                        if p1 == p2 && σ1==σ2 && mode1 == mode2 {
 
                         } else {
                             return false;
@@ -170,7 +181,7 @@ impl TypeDict for ContextPtr {
     fn get_typeid(&self, tn: &str) -> Option<TypeID> {
         let locked_self = self.0.read().unwrap();
 
-        for (i,n) in locked_self.γ.iter().enumerate() {
+        for (i,n) in locked_self.Γ.iter().enumerate() {
             if n.symbol == tn {
                 return Some(TypeID::Var(i as u64));
             }
@@ -185,7 +196,7 @@ impl TypeDict for ContextPtr {
         if let Some(parent) = locked_self.parent.as_ref() {
             match parent.get_typeid(tn) {
                 Some(TypeID::Fun(i)) => Some(TypeID::Fun(i + locked_self.names.len() as u64)),
-                Some(TypeID::Var(i)) => Some(TypeID::Var(i + locked_self.γ.len() as u64)),
+                Some(TypeID::Var(i)) => Some(TypeID::Var(i + locked_self.Γ.len() as u64)),
                 None => None
             }
         } else {
@@ -208,24 +219,79 @@ impl TypeDict for ContextPtr {
 
     fn get_varname(&self, var_id: u64) -> Option<String> {
         let locked_self = self.0.read().unwrap();
-        let l = locked_self.γ.len() as u64;
-        if var_id < l {
-            Some(locked_self.γ[var_id as usize].symbol.clone())
-        } else {
-            if let Some(parent) = locked_self.parent.as_ref() {
-                parent.get_varname(var_id - l)
-            } else {
-                None
+        let l = locked_self.Γ.len() as u64;
+
+        match locked_self.mode {
+            AddressingMode::StackUp => {
+                if let Some(parent) = locked_self.parent.as_ref() {
+                    let n_parent_vars = parent.0.read().unwrap().n_variables() as u64;
+
+                    if var_id < n_parent_vars {
+                        parent.get_varname(var_id)
+                    } else if var_id < n_parent_vars+l {
+                        Some(locked_self.Γ[(var_id-n_parent_vars) as usize].symbol.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    if var_id < l {
+                        Some(locked_self.Γ[var_id as usize].symbol.clone())
+                    } else {
+                        None
+                    }
+                }
+            }
+            AddressingMode::StackDown => {
+                if var_id < l {
+                    Some(locked_self.Γ[var_id as usize].symbol.clone())
+                } else {
+                    if let Some(parent) = locked_self.parent.as_ref() {
+                        parent.get_varname(var_id - l)
+                    } else {
+                        None
+                    }
+                }
             }
         }
     }
 
-    fn get_varkind(&self, var: u64) -> Option<TypeKind> {
+    fn get_varkind(&self, var_id: u64) -> Option<TypeKind> {
         let mut locked_self = self.0.read().unwrap();
-        if var < locked_self.γ.len() as u64 {
-            Some(locked_self.γ[var as usize].kind.clone())
-        } else {
-            None
+        let l = locked_self.Γ.len() as u64;
+
+        match locked_self.mode {
+            AddressingMode::StackUp => {
+                if let Some(parent) = locked_self.parent.as_ref() {
+                    let n_parent_vars = parent.0.read().unwrap().n_variables() as u64;
+
+                    if var_id < n_parent_vars {
+                        parent.get_varkind(var_id)
+                    } else {
+                        if var_id < n_parent_vars+l {
+                            Some(locked_self.Γ[(n_parent_vars+var_id) as usize].kind.clone())
+                        } else {
+                            None
+                        }
+                    }
+                } else {
+                    if var_id < l {
+                        Some(locked_self.Γ[var_id as usize].kind.clone())
+                    } else {
+                        None
+                    }
+                }
+            }
+            AddressingMode::StackDown => {
+                if var_id < l {
+                    Some(locked_self.Γ[var_id as usize].kind.clone())
+                } else {
+                    if let Some(parent) = locked_self.parent.as_ref() {
+                        parent.get_varkind(var_id - l)
+                    } else {
+                        None
+                    }
+                }
+            }
         }
     }
 }
@@ -235,20 +301,26 @@ impl TypeDict for ContextPtr {
 impl Substitution for ContextPtr {
     fn saturate(&mut self) {
         let mut locked_self = self.0.read().unwrap();
-        for ContextEntry{ symbol, kind } in locked_self.γ.iter() {
+        for ContextEntry{ symbol, kind } in locked_self.Γ.iter() {
             todo!()
         }
     }
 
     fn get(&self, var: u64) -> Result< crate::TypeTerm, SubstError > {
         let locked_self = self.0.read().unwrap();
-        let l = locked_self.γ.len() as u64;
+        let l = locked_self.Γ.len() as u64;
+
         if let Some(t) = locked_self.σ.get(&var) {
             return Ok(t.clone())
         } else {
             if var >= l {
                 if let Some(parent) = locked_self.parent.clone() {
-                    parent.get(var - l)
+                    parent.get(
+                        match locked_self.mode {
+                            AddressingMode::StackUp => var,
+                            AddressingMode::StackDown => var - l,
+                        }
+                    )
                 } else {
                     Err(SubstError::InvalidVariable)
                 }
@@ -264,7 +336,7 @@ impl Substitution for ContextPtr {
 pub trait LayeredContext : TypeDict {
     fn add_variable(&self, symbol: &str, kind: TypeKind ) -> u64;
     fn bind(&self, var: u64, val: TypeTerm) -> Result<(), SubstError>;
-    fn scope(&self) -> Self;
+    fn scope(&self, mode: AddressingMode) -> Self;
 
     fn shift_variables(&self, other: &Vec<ContextEntry>) -> HashMapSubst;
     fn shift_from_parent(&self) -> HashMapSubst;
@@ -284,7 +356,9 @@ impl LayeredContext for ContextPtr {
         let mut σs = HashMapSubst::new();
 
         // number of local variables in `self`
-        let l = self.0.read().unwrap().γ.len() as u64;
+        let l0 = self.0.read().unwrap().n_variables();
+        let l = self.0.read().unwrap().Γ.len() as u64;
+        let mode = self.0.read().unwrap().mode.clone();
 
         for (i, entry) in other.iter().enumerate() {
             let i = i as u64;
@@ -299,7 +373,15 @@ impl LayeredContext for ContextPtr {
             eprintln!("add {} ({} -> {})", s, i, i+l);
 
             self.add_variable(&s, entry.kind.clone());
-            σs.insert(i, TypeTerm::Var(i + l));
+
+            match mode {
+                AddressingMode::StackUp => {
+                    σs.insert(i, TypeTerm::Var(i + l0));
+                },
+                AddressingMode::StackDown => {
+                    σs.insert(i, TypeTerm::Var(i + l));
+                },
+            }
         }
         σs
     }
@@ -307,7 +389,7 @@ impl LayeredContext for ContextPtr {
     fn shift_from_parent(&self) -> HashMapSubst {
         let mut σss = HashMapSubst::new();
         let locked_self = self.0.read().unwrap();
-        let l = locked_self.γ.len() as u64;
+        let l = locked_self.Γ.len() as u64;
 
         if let Some(p) = locked_self.parent.as_ref() {
             for i in 0..p.0.read().unwrap().n_variables() {
@@ -322,9 +404,9 @@ impl LayeredContext for ContextPtr {
         //self.write().unwrap().dict.add_varname(symbol.into());
         let mut locked_self = self.0.write().unwrap();
 
-        let idx = locked_self.γ.len();
+        let idx = locked_self.Γ.len();
         eprintln!("Ctx {}, add {} : {:?} = {}", locked_self.ctxname, symbol, kind, idx);
-        locked_self.γ.push(ContextEntry{
+        locked_self.Γ.push(ContextEntry{
             symbol: symbol.into(),
             kind
         });
@@ -333,7 +415,7 @@ impl LayeredContext for ContextPtr {
 
     fn bind(&self, var: u64, val: TypeTerm) -> Result<(), SubstError> {
         let mut locked_self = self.0.write().unwrap();
-        let l = locked_self.γ.len() as u64;
+        let l = locked_self.Γ.len() as u64;
         locked_self.σ.insert(var, val.clone());
 /*
         if var >= l {
@@ -346,15 +428,16 @@ impl LayeredContext for ContextPtr {
         Ok(())
     }
 
-    fn scope(&self) -> ContextPtr {
+    fn scope(&self, mode: AddressingMode) -> ContextPtr {
         let mut locked_self = self.0.write().unwrap();
         locked_self.sub_count += 1;
         ContextPtr(Arc::new(RwLock::new(Context{
+            mode,
             ctxname: format!("{}+{}", locked_self.ctxname, locked_self.sub_count),
             sub_count: 0,
             parent: Some(self.clone()),
             names: Vec::new(),
-            γ: Vec::new(),
+            Γ: Vec::new(),
             σ: HashMapSubst::new()
         })))
     }

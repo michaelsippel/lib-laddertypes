@@ -20,7 +20,7 @@
 pub mod substitution;
 
 use crate::{
-    context::{Context, LayeredContext, TypeKind}, parser::*, term::TypeTerm, ConstraintSystem, ContextEntry, MorphismType, TypeDict, TypeID, CP2
+    context::{Context, LayeredContext, TypeKind}, parser::*, term::TypeTerm, AddressingMode, ConstraintSystem, ContextEntry, MorphismType, TypeDict, TypeID, CP2
 };
 
 #[test]
@@ -37,10 +37,10 @@ fn test_context() {
         TypeKind::Value(root_ctx.clone().parse("ℕ").expect("parse"))
     );
 
-    let mut sub1_ctx = root_ctx.scope();
+    let mut sub1_ctx = root_ctx.scope(AddressingMode::StackDown);
     assert_eq!( sub1_ctx.add_variable("Radix", TypeKind::Value(sub1_ctx.clone().parse("ℕ").expect("parse"))), 0 );
 
-    let mut sub2_ctx = root_ctx.scope();
+    let mut sub2_ctx = root_ctx.scope(AddressingMode::StackDown);
     assert_eq!( sub2_ctx.add_variable("SrcRadix", TypeKind::Value(sub2_ctx.clone().parse("ℕ").expect("parse"))), 0 );
 
 
@@ -113,7 +113,7 @@ fn test_context() {
 fn test_morphism_compat() {
     let mut ctx = Context::new();
 
-    let mut c1 = ctx.scope();
+    let mut c1 = ctx.scope(AddressingMode::StackDown);
     c1.add_variable("T1", TypeKind::Type);
     c1.add_variable("T2", TypeKind::Type);
     let t1 = MorphismType {
@@ -126,7 +126,7 @@ fn test_morphism_compat() {
         dst_type: c1.parse("<Seq T1>~<B T2 T2>").unwrap()
     };
 
-    let mut c2 = ctx.scope();
+    let mut c2 = ctx.scope(AddressingMode::StackDown);
     c2.add_variable("S1", TypeKind::Type);
     c2.add_variable("T1", TypeKind::Type); //< this variable name is scoped thus a *different* variable than T1 from t1
     let t2 = MorphismType {

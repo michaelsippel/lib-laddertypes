@@ -19,7 +19,7 @@
 
 use {
     crate::{
-        morphism::DecomposedMorphismType, search_node::{SearchNode, SearchNodeExt, Step}, Context, ContextPtr, EnumVariant, HashMapSubst, LayeredContext, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, SubstitutionMut, TypeDict, TypeTerm
+        morphism::DecomposedMorphismType, search_node::{SearchNode, SearchNodeExt, Step}, AddressingMode, Context, ContextPtr, EnumVariant, HashMapSubst, LayeredContext, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, SubstitutionMut, TypeDict, TypeTerm
     },
     std::{collections::HashMap, ops::Deref, sync::{Arc,RwLock}}
 };
@@ -68,7 +68,7 @@ impl<M: Morphism+Clone> MorphismGraph<M> {
         GraphSearchError
     >
     {
-        let Γ = self.base.ctx().scope();
+        let Γ = self.base.ctx().scope(AddressingMode::StackUp);
         eprintln!("Start search (Γ={})", Γ.get_ctxname());
         let mut search = GraphSearch::<M>::new(Γ, goal);
         loop {
@@ -82,14 +82,14 @@ impl<M: Morphism+Clone> MorphismGraph<M> {
 }
 
 impl<M: Morphism+Clone> GraphSearch<M> {
-    pub fn new(Γ: ContextPtr, goal: MorphismType) -> Self {
+    pub fn new(ctx: ContextPtr, goal: MorphismType) -> Self {
         GraphSearch {
             goal: goal.clone(),
             solution: None,
-            Γ: Γ.clone(),
+            Γ: ctx.clone(),
             explore_queue: vec![
                 Arc::new(RwLock::new(SearchNode {
-                    Γ,
+                    ctx,
                     pred: None,
                     weight: 0,
                     ty: MorphismType {
@@ -223,7 +223,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
             /* 1. Check if goal is already reached by the current path */
             if let Ok((_ψ, σ)) = crate::constraint_system::subtype_unify( &node.get_type().dst_type, &self.goal.dst_type ) {
                 for (v,t) in σ.into_iter() {
-                    node.read().unwrap().Γ.bind(v, t).expect("cant bind");
+                    node.read().unwrap().ctx.bind(v, t).expect("cant bind");
                 }
 
                 /* found path */
@@ -231,12 +231,12 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                 return GraphSearchState::Solved(self.get_solution().unwrap());
             }
 
-            let mut decompositions = base.enum_complex_morphisms(&node.read().unwrap().Γ, &node.get_type().dst_type);
+            let mut decompositions = base.enum_complex_morphisms(&node.read().unwrap().ctx, &node.get_type().dst_type);
             if let Some((ψ,d)) = base.morphism_decomposition(&node.get_type().dst_type, &self.goal.dst_type) {
-                decompositions.push((ψ,node.read().unwrap().Γ.clone(),HashMap::new(),d));
+                decompositions.push((ψ,node.read().unwrap().ctx.clone(),HashMap::new(),d));
             }
 
-            //eprintln!("{} decompositions", decompositions.len());
+            eprintln!("{} decompositions", decompositions.len());
 
             let mut done = Vec::new();
             for (ψ,Γ,σs,decomposition) in decompositions {
@@ -249,7 +249,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                             DecomposedMorphismType::EnumMap { variants } => { node.map_enum(variants.clone()) },
                         }.set_sub(ψ.clone());
 
-                    new_node.write().unwrap().Γ = Γ;
+                    new_node.write().unwrap().ctx = Γ;
 
                     self.add_explore_node(new_node);
                     done.push((ψ, σs, decomposition));
@@ -259,10 +259,10 @@ impl<M: Morphism+Clone> GraphSearch<M> {
             }
 
             /* 2. Try to advance current path */
-            //eprintln!("enumerate direct morphisms");
-            for (ψ,Γ,σs,m) in base.enum_morphisms_from(&node.read().unwrap().Γ, &node.get_type().dst_type) {
-                //eprintln!("add direct path with ψ={}, Γ={}, σs={:?}", ψ.pretty(&Γ, 0), Γ.pretty(), σs);
-                self.add_explore_node( node.chain(ψ,&Γ,σs, m) );
+            //elprintln!("enumerate direct morphisms");
+            for (ψ,Γ,σs,m) in base.enum_morphisms_from(&node.read().unwrap().ctx, &node.get_type().dst_type) {
+                eprintln!("add direct path with ψ={}, Γ={}, σs={:?}", ψ.pretty(&Γ, 0), Γ.pretty(), σs);
+                self.add_explore_node( node.chain(ψ,&Γ,σs,m) );
             }
 
             GraphSearchState::Continue

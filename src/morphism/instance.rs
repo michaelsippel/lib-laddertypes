@@ -37,7 +37,7 @@ pub enum MorphismInstance<M: Morphism + Clone> {
         m: Box<MorphismInstance<M>>
     },
     Specialize {
-        Γ: ContextPtr,
+        σ: HashMapSubst,
         m: Box<MorphismInstance<M>>
     },
     Chain {
@@ -77,8 +77,8 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
                 s.push_str(&m.pretty(Γ));
                 s.push_str("}");
             },
-            MorphismInstance::Specialize { Γ, m } => {
-                s.push_str(&format!("(Γ:{})", Γ.pretty()));
+            MorphismInstance::Specialize { σ, m } => {
+                s.push_str(&format!("(σ={:?})", σ));
                 s.push_str(&m.pretty(Γ));
             },
             MorphismInstance::Chain { path } => {
@@ -131,7 +131,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
         match self {
             MorphismInstance::Id { τ } => 0,
             MorphismInstance::Sub { ψ, m } => m.get_weight(),
-            MorphismInstance::Specialize { Γ, m } => m.get_weight(),
+            MorphismInstance::Specialize { σ, m } => m.get_weight(),
             MorphismInstance::Primitive { σs, m } => 10,
             MorphismInstance::Chain { path } => path.iter().map(|m| m.get_weight()).sum(),
             MorphismInstance::MapSeq { seq_repr, item_morph } => item_morph.get_weight() + 15,
@@ -165,8 +165,8 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
                             m.get_type().dst_type
                         ]),
                 },
-            MorphismInstance::Specialize { Γ, m } => {
-                m.get_type().apply_subst(Γ)
+            MorphismInstance::Specialize { σ, m } => {
+                m.get_type().apply_subst(σ)
             }
             MorphismInstance::Chain { path } => {
                 if path.len() > 0 {
@@ -237,7 +237,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
             MorphismInstance::Id { τ } => HashMap::new(),
             MorphismInstance::Primitive { σs, m } => σs.clone(),
             MorphismInstance::Sub { ψ, m } => m.get_subst(),
-            MorphismInstance::Specialize { Γ, m } => {
+            MorphismInstance::Specialize { σ, m } => {
                 todo!();
                 HashMap::new()
             }
@@ -278,7 +278,7 @@ impl<M: Morphism + Clone> MorphismInstance<M> {
                 ψ.apply_subst(γ);
                 m.apply_subst(γ);
             }
-            MorphismInstance::Specialize { Γ, m } => {
+            MorphismInstance::Specialize { σ, m } => {
                 todo!();
                 /*
                 for (v,t) in Γ.0.

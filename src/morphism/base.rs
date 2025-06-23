@@ -19,7 +19,7 @@
 
 use {
     crate::{
-        morphism::{Morphism, MorphismInstance, MorphismType}, Context, ContextPtr, HashMapSubst, LayeredContext, StructMember, TypeDict, TypeTerm
+        morphism::{Morphism, MorphismInstance, MorphismType}, AddressingMode, Context, ContextPtr, HashMapSubst, LayeredContext, StructMember, TypeDict, TypeTerm
     }, std::{arch::x86_64::_MM_ROUND_NEAREST, collections::HashMap, io::Write, ops::Deref, sync::{Arc, RwLock}}
 };
 
@@ -157,51 +157,55 @@ impl<M: Morphism + Clone> MorphismBase<M> {
         }
     }
 
-    pub fn enum_morphisms_from(&self, Γ0: &ContextPtr, src_type: &TypeTerm) -> Vec< (TypeTerm, ContextPtr, HashMapSubst, M) > {
+    pub fn enum_morphisms_from(&self, root_ctx: &ContextPtr, src_type: &TypeTerm) -> Vec< (TypeTerm, ContextPtr, HashMapSubst, M) > {
         let mut morphs = Vec::new();
 
         for m in self.morphisms.iter() {
             let mut m_src_type = m.get_type().src_type.normalize();
             let mut m_dst_type = m.get_type().dst_type.normalize();
 
-            let Γ = Γ0.scope();
-            let σs = Γ.shift_variables(&m.get_type().Γ);
+            let ctx = root_ctx.scope(AddressingMode::StackUp);
+            let σs = ctx.shift_variables(&m.get_type().Γ);
             m_src_type.apply_subst(&σs);
             m_dst_type.apply_subst(&σs);
 
-            let mut src_type = src_type.clone();
-            src_type.apply_subst(&Γ.shift_from_parent());
+            eprintln!("
+                enum_morph: check {} <=? {}
+            ",
+                src_type.pretty(&ctx, 0),
+                m_src_type.pretty(&ctx, 0)
+            );
 
 
             // check if the given source type is compatible with the
             // morphisms source type,
             // i.e. check if `src_type` is a subtype of `m_src_type`
             if let Ok((ψ, σ)) = crate::constraint_system::subtype_unify(&src_type, &m_src_type) {
+                eprintln!("Found subst:");
                 for (v,t) in σ.iter() {
-                    Γ.bind(*v, t.clone()).expect("cant bind variable");
+                    eprintln!("{} -> {}", v, t.pretty(&mut ctx.clone(), 0));
+                    ctx.bind(*v, t.clone()).expect("cant bind variable");
                 }
-                morphs.push((ψ, Γ, σs, m.clone()));
+                morphs.push((ψ, ctx, σs, m.clone()));
             }
         }
 
         morphs
     }
 
-    pub fn enum_complex_morphisms(&self, Γ0: &ContextPtr, src_type: &TypeTerm) -> Vec<(TypeTerm, ContextPtr, HashMapSubst, DecomposedMorphismType)> {
+    pub fn enum_complex_morphisms(&self, root_ctx: &ContextPtr, src_type: &TypeTerm) -> Vec<(TypeTerm, ContextPtr, HashMapSubst, DecomposedMorphismType)> {
         let mut morphs = Vec::<(TypeTerm, ContextPtr, HashMapSubst, DecomposedMorphismType)>::new();
         for m in self.morphisms.iter() {
             let mut src_type = src_type.clone();
             let mut m_src_type = m.get_type().src_type.normalize();
 
-            let Γ = Γ0.scope();
-            let σs = Γ.shift_variables(&m.get_type().Γ);
+            let ctx = root_ctx.scope(AddressingMode::StackUp);
+            let σs = ctx.shift_variables(&m.get_type().Γ);
             m_src_type.apply_subst(&σs);
-
-            src_type.apply_subst(&Γ.shift_from_parent());
 
             /* 2. check complex types */
             if let Some((ψ,decomposition)) = self.morphism_decomposition(&src_type, &m_src_type) {
-                morphs.push((ψ,Γ,σs,decomposition));
+                morphs.push((ψ,ctx,σs,decomposition));
             }
         }
         morphs

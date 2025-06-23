@@ -18,7 +18,7 @@
 */
 
 use {
-    crate::{term::TypeTerm, ConstraintPair, ContextEntry, ContextPtr, EnumVariant, LayeredContext, StructMember, TypeDict, TypeKind, VariableConstraint},
+    crate::{term::TypeTerm, AddressingMode, ConstraintPair, ContextEntry, ContextPtr, EnumVariant, LayeredContext, StructMember, TypeDict, TypeKind, VariableConstraint},
     tiny_ansi::TinyAnsi
 };
 
@@ -95,8 +95,8 @@ impl TypeTerm {
             }
 
             TypeTerm::Univ{ Γ, bounds, τ } => {
-                let ctx = dict.scope();
-                ctx.0.write().unwrap().γ = Γ.to_vec();
+                let ctx = dict.scope(AddressingMode::StackDown);
+                ctx.0.write().unwrap().Γ = Γ.to_vec();
 
                 let mut s = String::new();
 
