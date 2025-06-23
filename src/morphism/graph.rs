@@ -36,7 +36,6 @@ pub struct GraphSearch<M: Morphism+Clone> {
     pub goal: MorphismType,
     solution: Option< MorphismInstance<M> >,
     explore_queue: Vec< Arc<RwLock<SearchNode<M>>> >,
-
     pub history: Vec< Arc<RwLock<SearchNode<M>>> >,
 
     skip_preview: bool,
@@ -84,6 +83,7 @@ impl<M: Morphism+Clone> MorphismGraph<M> {
                 GraphSearchState::Err(err) => { return (Err(err), search); }
             }
         }
+        //(Err(GraphSearchError::NoMorphismFound), search)
     }
 }
 
@@ -105,15 +105,18 @@ impl<M: Morphism+Clone> GraphSearch<M> {
             ψ: TypeTerm::unit()
         }));
 
-        GraphSearch {
+        let mut g = GraphSearch {
             id_count: 1,
             goal: goal,
             solution: None,
             Γ: ctx,
-            history: vec![ start_node.clone() ],
-            explore_queue: vec![ start_node ],
+            history: Vec::with_capacity(512),
+            explore_queue: Vec::with_capacity(512),
             skip_preview: false
-        }
+        };
+        g.history.push(start_node.clone());
+        g.explore_queue.push(start_node);
+        g
     }
 
     pub fn get_solution(&self) -> Option< MorphismInstance<M> > {

@@ -540,8 +540,8 @@ fn test_morphism_path2() {
         Ok(
             MorphismInstance::Specialize {
                 σ: vec![
-                    (1, TypeTerm::Num(10)),
-                    (2, TypeTerm::Num(16)),
+                    (2, TypeTerm::Num(10)),
+                    (3, TypeTerm::Num(16)),
                 ].into_iter().collect(),
                 m: Box::new(
                 MorphismInstance::Chain {
@@ -588,7 +588,7 @@ fn test_morphism_path2() {
 #[test]
 fn test_morphism_path3() {
     let base = morphism_test_setup();
-    let mut ctx = base.ctx();
+    let mut ctx = base.ctx().scope(AddressingMode::StackUp);
 
 
     let mut ctx_m1 = ctx.scope(AddressingMode::StackDown);
@@ -619,8 +619,8 @@ fn test_morphism_path3() {
         Ok(
             MorphismInstance::Specialize {
                 σ: vec![
-                    (1, TypeTerm::Num(10)),
-                    (2, TypeTerm::Num(16)),
+                    (2, TypeTerm::Num(10)),
+                    (3, TypeTerm::Num(16)),
                 ].into_iter().collect(),
 
                 m: Box::new(
@@ -666,8 +666,8 @@ fn test_morphism_path3() {
                             item_morph:  Box::new(
                                         MorphismInstance::Specialize {
                                             σ: vec![
-                                                (2, ctx.parse("16").expect("")),
                                                 (3, ctx.parse("16").expect("")),
+                                                (4, ctx.parse("16").expect("")),
                                             ].into_iter().collect(),
                                             m: Box::new(MorphismInstance::Primitive {
                                                 σs: ctx.shift_variables(&Γm3),

@@ -19,7 +19,7 @@
 
 use {
     crate::{
-        morphism::DecomposedMorphismType, AddressingMode, Context, ContextPtr, EnumVariant, GraphSearch, GraphSearchError, GraphSearchState, HashMapSubst, LayeredContext, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, Substitution, SubstitutionMut, TypeDict, TypeTerm
+        morphism::DecomposedMorphismType, subtype_unify, unify, AddressingMode, Context, ContextPtr, EnumVariant, GraphSearch, GraphSearchError, GraphSearchState, HashMapSubst, LayeredContext, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, Substitution, SubstitutionMut, TypeDict, TypeTerm
     },
     std::sync::{Arc,RwLock}
 };
@@ -124,20 +124,50 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
     }
 
     fn creates_loop(&self) -> bool {
+        eprintln!("-- is loop ? --");
+        let mut end_type = self.get_type().dst_type;//self.read().unwrap().ty.dst_type.clone();
         let mut cur_node = self.read().unwrap().pred.clone();
         while let Some(n) = cur_node {
             let s = &n.read().unwrap().step;
-            match s {
-                Step::Id { τ } => {}
-                _ => {
-                    if crate::subtype_unify( &n.get_type().src_type, &self.get_type().dst_type ).is_ok() {
-                        return true;
+            let prev_type = match s {
+                Step::Id { τ:_ } |
+                Step::Prim { σs:_, m:_ } => { n.get_type().dst_type },
+                Step::MapSeq { seq_repr, item } => {
+                    TypeTerm::Seq { seq_repr: seq_repr.clone(), item: Box::new(item.goal.dst_type.clone()) }
+                },
+                Step::MapStruct { struct_repr, members } => {
+                    TypeTerm::Struct { struct_repr: struct_repr.clone(),
+                        members: members.iter().map(
+                            |(symbol,search)| StructMember {
+                                symbol: symbol.clone(),
+                                ty: search.goal.dst_type.clone()
+                            }).collect()
                     }
-                }
+                },
+                Step::MapEnum { enum_repr, variants } => {
+                    TypeTerm::Enum { enum_repr: enum_repr.clone(),
+                            variants: variants.iter().map(
+                                |(symbol,search)| EnumVariant {
+                                    symbol: symbol.clone(),
+                                    ty: search.goal.dst_type.clone()
+                                }).collect()
+                    }
+                },
+            }.normalize();
+
+            let ctx = self.read().unwrap().ctx.clone();
+            eprintln!("check for loop: {} =?= {}", prev_type.pretty(&mut ctx.clone(), 0), end_type.pretty(&mut ctx.clone(), 0));
+
+            if prev_type == end_type
+            //if unify(&prev_type, &end_type).is_ok()
+            {
+                eprintln!("--- loop ---");
+                return true;
             }
 
             cur_node = n.read().unwrap().pred.clone();
         }
+        eprintln!("--- no loop --");
 
         false
     }
@@ -230,8 +260,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
     }
 
     fn set_sub(&self, ψ: TypeTerm) -> Arc<RwLock<SearchNode<M>>> {
-        let oldψ = &mut self.write().unwrap().ψ;
-        *oldψ = TypeTerm::Ladder(vec![ ψ, oldψ.clone() ]).normalize();
+        self.write().unwrap().ψ = ψ;//TypeTerm::Ladder(vec![ ψ, oldψ.clone() ]).normalize();
         self.clone()
     }
 
