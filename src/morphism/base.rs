@@ -19,7 +19,7 @@
 
 use {
     crate::{
-        morphism::{Morphism, MorphismInstance, MorphismType}, AddressingMode, Context, ContextPtr, HashMapSubst, LayeredContext, StructMember, TypeDict, TypeTerm
+        morphism::{Morphism, MorphismInstance, MorphismType}, subtype_unify, AddressingMode, Context, ContextPtr, HashMapSubst, LayeredContext, StructMember, TypeDict, TypeTerm
     }, std::{arch::x86_64::_MM_ROUND_NEAREST, collections::HashMap, io::Write, ops::Deref, sync::{Arc, RwLock}}
 };
 
@@ -41,6 +41,33 @@ pub enum DecomposedMorphismType {
     SeqMap { item: MorphismType },
     StructMap { members: Vec<(String, MorphismType)> },
     EnumMap { variants: Vec<(String, MorphismType)> }
+}
+
+
+impl DecomposedMorphismType {
+    pub fn is_trivial(&self) -> bool {
+        match self {
+            DecomposedMorphismType::SeqMap { item } => {
+                subtype_unify( &item.src_type, &item.dst_type ).is_ok()
+            },
+            DecomposedMorphismType::StructMap { members } => {
+                for m in members.iter() {
+                    if !subtype_unify( &m.1.src_type, &m.1.dst_type ).is_ok() {
+                        return false;
+                    }
+                }
+                true
+            },
+            DecomposedMorphismType::EnumMap { variants } => {
+                for v in variants.iter() {
+                    if !subtype_unify( &v.1.src_type, &v.1.dst_type ).is_ok() {
+                        return false;
+                    }
+                }
+                true
+            },
+        }
+    }
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\

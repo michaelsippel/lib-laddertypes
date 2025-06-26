@@ -28,6 +28,8 @@ use {
 
 /// represents a partial path during search in the morphism graph
 pub struct SearchNode<M: Morphism+Clone> {
+    pub id: u64,
+
     /// predecessor node
     pub pred: Option< Arc<RwLock< SearchNode<M> >> >,
 
@@ -64,11 +66,12 @@ pub enum SolvedStep<M: Morphism+Clone> {
 
 pub trait SearchNodeExt<M: Morphism+Clone> {
    // fn specialize(&self, σ: HashMapSubst) -> Arc<RwLock<SearchNode<M>>>;
-    fn chain(&self, ψ: TypeTerm, Γ: &ContextPtr, σs: HashMapSubst, m: M) -> Arc<RwLock<SearchNode<M>>>;
     fn set_sub(&self, ψ: TypeTerm) -> Arc<RwLock<SearchNode<M>>>;
-    fn map_seq(&self, goal: MorphismType) -> Arc<RwLock<SearchNode<M>>>;
-    fn map_struct(&self, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>>;
-    fn map_enum(&self, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>>;
+
+    fn chain(&self, id: u64, ψ: TypeTerm, Γ: &ContextPtr, σs: HashMapSubst, m: M) -> Arc<RwLock<SearchNode<M>>>;
+    fn map_seq(&self, id: u64, goal: MorphismType) -> Arc<RwLock<SearchNode<M>>>;
+    fn map_struct(&self, id: u64, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>>;
+    fn map_enum(&self, id: u64, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>>;
 
     fn advance(&self, base: &MorphismBase<M>) -> Result<bool, GraphSearchError>;
     fn to_morphism_instance(&self) -> Option< MorphismInstance<M> >;
@@ -207,13 +210,14 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
         }
     }
 
-    fn chain(&self, ψ: TypeTerm, ctx_inst: &ContextPtr, σs: HashMapSubst, m: M) -> Arc<RwLock<SearchNode<M>>> {
+    fn chain(&self, id: u64, ψ: TypeTerm, ctx_inst: &ContextPtr, σs: HashMapSubst, m: M) -> Arc<RwLock<SearchNode<M>>> {
         //eprintln!("CHAIN with σs: ={:?}, Γ={}", σs, ctx_inst.pretty());
         let mut src_type = self.get_type().src_type;
         let mut dst_type = m.get_type().dst_type;
         dst_type.apply_subst(&σs);
 
         let n = Arc::new(RwLock::new(SearchNode {
+            id,
             ctx: ctx_inst.clone(),
             pred: Some(self.clone()),
             weight: self.get_weight(),
@@ -231,7 +235,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
         self.clone()
     }
 
-    fn map_seq(&self, goal: MorphismType) -> Arc<RwLock<SearchNode<M>>> {
+    fn map_seq(&self, id: u64, goal: MorphismType) -> Arc<RwLock<SearchNode<M>>> {
         let seq_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
             TypeTerm::Seq { seq_repr, item } => { seq_repr.clone() }
             _ => unreachable!()
@@ -240,6 +244,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
         let ctx = self.read().unwrap().ctx.clone().scope(AddressingMode::StackUp);
 
         Arc::new(RwLock::new(SearchNode {
+            id,
             ctx: self.read().unwrap().ctx.clone(),
             pred: Some(self.clone()),
             weight: self.get_weight(),
@@ -254,13 +259,14 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
         }))
     }
 
-    fn map_struct(&self, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>> {
+    fn map_struct(&self, id: u64, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>> {
         let struct_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
             TypeTerm::Struct { struct_repr, members } => { struct_repr.clone() }
             _ => unreachable!()
         };
 
         Arc::new(RwLock::new(SearchNode {
+            id,
             ctx: self.read().unwrap().ctx.clone(),
             pred: Some(self.clone()),
             weight: self.get_weight(),
@@ -277,13 +283,14 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
         }))
     }
 
-    fn map_enum(&self, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>> {
+    fn map_enum(&self, id: u64, goals: Vec<(String, MorphismType)>) -> Arc<RwLock<SearchNode<M>>> {
         let enum_repr = match self.read().unwrap().ty.dst_type.get_floor_type().1 {
             TypeTerm::Enum { enum_repr, variants } => { enum_repr.clone() }
             _ => unreachable!()
         };
 
         Arc::new(RwLock::new(SearchNode {
+            id,
             ctx: self.read().unwrap().ctx.clone(),
             pred: Some(self.clone()),
             weight: self.get_weight(),

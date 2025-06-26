@@ -33,11 +33,14 @@ pub struct MorphismGraph<M: Morphism+Clone> {
 
 pub struct GraphSearch<M: Morphism+Clone> {
     Γ: ContextPtr,
-    goal: MorphismType,
+    pub goal: MorphismType,
     solution: Option< MorphismInstance<M> >,
     explore_queue: Vec< Arc<RwLock<SearchNode<M>>> >,
 
-    skip_preview: bool
+    pub history: Vec< Arc<RwLock<SearchNode<M>>> >,
+
+    skip_preview: bool,
+    id_count: u64
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -63,19 +66,22 @@ impl<M: Morphism+Clone> MorphismGraph<M> {
         }
     }
 
-    pub fn search(&self, goal: MorphismType) -> Result<
-        MorphismInstance<M>,
-        GraphSearchError
-    >
+    pub fn search(&self, goal: MorphismType) -> (
+        Result<
+            MorphismInstance<M>,
+            GraphSearchError
+        >,
+        GraphSearch<M>
+    )
     {
         let Γ = self.base.ctx().scope(AddressingMode::StackUp);
         eprintln!("Start search (Γ={})", Γ.get_ctxname());
         let mut search = GraphSearch::<M>::new(Γ, goal);
         loop {
             match search.advance(&self.base) {
-                GraphSearchState::Solved(m) => { return Ok(m); }
+                GraphSearchState::Solved(m) => { return (Ok(m), search); }
                 GraphSearchState::Continue => { continue; }
-                GraphSearchState::Err(err) => { return Err(err); }
+                GraphSearchState::Err(err) => { return (Err(err), search); }
             }
         }
     }
@@ -83,25 +89,29 @@ impl<M: Morphism+Clone> MorphismGraph<M> {
 
 impl<M: Morphism+Clone> GraphSearch<M> {
     pub fn new(ctx: ContextPtr, goal: MorphismType) -> Self {
+
+        let start_node = Arc::new(RwLock::new(SearchNode {
+            id: 0,
+            ctx: ctx.clone(),
+            pred: None,
+            weight: 0,
+            ty: MorphismType {
+                Γ: Vec::new(),
+                bounds: Vec::new(),
+                src_type: goal.src_type.clone(),
+                dst_type: goal.src_type.clone()
+            },
+            step: Step::Id { τ: goal.src_type.clone() },
+            ψ: TypeTerm::unit()
+        }));
+
         GraphSearch {
-            goal: goal.clone(),
+            id_count: 1,
+            goal: goal,
             solution: None,
-            Γ: ctx.clone(),
-            explore_queue: vec![
-                Arc::new(RwLock::new(SearchNode {
-                    ctx,
-                    pred: None,
-                    weight: 0,
-                    ty: MorphismType {
-                        Γ: Vec::new(),
-                        bounds: Vec::new(),
-                        src_type: goal.src_type.clone(),
-                        dst_type: goal.src_type.clone()
-                    },
-                    step: Step::Id { τ: goal.src_type.clone() },
-                    ψ: TypeTerm::unit()
-                }))
-            ],
+            Γ: ctx,
+            history: vec![ start_node.clone() ],
+            explore_queue: vec![ start_node ],
             skip_preview: false
         }
     }
@@ -181,7 +191,8 @@ impl<M: Morphism+Clone> GraphSearch<M> {
 
     pub fn add_explore_node(&mut self, node: Arc<RwLock<SearchNode<M>>>) {
         if ! node.creates_loop() {
-            self.explore_queue.push(node);
+            self.explore_queue.push(node.clone());
+            self.history.push(node);
         }
     }
 
@@ -234,11 +245,13 @@ impl<M: Morphism+Clone> GraphSearch<M> {
             let mut done = Vec::new();
             for (ψ,Γ,σs,decomposition) in decompositions {
                 if ! done.contains(&(ψ.clone(),σs.clone(),decomposition.clone())) {
+                    let id = self.id_count;
+                    self.id_count += 1;
                     let mut new_node =
                         match &decomposition {
-                            DecomposedMorphismType::SeqMap { item } => { node.map_seq( item.clone() ) },
-                            DecomposedMorphismType::StructMap { members } => { node.map_struct(members.clone()) },
-                            DecomposedMorphismType::EnumMap { variants } => { node.map_enum(variants.clone()) },
+                            DecomposedMorphismType::SeqMap { item } => { node.map_seq( id ,item.clone() ) },
+                            DecomposedMorphismType::StructMap { members } => { node.map_struct(id,members.clone()) },
+                            DecomposedMorphismType::EnumMap { variants } => { node.map_enum(id,variants.clone()) },
                         }.set_sub(ψ.clone());
 
                     new_node.write().unwrap().ctx = Γ;
@@ -251,7 +264,9 @@ impl<M: Morphism+Clone> GraphSearch<M> {
             /* 2. Try to advance current path */
             //elprintln!("enumerate direct morphisms");
             for (ψ,Γ,σs,m) in base.enum_morphisms_from(&node.read().unwrap().ctx, &node.get_type().dst_type) {
-                self.add_explore_node( node.chain(ψ,&Γ,σs,m) );
+                let id = self.id_count;
+                self.id_count += 1;
+                self.add_explore_node( node.chain(id,ψ,&Γ,σs,m) );
             }
 
             GraphSearchState::Continue

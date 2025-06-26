@@ -131,7 +131,7 @@ fn test_morphgraph_id() {
             bounds: Vec::new(),
             src_type: ctx.parse("ℤ_2^64 ~ machine.UInt64").expect("parse"),
             dst_type: ctx.parse("ℤ_2^64 ~ machine.UInt64").expect("parse"),
-        }),
+        }).0,
 
         Ok(MorphismInstance::Id {
             τ: ctx.parse("ℤ_2^64 ~ machine.UInt64").expect("parse")
@@ -160,7 +160,7 @@ fn test_morphgraph_prim() {
             bounds: Vec::new(),
             src_type: root_ctx.parse("<Digit 10> ~ Char").expect("parse"),
             dst_type: root_ctx.parse("<Digit 10> ~ ℤ_2^64 ~ machine.UInt64").expect("parse"),
-        }),
+        }).0,
 
         Ok(MorphismInstance::Specialize {
             σ: vec![ ( ctxm.get_varid("Radix").unwrap(), TypeTerm::Num(10) ) ].into_iter().collect(),
@@ -206,7 +206,7 @@ fn test_morphgraph_chain() {
             bounds: Vec::new(),
             src_type: Γ.parse("<Digit 10> ~ Char").expect("parse"),
             dst_type: Γ.parse("<Digit 10> ~ ℤ_2^64 ~ ℕ ~ <PosInt 0 LittleEndian> ~ [<Digit 0>~ℤ_2^64~machine.UInt64]").expect("parse"),
-        }),
+        }).0,
 
         Ok(
             MorphismInstance::Specialize {
@@ -282,7 +282,7 @@ fn test_morphgraph_spec1() {
             bounds: Vec::new(),
             src_type: ctx.parse("T ~ A").unwrap(),
             dst_type: ctx.parse("T ~ <B test> ~ U").unwrap(),
-        }),
+        }).0,
         Ok(
             MorphismInstance::Specialize {
                 σ: vec![
@@ -349,7 +349,7 @@ fn test_morphgraph_spec2() {
             bounds: Vec::new(),
             src_type: ctx.parse("T ~ A").unwrap(),
             dst_type: ctx.parse("T ~ <B test> ~ V").unwrap(),
-        });
+        }).0;
 
     if let Ok(i) = inst.as_ref() {
         eprintln!("Found morphism instance: = \n==\n{}\n========", i.pretty(&ctx));
@@ -408,7 +408,7 @@ fn test_morphgraph_map_seq() {
             bounds: Vec::new(),
             src_type: ctx.parse("[A ~ F]").unwrap(),
             dst_type: ctx.parse("[A ~ E]").unwrap(),
-        }),
+        }).0,
         Ok(
             MorphismInstance::MapSeq { seq_repr: None, item_morph: Box::new(
                 MorphismInstance::Primitive {
@@ -447,7 +447,7 @@ fn test_morphgraph_map_seq_repr() {
             bounds: Vec::new(),
             src_type: ctx.parse("[~<array.Static 64> A ~ F]").unwrap(),
             dst_type: ctx.parse("[~<array.Static 64> A ~ E]").unwrap(),
-        }),
+        }).0,
         Ok(
             MorphismInstance::MapSeq { seq_repr: Some(Box::new(ctx.parse("<array.Static 64>").expect(""))), item_morph: Box::new(
                 MorphismInstance::Primitive {
@@ -480,7 +480,7 @@ fn test_morphism_path1() {
         dst_type: ctx.parse("ℕ ~ <PosInt 10 LittleEndian> ~ [<Digit 10> ~ ℤ_2^64 ~ machine.UInt64]").unwrap(),
     });
 
-    match result.as_ref() {
+    match result.0.as_ref() {
         Ok(inst)=> {
             eprintln!("π = {}", inst.pretty(&ctx));
         }
@@ -488,7 +488,7 @@ fn test_morphism_path1() {
     }
 
     assert_eq!(
-        result,
+        result.0,
         Ok(
             MorphismInstance::Sub {
                 ψ: ctx.parse("ℕ ~ <PosInt 10 LittleEndian>").expect(""),
@@ -536,7 +536,7 @@ fn test_morphism_path2() {
             bounds: Vec::new(),
             src_type: ctx.parse("ℕ ~ <PosInt 10 LittleEndian> ~ [<Digit 10> ~ Char]").unwrap(),
             dst_type: ctx.parse("ℕ ~ <PosInt 16 LittleEndian> ~ [<Digit 16> ~ ℤ_2^64 ~ machine.UInt64]").unwrap(),
-        }),
+        }).0,
         Ok(
             MorphismInstance::Specialize {
                 σ: vec![
@@ -614,7 +614,7 @@ fn test_morphism_path3() {
     });
 
     assert_eq!(
-        result,
+        result.0,
 
         Ok(
             MorphismInstance::Specialize {
