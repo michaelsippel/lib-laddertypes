@@ -197,23 +197,18 @@ impl<M: Morphism+Clone> GraphSearch<M> {
              * advance it first
              */
             match node.advance(base) {
-                Ok(false) => {
+                Ok(true) => {
                     /* sub search solved */
                     assert!( node.is_ready() );
                     let w = node.to_morphism_instance().unwrap().get_weight();
                     //eprintln!("set Weight of complex morph to {}", w);
                     node.write().unwrap().weight = w;
                 }
-                Ok(true) => {
-                    /* sub search was continued, but still ongoing */
-                    if ! node.is_ready() {
-                        self.skip_preview = true;
-                        self.add_explore_node(node);
-                        return GraphSearchState::Continue;
-                    } else {
-                        eprintln!("node returned true even though it is ready");
-                        return GraphSearchState::Continue;
-                    }
+                Ok(false) => {
+                    self.skip_preview = true;
+                    //self.add_explore_node(node);
+                    self.explore_queue.push(node);
+                    return GraphSearchState::Continue;
                 }
                 Err(err) => {
                     return GraphSearchState::Err(err);

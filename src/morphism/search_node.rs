@@ -21,7 +21,7 @@ use {
     crate::{
         morphism::DecomposedMorphismType, AddressingMode, Context, ContextPtr, EnumVariant, GraphSearch, GraphSearchError, GraphSearchState, HashMapSubst, LayeredContext, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, Substitution, SubstitutionMut, TypeDict, TypeTerm
     },
-    std::{collections::HashMap, ops::Deref, sync::{Arc,RwLock}}
+    std::sync::{Arc,RwLock}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -107,6 +107,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
         let n = self.read().unwrap();
         match &n.step {
             Step::Id { τ } => true,
+            Step::Prim { σs, m } => true,
             Step::MapSeq { seq_repr, item } => {
                 item.get_solution().is_some()
             }
@@ -116,7 +117,6 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             Step::MapEnum { enum_repr, variants } => {
                 variants.iter().map(|(s,g)| g.get_solution().is_some()).min().unwrap_or(true)
             }
-            Step::Prim { σs, m } => true
         }
     }
 
@@ -151,9 +151,9 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                             src_type: TypeTerm::Seq { seq_repr: seq_repr.clone(), item: Box::new(item_morph.get_type().src_type) },
                             dst_type: TypeTerm::Seq { seq_repr: seq_repr.clone(), item: Box::new(item_morph.get_type().dst_type) },
                         };
-                        Ok(false)
+                        Ok(true)
                     }
-                    GraphSearchState::Continue => Ok(true),
+                    GraphSearchState::Continue => Ok(false),
                     GraphSearchState::Err(err) => Err(err)
                 }
             }
@@ -162,9 +162,9 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                     if sub_search.get_solution().is_none() {
                         match sub_search.advance(base) {
                             GraphSearchState::Solved(_) => {
-                                return Ok(true);
+                                return Ok(false);
                             },
-                            GraphSearchState::Continue => { return Ok(true); },
+                            GraphSearchState::Continue => { return Ok(false); },
                             GraphSearchState::Err(err) => { return Err(err); }
                         }
                     } else {
@@ -179,16 +179,16 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                     src_type: TypeTerm::Struct { struct_repr: struct_repr.clone(), members: members.iter().map(|(s,g)| StructMember{ symbol:s.clone(), ty: g.get_solution().unwrap().get_type().src_type }).collect() },
                     dst_type: TypeTerm::Struct { struct_repr: struct_repr.clone(), members: members.iter().map(|(s,g)| StructMember{ symbol:s.clone(), ty: g.get_solution().unwrap().get_type().dst_type }).collect() },
                 };
-                return Ok(false);
+                return Ok(true);
             }
             Step::MapEnum { enum_repr, variants } => {
                 for (symbol, sub_search) in variants.iter_mut() {
                     if sub_search.get_solution().is_none() {
                         match sub_search.advance(base) {
                             GraphSearchState::Solved(_) => {
-                                return Ok(true);
+                                return Ok(false);
                             },
-                            GraphSearchState::Continue => { return Ok(true); },
+                            GraphSearchState::Continue => { return Ok(false); },
                             GraphSearchState::Err(err) => { return Err(err); }
                         }
                     }
@@ -201,9 +201,9 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                     src_type: TypeTerm::Enum { enum_repr: enum_repr.clone(), variants: variants.iter().map(|(s,g)| EnumVariant{ symbol:s.clone(), ty: g.get_solution().unwrap().get_type().src_type }).collect() },
                     dst_type: TypeTerm::Enum { enum_repr: enum_repr.clone(), variants: variants.iter().map(|(s,g)| EnumVariant{ symbol:s.clone(), ty: g.get_solution().unwrap().get_type().dst_type }).collect() },
                 };
-                return Ok(false);
+                return Ok(true);
             }
-            _ => Ok(false)
+            _ => Ok(true)
         }
     }
 
@@ -219,9 +219,8 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             weight: self.get_weight(),
             ty: MorphismType { Γ: ctx_inst.get_Γ(), bounds: Vec::new(), src_type, dst_type },
             step: Step::Prim{ σs, m },
-            ψ: TypeTerm::unit(),
+            ψ,
         }));
-        n.set_sub(ψ);
 
         n
     }
