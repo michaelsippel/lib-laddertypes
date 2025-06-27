@@ -244,25 +244,29 @@ impl<M: Morphism+Clone> GraphSearch<M> {
 
             let mut done = Vec::new();
             for (ψ,Γ,σs,decomposition) in decompositions {
-                if ! done.contains(&(ψ.clone(),σs.clone(),decomposition.clone())) {
-                    let id = self.id_count;
-                    self.id_count += 1;
-                    let mut new_node =
-                        match &decomposition {
-                            DecomposedMorphismType::SeqMap { item } => { node.map_seq( id ,item.clone() ) },
-                            DecomposedMorphismType::StructMap { members } => { node.map_struct(id,members.clone()) },
-                            DecomposedMorphismType::EnumMap { variants } => { node.map_enum(id,variants.clone()) },
-                        }.set_sub(ψ.clone());
+                if !decomposition.is_trivial() {
+                    if ! done.contains(&(ψ.clone(),σs.clone(),decomposition.clone())) {
+                        let id = self.id_count;
+                        self.id_count += 1;
+                        let mut new_node =
+                            match &decomposition {
+                                DecomposedMorphismType::SeqMap { item } => { node.map_seq( id ,item.clone() ) },
+                                DecomposedMorphismType::StructMap { members } => { node.map_struct(id,members.clone()) },
+                                DecomposedMorphismType::EnumMap { variants } => { node.map_enum(id,variants.clone()) },
+                            }.set_sub(ψ.clone());
 
-                    new_node.write().unwrap().ctx = Γ;
+                        new_node.write().unwrap().ctx = Γ;
 
-                    self.add_explore_node(new_node);
-                    done.push((ψ, σs, decomposition));
+                        self.add_explore_node(new_node);
+                        done.push((ψ, σs, decomposition));
+                    }
+                } else {
+                    eprintln!("skip trivial decomposition")
                 }
             }
 
             /* 2. Try to advance current path */
-            //elprintln!("enumerate direct morphisms");
+            //eprintln!("enumerate direct morphisms");
             for (ψ,Γ,σs,m) in base.enum_morphisms_from(&node.read().unwrap().ctx, &node.get_type().dst_type) {
                 let id = self.id_count;
                 self.id_count += 1;
