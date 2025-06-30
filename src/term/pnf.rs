@@ -134,31 +134,40 @@ impl TypeTerm {
                         (TypeTerm::Seq { seq_repr: seq_repr1, item: item1 },
                          TypeTerm::Seq { seq_repr: seq_repr2, item: item2 })
                         => {
-                            r2 = TypeTerm::Seq {
-                                    seq_repr:
-                                        if seq_repr1.is_some() || seq_repr2.is_some() {
-                                            let sr1 = if let Some(seq_repr1) = seq_repr1 { *seq_repr1.clone() }
-                                                        else { TypeTerm::unit() };
-                                            let sr2 = if let Some(seq_repr2) = seq_repr2 { *seq_repr2 }
-                                                        else { TypeTerm::unit() };
+                            let mut new_sr = None;
+                            let sr1 = if let Some(seq_repr1) = seq_repr1 { *seq_repr1.clone() }
+                                        else { TypeTerm::unit() };
+                            let sr2 = if let Some(seq_repr2) = seq_repr2 { *seq_repr2 }
+                                        else { TypeTerm::unit() };
 
-                                            Some(Box::new(
-                                                if sr1 == sr2 {
-                                                    sr1
-                                                } else if sr1 == TypeTerm::unit() {
-                                                    sr2
-                                                } else {
-                                                    TypeTerm::Ladder(vec![ sr1, sr2 ]).normalize()
-                                                }))
-                                        } else {
-                                            None
-                                        },
-                                    item:       if item1.deref() == item2.deref() {
-                                        item1.clone()
-                                    } else {
-                                        Box::new(TypeTerm::Ladder(vec![ item1.deref().clone(), item2.deref().clone() ]).normalize())
-                                    }
-                                };
+                            if item1.deref() == item2.deref() {
+                                let nsr = TypeTerm::Ladder(vec![
+                                    sr1,
+                                    sr2
+                                ]).normalize();
+                                if !nsr.is_empty() {
+                                    new_sr = Some(Box::new(nsr));
+                                }
+                            } else {
+                                if sr1.is_empty() {
+                                    new_sr = Some(Box::new(sr2));
+                                } else {
+                                    new_rungs.push(r2);
+                                    r2 = r1;
+                                    continue;
+                                }
+                            }
+                            let item =
+                            if item1.deref() == item2.deref() {
+                                item1.clone()
+                            } else {
+                                Box::new(TypeTerm::Ladder(vec![ item1.deref().clone(), item2.deref().clone() ]).normalize())
+                            };
+
+                            r2 = TypeTerm::Seq {
+                                seq_repr: new_sr,
+                                item
+                            };
                         }
 
                         (TypeTerm::Seq { seq_repr, item },
@@ -379,7 +388,7 @@ impl TypeTerm {
                     new_rungs.reverse();
                     return TypeTerm::Ladder(new_rungs);
                 } else {
-                    return r2;
+                    return r2.normalize();
                 }
             }
 
@@ -391,7 +400,10 @@ impl TypeTerm {
             }
 
             TypeTerm::Seq { seq_repr, item } => TypeTerm::Seq {
-                seq_repr: if let Some(seq_repr) = seq_repr { Some(Box::new(seq_repr.normalize())) } else { None },
+                seq_repr: if let Some(seq_repr) = seq_repr {
+                    let seq_repr = seq_repr.normalize();
+                    if seq_repr.is_empty() { None } else { Some(Box::new(seq_repr.normalize())) }
+                } else { None },
                 item: Box::new(item.normalize())
             },
             TypeTerm::Struct { struct_repr, members } => TypeTerm::Struct {

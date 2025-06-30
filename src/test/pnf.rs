@@ -82,6 +82,17 @@ fn test_normalize_seq() {
         dict.parse("[~<ValueDelim '\\0'> Char~Ascii~native.UInt8]").expect("parse error"),
         dict.parse("[Char~Ascii] ~ <<ValueDelim '\\0'> Char~Ascii> ~ <<ValueDelim '\\0'> native.UInt8>").expect("parse error").normalize(),
     );
+
+    eprintln!("---------------");
+    assert_eq!(
+        dict.parse("[~DeltaSeq ℕ]~[~<LengthPrefix native.UInt64> ℤ~native.Int64 ]").expect("parse error"),
+        dict.parse("[~DeltaSeq ℕ]~[~<LengthPrefix native.UInt64> ℤ~native.Int64 ]").expect("parse error").normalize(),
+    );
+    eprintln!("---------------");
+    assert_eq!(
+        dict.parse("[~DeltaSeq X~ℕ]~[~<LengthPrefix native.UInt64> ℤ~native.Int64 ]").expect("parse error"),
+        dict.parse("[X]~[~DeltaSeq ℕ]~[~<LengthPrefix native.UInt64> ℤ~native.Int64 ]").expect("parse error").normalize(),
+    );
 }
 
 #[test]
@@ -119,15 +130,15 @@ fn test_normalize_struct() {
 fn test_normalize_enum() {
     let mut dict = Context::new();
     assert_eq!(
-        dict.parse("< Enum
-                <  a   TimePoint~<TimeSince UnixEpoch>~Seconds~native.UInt64  >
-                <  b   Angle ~ Degrees ~ ℝ ~ native.Float32 >
-            >
+        dict.parse("{
+                | a:   TimePoint~<TimeSince UnixEpoch>~Seconds~native.UInt64
+                | b:   Angle ~ Degrees ~ ℝ ~ native.Float32
+            }
             ").expect("parse error"),
         dict.parse("
-            < Enum <a TimePoint> <b Angle> >
-        ~   < Enum  <a <TimeSince UnixEpoch>~Seconds> <b Angle~Degrees~ℝ> >
-        ~   < Enum  <a native.UInt64> <b native.Float32> >
+            { |a: TimePoint | b: Angle }
+        ~   { |a: <TimeSince UnixEpoch>~Seconds |b: Angle~Degrees~ℝ }
+        ~   { |a: native.UInt64 |b:native.Float32 }
         ").expect("parse errror")
 
             .normalize(),
