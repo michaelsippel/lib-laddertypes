@@ -189,7 +189,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
         self.explore_queue.pop()
     }
 
-    pub fn add_explore_node(&mut self, node: Arc<RwLock<SearchNode<M>>>) {
+    pub fn add_search_node(&mut self, node: Arc<RwLock<SearchNode<M>>>) {
         if ! node.creates_loop() {
             self.explore_queue.push(node.clone());
             self.history.push(node);
@@ -200,8 +200,8 @@ impl<M: Morphism+Clone> GraphSearch<M> {
      * take the most promising node and iterate its search by one step
      */
     pub fn advance(&mut self, base: &MorphismBase<M>) -> GraphSearchState<M> {
-        //eprintln!("choose node...");
         if let Some(node) = self.choose_next_node(&mut self.Γ.clone()) {
+            let mut nctx = node.read().unwrap().ctx.clone();
 
             /*
              * in case this node contains a sub-search graph,
@@ -259,20 +259,17 @@ impl<M: Morphism+Clone> GraphSearch<M> {
 
                         new_node.write().unwrap().ctx = Γ;
 
-                        self.add_explore_node(new_node);
+                        self.add_search_node(new_node);
                         done.push((ψ, σs, decomposition));
                     }
-                } else {
-                    eprintln!("skip trivial decomposition")
                 }
             }
 
             /* 2. Try to advance current path */
-            //eprintln!("enumerate direct morphisms");
             for (ψ,Γ,σs,m) in base.enum_morphisms_from(&node.read().unwrap().ctx, &node.get_type().dst_type) {
                 let id = self.id_count;
                 self.id_count += 1;
-                self.add_explore_node( node.chain(id,ψ,&Γ,σs,m) );
+                self.add_search_node( node.chain(id,ψ.normalize(),&Γ,σs,m) );
             }
 
             GraphSearchState::Continue
