@@ -217,12 +217,14 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                 }
                 Ok(false) => {
                     self.skip_preview = true;
-                    //self.add_explore_node(node);
+
+                    // sub graph needs further exploration, add it back to the queue
                     self.explore_queue.push(node);
                     return GraphSearchState::Continue;
                 }
                 Err(err) => {
-                    return GraphSearchState::Err(err);
+                    // sub graph failed, dont add it back to the queue
+                    return GraphSearchState::Continue;
                 }
             }
 
