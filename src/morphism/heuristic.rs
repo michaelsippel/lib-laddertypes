@@ -80,6 +80,12 @@ impl MorphismType {
                 => {
                     return 1;
                 }
+
+                (x, TypeTerm::Ladder(l1))
+                | (TypeTerm::Ladder(l1), x) => {
+                    l1.len() as u64 * 10
+                }
+
                 (a, b) => {
                     if a == b {
                         return 0;
