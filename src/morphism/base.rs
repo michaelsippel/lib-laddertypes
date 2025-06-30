@@ -118,6 +118,20 @@ impl<M: Morphism + Clone> MorphismBase<M> {
                 TypeTerm::Struct { struct_repr: struct_repr_rhs, members: members_rhs })
             => {
                 // todo: optimization: check if struct repr match
+                //
+                if let Some(sr_lhs) = struct_repr_lhs {
+                    if let Some(sr_rhs) = struct_repr_rhs {
+                        if crate::unify(&sr_lhs, &sr_rhs).is_ok() {
+                            eprintln!("decompose: same seq-repr");
+                        } else {
+                            eprintln!("decompose: different seq-repr. skip");
+                            return None;
+                        }
+                    } else {
+                        eprintln!("decompose: unspecified seq-repr on rhs. skip");
+                        return None;
+                    }
+                }
 
                 let mut member_morph_types = Vec::new();
                 let mut failed = false;
@@ -162,8 +176,22 @@ impl<M: Morphism + Clone> MorphismBase<M> {
 
 
             (TypeTerm::Seq{ seq_repr: seq_repr_lhs, item: item_lhs },
-                TypeTerm::Seq{ seq_repr: _seq_rerpr_rhs, item: item_rhs })
+                TypeTerm::Seq{ seq_repr: seq_repr_rhs, item: item_rhs })
             => {
+                if let Some(sr_lhs) = seq_repr_lhs {
+                    if let Some(sr_rhs) = seq_repr_rhs {
+                        if crate::unify(&sr_lhs, &sr_rhs).is_ok() {
+                            eprintln!("decompose: same seq-repr");
+                        } else {
+                            eprintln!("decompose: different seq-repr. skip");
+                            return None;
+                        }
+                    } else {
+                        eprintln!("decompose: unspecified seq-repr on rhs. skip");
+                        return None;
+                    }
+                }
+
                 Some((src_ψ, DecomposedMorphismType::SeqMap {
                     item: MorphismType {
                         Γ: Vec::new(),
