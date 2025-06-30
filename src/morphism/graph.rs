@@ -160,9 +160,9 @@ impl<M: Morphism+Clone> GraphSearch<M> {
          */
         self.explore_queue.sort_by(
             |a,b| {
-                (Self::est_remain(&goal, b) + b.get_weight() )
+                (Self::est_remain(&goal, b) + 5*b.get_weight() )
                     .cmp(
-                        &(Self::est_remain(&goal, a) + a.get_weight())
+                        &(Self::est_remain(&goal, a) + 5*a.get_weight())
                     )
             }
         );
