@@ -1,26 +1,24 @@
 use {
     crate::{
-        subtype_unify, sugar::SugaredTypeTerm, unification::UnificationProblem, unparser::*, TypeDict, TypeID, TypeTerm,
-        morphism::{MorphismType, Morphism, MorphismInstance}
-    },
-    std::{collections::HashMap, u64}
+        morphism_path::{MorphismPath, ShortestPathProblem},
+        morphism::{MorphismInstance, Morphism, MorphismType},
+        TypeTerm, StructMember, TypeDict, TypeID
+    }, std::io::{Read, Write}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[derive(Clone)]
 pub struct MorphismBase<M: Morphism + Clone> {
-    morphisms: Vec< M >,
-    seq_types: Vec< TypeTerm >
+    morphisms: Vec< M >
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 impl<M: Morphism + Clone> MorphismBase<M> {
-    pub fn new(seq_types: Vec<TypeTerm>) -> Self {
+    pub fn new() -> Self {
         MorphismBase {
-            morphisms: Vec::new(),
-            seq_types
+            morphisms: Vec::new()
         }
     }
 
@@ -28,156 +26,173 @@ impl<M: Morphism + Clone> MorphismBase<M> {
         self.morphisms.push( m );
     }
 
-    pub fn enum_direct_morphisms(&self, src_type: &TypeTerm)
-    -> Vec< MorphismInstance<M> >
-    {
-        let mut dst_types = Vec::new();
-        for m in self.morphisms.iter() {
-            if let Ok((halo, σ)) = crate::unification::subtype_unify(
-                &src_type.clone().param_normalize(),
-                &m.get_type().src_type.param_normalize(),
-            ) {
-                dst_types.push(MorphismInstance{ halo, m: m.clone(), σ });
+    pub fn get_morphism_instance(&self, ty: &MorphismType) -> Option<MorphismInstance<M>> {
+        if let Some(path) = ShortestPathProblem::new(self, ty.clone()).solve() {
+            if path.len() == 1 {
+                Some(path[0].clone())
+            } else {
+                Some(MorphismInstance::Chain { path })
             }
+        } else {
+            None
         }
-        dst_types
     }
 
-    pub fn enum_map_morphisms(&self, src_type: &TypeTerm)
-    -> Vec< MorphismInstance<M> > {
-        let src_type = src_type.clone().param_normalize();
-        let mut dst_types = Vec::new();
+    pub fn complex_morphism_decomposition(&self, src_type: &TypeTerm, dst_type: &TypeTerm) -> Option< MorphismInstance<M> > {
+        let (src_ψ, src_floor) = src_type.get_floor_type();
+        let (dst_ψ, dst_floor) = dst_type.get_floor_type();
 
-        // Check if we have a List type, and if so, see what the Item type is
-        // TODO: function for generating fresh variables
-        let item_variable = TypeID::Var(800);
+        if !dst_ψ.is_empty() {
+            if !crate::constraint_system::subtype_unify(&src_ψ, &dst_ψ).is_ok() {
+                return None;
+            }
+        }
 
-        for seq_type in self.seq_types.iter() {
-            if let Ok((halo, σ)) = crate::unification::subtype_unify(
-                &src_type,
-                &TypeTerm::App(vec![
-                    seq_type.clone(),
-                    TypeTerm::TypeID(item_variable)
-                ])
-            ) {
-                let src_item_type = σ.get(&item_variable).expect("var not in unificator").clone();
-                for item_morph_inst in self.enum_morphisms( &src_item_type ) {
+        match (src_floor, dst_floor) {
+            (TypeTerm::Struct{ struct_repr: struct_repr_lhs, members: members_lhs},
+                TypeTerm::Struct { struct_repr: struct_repr_rhs, members: members_rhs })
+            => {
+                // todo: optimization: check if struct repr match
 
-                    let mut dst_halo_ladder = vec![ halo.clone() ];
-                    if item_morph_inst.halo != TypeTerm::unit() {
-                        dst_halo_ladder.push(
-                            TypeTerm::App(vec![
-                                seq_type.clone().get_lnf_vec().first().unwrap().clone(),
-                                item_morph_inst.halo.clone()
-                            ]));
-                    }
+                let mut member_morph = Vec::new();
+                let mut failed = false;
+                let mut necessary = false;
 
-                    if let Some( map_morph ) = item_morph_inst.m.map_morphism( seq_type.clone() ) {
-                        dst_types.push(
-                            MorphismInstance {
-                                halo: TypeTerm::Ladder(dst_halo_ladder).strip().param_normalize(),
-                                m: map_morph,
-                                σ: item_morph_inst.σ
+                for StructMember{ symbol: symbol_rhs, ty: ty_rhs } in members_rhs.iter() {
+                    let mut found_src_member = false;
+                    for StructMember{ symbol: symbol_lhs, ty: ty_lhs } in members_lhs.iter() {
+                        if symbol_rhs == symbol_lhs {
+                            found_src_member = true;
+
+                            if let Some(mm) = self.get_morphism_instance(&MorphismType {
+                                bounds: Vec::new(),
+                                src_type: ty_lhs.clone(),
+                                dst_type: ty_rhs.clone()
+                            }) {
+                                if ty_lhs != ty_rhs {
+                                    necessary = true;
+                                }
+                                member_morph.push((symbol_lhs.clone(), mm))
+                            } else {
+                                failed = true;
                             }
-                        );
-                    } else {
-                        eprintln!("could not get map morphism");
+                            break;
+                        }
+                    }
+
+                    // member of rhs not found in lhs
+                    if ! found_src_member {
+                        failed = true;
+                        break;
                     }
                 }
+
+                if ! failed && necessary {
+                    Some(MorphismInstance::MapStruct {
+                        ψ: src_ψ,
+                        src_struct_repr: struct_repr_lhs.clone(),
+                        dst_struct_repr: struct_repr_rhs.clone(),
+                        member_morph
+                    })
+                } else {
+                    None
+                }
+            }
+
+
+            (TypeTerm::Seq{ seq_repr: seq_repr_lhs, items: items_lhs },
+                TypeTerm::Seq{ seq_repr: _seq_rerpr_rhs, items: items_rhs })
+            => {
+                //let mut item_morphs = Vec::new();
+
+                for (ty_lhs, ty_rhs) in items_lhs.iter().zip(items_rhs.iter()) {
+                    if let Some(item_morph) = self.get_morphism_instance(&MorphismType{
+                        bounds: Vec::new(),
+                        src_type: ty_lhs.clone(),
+                        dst_type: ty_rhs.clone()
+                    }) {
+                        return Some(MorphismInstance::MapSeq { ψ: src_ψ, seq_repr: seq_repr_lhs.clone(), item_morph: Box::new(item_morph) });
+                    }
+                    break;
+                }
+                None
+            }
+
+            _ => {
+                None
             }
         }
-
-        dst_types
     }
 
-    pub fn enum_morphisms(&self, src_type: &TypeTerm) -> Vec< MorphismInstance<M> > {
-        let mut dst_types = Vec::new();
-        dst_types.append(&mut self.enum_direct_morphisms(src_type));
-        dst_types.append(&mut self.enum_map_morphisms(src_type));
-        dst_types
-    }
+    pub fn enum_morphisms_from(&self, src_type: &TypeTerm) -> Vec< MorphismInstance<M> > {
+        let mut morphs = Vec::new();
 
-    pub fn find_direct_morphism(&self,
-        ty: &MorphismType,
-        dict: &mut impl TypeDict
-    ) -> Option< MorphismInstance<M> > {
-        eprintln!("find direct morph");
+        //eprintln!("enum morphisms from {:?}", src_type);
         for m in self.morphisms.iter() {
-            let ty = ty.clone().normalize();
-            let morph_type = m.get_type().normalize();
+            let m_src_type = m.get_type().src_type;
+            let m_dst_type = m.get_type().dst_type;
 
-            eprintln!("find direct morph:\n   {}  <=   {}",
-                            dict.unparse(&ty.src_type), dict.unparse(&morph_type.src_type),
-                        );
+            /* 1. primitive morphisms */
 
-            if let Ok((halo, σ)) = subtype_unify(&ty.src_type, &morph_type.src_type) {
-                eprintln!("halo: {}", dict.unparse(&halo));
-
-                let dst_type = TypeTerm::Ladder(vec![
-                    halo.clone(),
-                    morph_type.dst_type.clone()
-                ]).normalize().param_normalize();
-
-                eprintln!("----------->   {}  <=   {}",
-                    dict.unparse(&dst_type), dict.unparse(&ty.dst_type)
-                );
-
-                if let Ok((halo2, σ2)) = subtype_unify(&dst_type, &ty.dst_type) {
-                    eprintln!("match. halo2 = {}", dict.unparse(&halo2));
-                    return Some(MorphismInstance {
-                        m: m.clone(),
-                        halo,
-                        σ,
-                    });
-                }
+            // check if the given start type is compatible with the
+            // morphisms source type,
+            // i.e. check if `src_type` is a subtype of `m_src_type`
+            if let Ok((ψ, σ)) = crate::constraint_system::subtype_unify(src_type, &m_src_type) {
+                let morph_inst = MorphismInstance::Primitive { ψ, σ, morph: m.clone() };
+                //eprintln!("..found direct morph to {:?}", morph_inst.get_type().dst_type);
+                morphs.push(morph_inst);
             }
-        }
-        None
-    }
 
-    pub fn find_map_morphism(&self, ty: &MorphismType, dict: &mut impl TypeDict) -> Option< MorphismInstance<M> > {
-        for seq_type in self.seq_types.iter() {
-            if let Ok((halos, σ)) = UnificationProblem::new_sub(vec![
-                (ty.src_type.clone().param_normalize(),
-                    TypeTerm::App(vec![ seq_type.clone(), TypeTerm::TypeID(TypeID::Var(100)) ])),
-
-                (TypeTerm::App(vec![ seq_type.clone(), TypeTerm::TypeID(TypeID::Var(101)) ]),
-                    ty.dst_type.clone().param_normalize()),
-            ]).solve() {
-                // TODO: use real fresh variable names
-                let item_morph_type = MorphismType {
-                    src_type: σ.get(&TypeID::Var(100)).unwrap().clone(),
-                    dst_type: σ.get(&TypeID::Var(101)).unwrap().clone(),
-                }.normalize();
-
-                //eprintln!("Map Morph: try to find item-morph with type {:?}", item_morph_type);
-                if let Some(item_morph_inst) = self.find_morphism( &item_morph_type, dict ) {
-                    if let Some( list_morph ) = item_morph_inst.m.map_morphism( seq_type.clone() ) {
-                        return Some( MorphismInstance {
-                            m: list_morph,
-                            σ,
-                            halo: halos[0].clone()
-                        } );
-                    }
-                }
+            /* 2. check complex types */
+            else if let Some(complex_morph) = self.complex_morphism_decomposition(src_type, &m_src_type) {
+                //eprintln!("found complex morph to {:?}", complex_morph.get_type().dst_type);
+                morphs.push(complex_morph);
             }
         }
 
-        None
+        morphs
     }
 
-    pub fn find_morphism(&self, ty: &MorphismType,
-        dict: &mut impl TypeDict
-    )
-    -> Option< MorphismInstance<M> > {
-        if let Some(m) = self.find_direct_morphism(ty, dict) {
-            return Some(m);
+
+    pub fn to_dot(&self, dict: &mut impl TypeDict) -> String {
+        let mut dot_source = String::new();
+
+        dot_source.push_str("digraph MorphismGraph {");
+
+        pub fn ty_to_dot_label(dict: &mut impl TypeDict, ty: &TypeTerm) -> String {
+            let pretty_str = ty.pretty(dict, 0);
+            let mut child = std::process::Command::new("aha").arg("--no-header")
+                .stdin( std::process::Stdio::piped() )
+                .stdout(std::process::Stdio::piped())
+                .spawn().expect("spawn child");
+            let mut stdin = child.stdin.take().expect("cant get stdin");
+            std::thread::spawn(move ||{ stdin.write_all(pretty_str.as_bytes()).expect("failed to write")});
+            let out = child.wait_with_output().expect("");
+            let html_str = String::from_utf8_lossy(&out.stdout).replace("\n", "<BR/>").replace("span", "B");
+            html_str
         }
-        if let Some(m) = self.find_map_morphism(ty, dict) {
-            return Some(m);
+
+        // add vertices
+        for (i,m) in self.morphisms.iter().enumerate() {
+            dot_source.push_str(&format!("
+                SRC{} [label=<{}>]
+                DST{} [label=<{}>]
+
+                SRC{} -> DST{} [label=\"{}\"]
+            ", i, ty_to_dot_label(dict, &m.get_type().src_type),
+                i, ty_to_dot_label(dict, &m.get_type().dst_type),
+                i,i,i
+            ));
         }
-        None
+
+        // add edges
+
+
+        dot_source.push_str("}");
+
+        dot_source
     }
+
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\

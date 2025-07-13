@@ -1,6 +1,6 @@
 
 use {
-    crate::{dict::*, term::*, parser::*, unparser::*, substitution::*},
+    crate::{dict::*, desugared_term::*, parser::*, unparser::*, substitution::*},
     std::iter::FromIterator,
 };
 
@@ -15,16 +15,16 @@ fn test_subst() {
     // T  -->  ℕ
     σ.insert
         (dict.add_varname(String::from("T")),
-         dict.parse("ℕ").unwrap());
+         dict.parse_desugared("ℕ").unwrap().sugar(&mut dict));
 
     // U  -->  <Seq Char>
     σ.insert
         (dict.add_varname(String::from("U")),
-         dict.parse("<Seq Char>").unwrap());
+         dict.parse_desugared("<Seq Char>").unwrap().sugar(&mut dict));
 
 
     assert_eq!(
-        dict.parse("<Seq T~U>").unwrap().apply_subst(&σ).clone(),
-        dict.parse("<Seq ℕ~<Seq Char>>").unwrap()
+        dict.parse_desugared("<Seq T~U>").unwrap().sugar(&mut dict).apply_subst(&σ).clone(),
+        dict.parse_desugared("<Seq ℕ~<Seq Char>>").unwrap().sugar(&mut dict)
     );
 }

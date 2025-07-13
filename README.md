@@ -1,6 +1,6 @@
 # lib-laddertypes
 
-Rust Implementation of Ladder-Types (parsing, unification, rewriting, etc) 
+Rust Implementation of Ladder-Types (parsing, unification, rewriting, etc)
 <hr/>
 
 ## Ladder Types
@@ -121,16 +121,15 @@ fn main() {
 
 - [x] (Un-)Parsing
 - [x] (De-)Currying
-- [x] Unification
-- [x] Ladder-Normal-Form
-- [x] Parameter-Normal-Form
-- [ ] (De)-Sugaring
-  - [ ] Seq
-  - [ ] Enum
-  - [ ] Struct
-  - [ ] References
-  - [ ] Function
+- [x] Normal-Form
+- [x] Pretty Debug
+- [ ] Sugared Parser
+- [ ] Universal Types, Function Types
+- [x] Constraint Solving (Unification, Subtype Satisfaction)
+- [x] Morphism Graph
+  - [x] Complex Morphisms
+  - [x] Find Shortest Path
+  - [x] Approximate Steiner Tree
 
 ## License
 [GPLv3](COPYING)
-

@@ -9,25 +9,25 @@ fn test_curry() {
     let mut dict = BimapTypeDict::new();
 
     assert_eq!(
-        dict.parse("<A B C>").unwrap().curry(),
-        dict.parse("<<A B> C>").unwrap()
+        dict.parse_desugared("<A B C>").unwrap().curry(),
+        dict.parse_desugared("<<A B> C>").unwrap()
     );
     assert_eq!(
-        dict.parse("<A B C D>").unwrap().curry(),
-        dict.parse("<<<A B> C> D>").unwrap()
+        dict.parse_desugared("<A B C D>").unwrap().curry(),
+        dict.parse_desugared("<<<A B> C> D>").unwrap()
     );
     assert_eq!(
-        dict.parse("<A B C D E F G H I J K>").unwrap().curry(),
-        dict.parse("<<<<<<<<<<A B> C> D> E> F> G> H> I> J> K>").unwrap()
+        dict.parse_desugared("<A B C D E F G H I J K>").unwrap().curry(),
+        dict.parse_desugared("<<<<<<<<<<A B> C> D> E> F> G> H> I> J> K>").unwrap()
     );
 
     assert_eq!(
-        dict.parse("<A~X B C>").unwrap().curry(),
-        dict.parse("<<A~X B> C>").unwrap()
+        dict.parse_desugared("<A~X B C>").unwrap().curry(),
+        dict.parse_desugared("<<A~X B> C>").unwrap()
     );
     assert_eq!(
-        dict.parse("<A B C~Y~Z> ~ K").unwrap().curry(),
-        dict.parse("< <A B> C~Y~Z > ~ K").unwrap()
+        dict.parse_desugared("<A B C~Y~Z> ~ K").unwrap().curry(),
+        dict.parse_desugared("< <A B> C~Y~Z > ~ K").unwrap()
     );
 }
 
@@ -36,25 +36,25 @@ fn test_decurry() {
     let mut dict = BimapTypeDict::new();
 
     assert_eq!(
-        dict.parse("<<A B> C>").unwrap().decurry(),
-        dict.parse("<A B C>").unwrap()
+        dict.parse_desugared("<<A B> C>").unwrap().decurry(),
+        dict.parse_desugared("<A B C>").unwrap()
     );
     assert_eq!(
-        dict.parse("<<<A B> C> D>").unwrap().decurry(),
-        dict.parse("<A B C D>").unwrap(),
+        dict.parse_desugared("<<<A B> C> D>").unwrap().decurry(),
+        dict.parse_desugared("<A B C D>").unwrap(),
     );
     assert_eq!(
-        dict.parse("<<<<<<<<<<A B> C> D> E> F> G> H> I> J> K>").unwrap().decurry(),
-        dict.parse("<A B C D E F G H I J K>").unwrap()
+        dict.parse_desugared("<<<<<<<<<<A B> C> D> E> F> G> H> I> J> K>").unwrap().decurry(),
+        dict.parse_desugared("<A B C D E F G H I J K>").unwrap()
     );
 
     assert_eq!(
-        dict.parse("<<A~X B> C>").unwrap().decurry(),
-        dict.parse("<A~X B C>").unwrap()
+        dict.parse_desugared("<<A~X B> C>").unwrap().decurry(),
+        dict.parse_desugared("<A~X B C>").unwrap()
     );
     assert_eq!(
-        dict.parse("<<A~X B> C~Y>~K").unwrap().decurry(),
-        dict.parse("<A~X B C~Y> ~K").unwrap()
+        dict.parse_desugared("<<A~X B> C~Y>~K").unwrap().decurry(),
+        dict.parse_desugared("<A~X B C~Y> ~K").unwrap()
     );
 }
 
