@@ -37,8 +37,6 @@ pub struct GraphSearch<M: Morphism+Clone> {
     solution: Option< MorphismInstance<M> >,
     explore_queue: Vec< Arc<RwLock<SearchNode<M>>> >,
     pub history: Vec< Arc<RwLock<SearchNode<M>>> >,
-
-    skip_preview: bool,
     id_count: u64
 }
 
@@ -112,7 +110,6 @@ impl<M: Morphism+Clone> GraphSearch<M> {
             Γ: ctx,
             history: Vec::with_capacity(512),
             explore_queue: Vec::with_capacity(512),
-            skip_preview: false
         };
         g.history.push(start_node.clone());
         g.explore_queue.push(start_node);
@@ -163,31 +160,12 @@ impl<M: Morphism+Clone> GraphSearch<M> {
          */
         self.explore_queue.sort_by(
             |a,b| {
-                (Self::est_remain(&goal, b) + 5*b.get_weight() )
+                (Self::est_remain(&goal, b) + b.get_weight() )
                     .cmp(
-                        &(Self::est_remain(&goal, a) + 5*a.get_weight())
+                        &(Self::est_remain(&goal, a) + a.get_weight())
                     )
             }
         );
-
-        /*
-        if !self.skip_preview {
-            eprintln!("===== TOP 5 PATHS =====\nGoal:\n {} -> {}",
-                goal.src_type.pretty(dict, 0),
-                goal.dst_type.pretty(dict, 0)
-            );
-            for i in 1 ..= usize::min(self.explore_queue.len(), 5) {
-                let n = &self.explore_queue[self.explore_queue.len() - i];
-                eprintln!("[[ {} ]] (weight: {} + est remain: {}) ---  {} --> {}", i,
-                    n.get_weight(),
-                    Self::est_remain(&goal, &n),
-                    n.get_type().src_type.pretty(&mut n.read().unwrap().Γ.clone(), 0),
-                    n.get_type().dst_type.pretty(&mut n.read().unwrap().Γ.clone(), 0));
-            }
-        } else {
-            self.skip_preview = false;
-        }
-        */
 
         self.explore_queue.pop()
     }
@@ -219,8 +197,6 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                     node.write().unwrap().weight = w;
                 }
                 Ok(false) => {
-                    self.skip_preview = true;
-
                     // sub graph needs further exploration, add it back to the queue
                     self.explore_queue.push(node);
                     return GraphSearchState::Continue;
