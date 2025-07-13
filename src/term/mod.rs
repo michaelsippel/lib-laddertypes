@@ -1,8 +1,7 @@
 pub mod lexer;
-pub mod parser; // todo sugared variant
-pub mod curry; // todo: sugared variant
+pub mod parser;
+pub mod curry;
 pub mod unparser;
-pub mod desugared_term; // deprecated
 pub mod pnf;
 
 #[cfg(feature = "pretty")]
@@ -11,13 +10,8 @@ mod pretty;
 
 use {
     crate::{
-        parser::ParseLadderType,
-        DesugaredTypeTerm,
-        MorphismType,
-        Substitution,
-        TypeDict,
-        TypeID},
-    std::{ops::Deref}
+        parser::ParseLadderType, ConstraintPair, ContextEntry, MorphismType, Substitution, TypeDict, TypeID, CP2},
+    std::ops::Deref
 };
 
 
@@ -27,7 +21,7 @@ pub enum VariableConstraint {
     Subtype(TypeTerm),
     Trait(TypeTerm),
     Parallel(TypeTerm),
-    ValueUInt,
+    ValueOf(TypeTerm),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -48,7 +42,11 @@ pub enum TypeTerm {
     Var(u64),
     Num(i64),
     Char(char),
-    Univ(Box< VariableConstraint >, Box< TypeTerm >),
+    Univ{
+        Γ: Vec< ContextEntry >,
+        bounds: Vec< ConstraintPair >,
+        τ: Box< TypeTerm >
+    },
     Spec(Vec< TypeTerm >),
     Func(Vec< TypeTerm >),
     Morph(Box< TypeTerm >, Box< TypeTerm >),
@@ -63,7 +61,7 @@ pub enum TypeTerm {
     },
     Seq{
         seq_repr: Option<Box< TypeTerm >>,
-        items: Vec< TypeTerm >
+        item: Box<TypeTerm>
     },
 
     /*
@@ -74,18 +72,28 @@ pub enum TypeTerm {
 impl TypeTerm {
     pub fn into_morphism_type(self) -> Option< MorphismType > {
         match self.normalize() {
-            TypeTerm::Univ(bound, τ) => {
+            TypeTerm::Univ{ Γ, bounds, τ } => {
                 let mut m = τ.into_morphism_type()?;
-                m.bounds.push(bound.deref().clone());
+                m.Γ = Γ;
+                m.bounds = bounds;
                 Some(m)
             }
             TypeTerm::Morph(src,dst) => {
                 Some(MorphismType {
+                    Γ: Vec::new(),
                     bounds: Vec::new(),
                     src_type: src.deref().clone(),
                     dst_type: dst.deref().clone()
                 })
             },
+            TypeTerm::Func(args) => {
+                Some(MorphismType {
+                    Γ: Vec::new(),
+                    bounds: Vec::new(),
+                    src_type: args[0].clone(),
+                    dst_type: args[1].clone()
+                })
+            }
             _ => None
         }
     }
@@ -98,7 +106,7 @@ impl VariableConstraint {
             VariableConstraint::Subtype(τ) => VariableConstraint::Subtype(τ.clone().normalize()),
             VariableConstraint::Trait(τ) => VariableConstraint::Trait(τ.clone().normalize()),
             VariableConstraint::Parallel(τ) => VariableConstraint::Parallel(τ.clone().normalize()),
-            VariableConstraint::ValueUInt => VariableConstraint::ValueUInt
+            VariableConstraint::ValueOf(τ) => VariableConstraint::ValueOf(τ.clone().normalize())
         }
     }
 
@@ -113,296 +121,9 @@ impl VariableConstraint {
     }
 }
 
-impl StructMember {
-    pub fn parse( dict: &mut impl TypeDict, ty: &DesugaredTypeTerm ) -> Option<Self> {
-        match ty {
-            DesugaredTypeTerm::App(args) => {
-                if args.len() != 2 {
-                    return None;
-                }
-/*
-                if args[0] != dict.parse("Struct.Field").expect("parse") {
-                    return None;
-                }
-*/
-                let symbol = match args[0] {
-                    DesugaredTypeTerm::Char(c) => c.to_string(),
-                    DesugaredTypeTerm::TypeID(TypeID::Fun(id)) => dict.get_typename(id).expect("cant get member name"),
-                    DesugaredTypeTerm::TypeID(TypeID::Var(id)) => dict.get_varname(id).expect("cant get member name"),
-                    _ => {
-                        return None;
-                    }
-                };
-
-                let ty = args[1].clone().sugar(dict);
-
-                Some(StructMember { symbol, ty })
-            }
-            _ => {
-                None
-            }
-        }
-    }
-}
-
-impl EnumVariant {
-    pub fn parse( dict: &mut impl TypeDict, ty: &DesugaredTypeTerm ) -> Option<Self> {
-        match ty {
-            DesugaredTypeTerm::App(args) => {
-                if args.len() != 2 {
-                    return None;
-                }
-/*
-                if args[0] != dict.parse("Enum.Variant").expect("parse") {
-                    return None;
-                }
-*/
-                let symbol = match args[0] {
-                    DesugaredTypeTerm::Char(c) => c.to_string(),
-                    DesugaredTypeTerm::TypeID(TypeID::Fun(id)) =>
-                        dict.get_typename(id).expect("cant get member name"),
-                    DesugaredTypeTerm::TypeID(TypeID::Var(id)) =>
-                        dict.get_varname(id).expect("cant get member name"),
-                    _ => {
-                        return None;
-                    }
-                };
-
-                let ty = args[1].clone().sugar(dict);
-
-                Some(EnumVariant { symbol, ty })
-            }
-            _ => {
-                None
-            }
-        }
-    }
-}
-
-impl DesugaredTypeTerm {
-    pub fn sugar(self: DesugaredTypeTerm, dict: &mut impl crate::TypeDict) -> TypeTerm {
-        //dict.add_varname("StructRepr".into());
-        //dict.add_varname("EnumRepr".into());
-        //dict.add_varname("SeqRepr".into());
-
-        match self {
-            DesugaredTypeTerm::TypeID(id) => match id {
-                TypeID::Fun(id) => TypeTerm::Id(id),
-                TypeID::Var(id) => TypeTerm::Var(id)
-            },
-            DesugaredTypeTerm::Num(n) => TypeTerm::Num(n),
-            DesugaredTypeTerm::Char(c) => TypeTerm::Char(c),
-            DesugaredTypeTerm::App(args) => if let Some(first) = args.first() {
-                if first == &dict.parse_desugared("Func").unwrap() {
-                    TypeTerm::Func( args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect() )
-                }
-                else if first == &dict.parse_desugared("Morph").unwrap() {
-                    if args.len() == 3 {
-                        TypeTerm::Morph(
-                            Box::new(args[1].clone().sugar(dict)),
-                            Box::new(args[2].clone().sugar(dict)),
-                        )
-                    } else {
-                        panic!("sugar: invalid arguments for morphism type")
-                    }
-                }
-                else if first == &dict.parse_desugared("Seq").unwrap() {
-                    TypeTerm::Seq{
-                        seq_repr: None,
-                        items: args[1..].into_iter()
-                            .map(|t| t.clone().sugar(dict))
-                            .collect()
-                    }
-                }
-                else if first == &dict.parse_desugared("Struct").unwrap() {
-                    TypeTerm::Struct{
-                        struct_repr: None,
-                        members: args[1..].into_iter()
-                            .map(|t| StructMember::parse(dict, t).expect("cant parse field"))
-                            .collect()
-                    }
-                }
-                else if first == &dict.parse_desugared("Enum").unwrap() {
-                    TypeTerm::Enum{
-                        enum_repr: None,
-                        variants: args[1..].into_iter()
-                            .map(|t| EnumVariant::parse(dict, t).expect("cant parse variant"))
-                            .collect()
-                    }
-                }
-                else if let DesugaredTypeTerm::Ladder(mut rungs) = first.clone() {
-                    if rungs.len() > 0 {
-                        match rungs.remove(0) {
-                            DesugaredTypeTerm::TypeID(tyid) => {
-                                if tyid == dict.get_typeid("Seq").expect("") {
-                                    TypeTerm::Seq {
-                                        seq_repr:
-                                            if rungs.len() > 0 {
-                                                Some(Box::new(
-                                                    TypeTerm::Ladder(rungs.into_iter()
-                                                        .map(|r| r.clone().sugar(dict))
-                                                        .collect()
-                                                    ).normalize()
-                                                ))
-                                            } else {
-                                                None
-                                            },
-                                        items: args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect()
-                                    }
-                                } else if tyid == dict.get_typeid("Struct").expect("") {
-                                    TypeTerm::Struct {
-                                        struct_repr:
-                                            if rungs.len() > 0 {
-                                                Some(Box::new(
-                                                    TypeTerm::Ladder(rungs.into_iter()
-                                                        .map(|r| r.clone().sugar(dict))
-                                                        .collect()
-                                                    ).normalize()
-                                                ))
-                                            } else {
-                                                None
-                                            },
-                                        members: args[1..].into_iter()
-                                            .map(|t| StructMember::parse(dict, t).expect("cant parse field"))
-                                            .collect()
-                                    }
-                                } else if tyid == dict.get_typeid("Enum").expect("") {
-                                    TypeTerm::Enum {
-                                        enum_repr:
-                                            if rungs.len() > 0 {
-                                                Some(Box::new(
-                                                    TypeTerm::Ladder(rungs.into_iter()
-                                                        .map(|r| r.clone().sugar(dict))
-                                                        .collect()
-                                                    ).normalize()
-                                                ))
-                                            } else {
-                                                None
-                                            },
-                                        variants: args[1..].into_iter()
-                                            .map(|t| EnumVariant::parse(dict, t).expect("cant parse field"))
-                                            .collect()
-                                    }
-                                } else {
-                                    TypeTerm::Spec(args.into_iter().map(|t| t.sugar(dict)).collect())
-                                }
-                            }
-                            _ => {
-                                unreachable!();
-                            }
-                        }
-                    } else {
-                        unreachable!();
-                    }
-                }
-
-                else if first == &dict.parse_desugared("Spec").unwrap() {
-                    TypeTerm::Spec( args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect() )
-                }
-                else if first == &dict.parse_desugared("Univ").unwrap() {
-                    TypeTerm::Univ(
-                        // fixme: ignored bound, will be superseded by new parser
-                        Box::new(VariableConstraint::UnconstrainedType),
-
-                        Box::new(TypeTerm::Spec(args[1..].into_iter().map(|t| t.clone().sugar(dict)).collect()))
-                    )
-                }
-                else {
-                    TypeTerm::Spec(args.into_iter().map(|t| t.sugar(dict)).collect())
-                }
-            } else {
-                TypeTerm::Spec(args.into_iter().map(|t| t.sugar(dict)).collect())
-            },
-            DesugaredTypeTerm::Ladder(rungs) =>
-               TypeTerm::Ladder(rungs.into_iter().map(|t| t.sugar(dict)).collect())
-        }
-    }
-}
-
-
-impl StructMember {
-    pub fn desugar(self, dict: &mut impl crate::TypeDict) -> DesugaredTypeTerm {
-        DesugaredTypeTerm::App(vec![
-            //dict.parse("Struct.Field").expect("parse"),
-            dict.parse_desugared(&self.symbol).expect("parse"),
-            self.ty.desugar(dict)
-        ])
-    }
-}
-
-impl EnumVariant {
-    pub fn desugar(self, dict: &mut impl crate::TypeDict) -> DesugaredTypeTerm {
-        DesugaredTypeTerm::App(vec![
-            //dict.parse("Enum.Variant").expect("parse"),
-            dict.parse_desugared(&self.symbol).expect("parse"),
-            self.ty.desugar(dict)
-        ])
-    }
-}
-
 impl TypeTerm {
     pub fn unit() -> Self {
         TypeTerm::Ladder(vec![])
-    }
-
-    pub fn desugar(self, dict: &mut impl crate::TypeDict) -> DesugaredTypeTerm {
-        match self {
-            TypeTerm::Id(id) => DesugaredTypeTerm::TypeID(TypeID::Fun(id)),
-            TypeTerm::Var(id) => DesugaredTypeTerm::TypeID(TypeID::Var(id)),
-            TypeTerm::Num(n) => DesugaredTypeTerm::Num(n),
-            TypeTerm::Char(c) => DesugaredTypeTerm::Char(c),
-            TypeTerm::Univ(bound, t) => t.desugar(dict), // <- fixme: missing bound
-            TypeTerm::Spec(ts) => DesugaredTypeTerm::App(ts.into_iter().map(|t| t.desugar(dict)).collect()),
-            TypeTerm::Ladder(ts) => DesugaredTypeTerm::Ladder(ts.into_iter().map(|t|t.desugar(dict)).collect()),
-            TypeTerm::Func(ts) => DesugaredTypeTerm::App(
-                std::iter::once( dict.parse_desugared("Func").unwrap() ).chain(
-                    ts.into_iter().map(|t| t.desugar(dict))
-                ).collect()),
-            TypeTerm::Morph(src,dst) => DesugaredTypeTerm::App(vec![
-                    dict.parse_desugared("Morph").unwrap(),
-                    src.desugar(dict),
-                    dst.desugar(dict)
-                ]),
-            TypeTerm::Struct{ struct_repr, members } => DesugaredTypeTerm::App(
-                std::iter::once(
-                    if let Some(sr) = struct_repr {
-                        DesugaredTypeTerm::Ladder(vec![
-                            dict.parse_desugared("Struct").unwrap(),
-                            sr.desugar(dict)
-                        ])
-                    } else {
-                        dict.parse_desugared("Struct").unwrap()
-                    }
-                ).chain(
-                    members.into_iter().map(|t| t.desugar(dict))
-                ).collect()),
-            TypeTerm::Enum{ enum_repr, variants } => DesugaredTypeTerm::App(
-                std::iter::once(
-                    if let Some(sr) = enum_repr {
-                        DesugaredTypeTerm::Ladder(vec![
-                            dict.parse_desugared("Enum").unwrap(),
-                            sr.desugar(dict)
-                        ])
-                    } else {
-                        dict.parse_desugared("Enum").unwrap()
-                    }
-                ).chain(
-                    variants.into_iter().map(|t| t.desugar(dict))
-                ).collect()),
-            TypeTerm::Seq{ seq_repr, items } => DesugaredTypeTerm::App(
-                std::iter::once(
-                    if let Some(sr) = seq_repr {
-                        DesugaredTypeTerm::Ladder(vec![
-                            dict.parse_desugared("Seq").unwrap(),
-                            sr.desugar(dict)
-                        ])
-                    } else {
-                        dict.parse_desugared("Seq").unwrap()
-                    }
-                ).chain(
-                    items.into_iter().map(|t| t.desugar(dict))
-                ).collect()),
-        }
     }
 
     pub fn contains_var(&self, var_id: u64) -> bool {
@@ -421,9 +142,9 @@ impl TypeTerm {
             TypeTerm::Morph(src,dst) => {
                 src.contains_var(var_id) || dst.contains_var(var_id)
             }
-            TypeTerm::Univ(bound,t) => {
+            TypeTerm::Univ{ Γ, bounds, τ } => {
                 // todo: capture avoidance (via debruijn)
-                t.contains_var(var_id)
+                τ.contains_var( var_id + Γ.len() as u64 )
             }
             TypeTerm::Struct { struct_repr, members } => {
                 if let Some(struct_repr) =  struct_repr {
@@ -453,19 +174,14 @@ impl TypeTerm {
                 }
                 false
             }
-            TypeTerm::Seq { seq_repr, items } => {
+            TypeTerm::Seq { seq_repr, item } => {
                 if let Some(seq_repr) =  seq_repr {
                     if seq_repr.contains_var(var_id) {
                         return true;
                     }
                 }
 
-                for ty in items {
-                    if ty.contains_var(var_id) {
-                        return true;
-                    }
-                }
-                false
+                item.contains_var(var_id)
             }
 
             TypeTerm::Num(_) |
@@ -515,15 +231,13 @@ impl TypeTerm {
             TypeTerm::Func(args) => TypeTerm::Func(args.into_iter().map(|arg| arg.strip()).collect()),
             TypeTerm::Morph(src, dst) => TypeTerm::Morph(Box::new(src.strip()), Box::new(dst.strip())),
 
-            TypeTerm::Seq{ mut seq_repr, mut items } => {
+            TypeTerm::Seq{ mut seq_repr, mut item } => {
                 if let Some(seq_repr) = seq_repr.as_mut() {
                     *seq_repr = Box::new(seq_repr.clone().strip());
                 }
-                for i in items.iter_mut() {
-                    *i = i.clone().strip();
-                }
+                *item = item.clone().strip();
 
-                TypeTerm::Seq { seq_repr, items }
+                TypeTerm::Seq { seq_repr, item }
             }
             TypeTerm::Struct { mut struct_repr, mut members } => {
                 if let Some(struct_repr) = struct_repr.as_mut() {
@@ -571,15 +285,19 @@ impl TypeTerm {
                     Box::new(dst.get_interface_type())
                 ),
 
-            TypeTerm::Univ(bound, t)
-                => TypeTerm::Univ(bound.clone(), Box::new(t.get_interface_type())),
+            TypeTerm::Univ{ Γ, bounds, τ }
+                => TypeTerm::Univ{
+                    Γ:Γ.clone(),
+                    bounds:bounds.clone(),
+                    τ: Box::new(τ.get_interface_type())
+                },
 
-            TypeTerm::Seq { seq_repr, items } => {
+            TypeTerm::Seq { seq_repr, item } => {
                 TypeTerm::Seq {
                     seq_repr: if let Some(sr) = seq_repr {
                         Some(Box::new(sr.clone().get_interface_type()))
                     } else { None },
-                    items: items.iter().map(|t| t.get_interface_type()).collect()
+                    item: Box::new(item.get_interface_type())
                 }
             }
             TypeTerm::Struct { struct_repr, members } => {
@@ -682,7 +400,7 @@ impl TypeTerm {
             TypeTerm::Var(_) => false,
             TypeTerm::Num(_) => false,
             TypeTerm::Char(_) => false,
-            TypeTerm::Univ(bound, t) => t.is_empty(),
+            TypeTerm::Univ{ Γ, bounds, τ } => τ.is_empty(),
             TypeTerm::Spec(ts) |
             TypeTerm::Ladder(ts) |
             TypeTerm::Func(ts) => {
@@ -691,9 +409,7 @@ impl TypeTerm {
             TypeTerm::Morph(src,dst) => {
                 src.is_empty() && dst.is_empty()
             }
-            TypeTerm::Seq{ seq_repr, items } => {
-                items.iter().fold(true, |s,t| s && t.is_empty() )
-            }
+            TypeTerm::Seq{ seq_repr, item } => { item.is_empty() }
             TypeTerm::Struct{ struct_repr, members } => {
                 members.iter()
                     .fold(true, |s,member_decl| s && member_decl.ty.is_empty() )

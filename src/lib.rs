@@ -12,7 +12,6 @@ mod test;
 
 pub use {
     context::*,
-    desugared_term::*,
     term::*,
     constraint_system::*,
     morphism::*,

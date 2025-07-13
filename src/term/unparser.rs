@@ -1,29 +1,29 @@
-use crate::{dict::*, desugared_term::*};
+use crate::{dict::*, term::*};
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 pub trait UnparseLadderType {
-    fn unparse(&self, t: &DesugaredTypeTerm) -> String;
+    fn unparse(&self, t: &TypeTerm) -> String;
 }
 
 impl<T: TypeDict> UnparseLadderType for T {
-    fn unparse(&self, t: &DesugaredTypeTerm) -> String {
+    fn unparse(&self, t: &TypeTerm) -> String {
         match t {
-            DesugaredTypeTerm::TypeID(TypeID::Fun(id)) => {
+            TypeTerm::Id(id) => {
                 self.get_typename(*id).unwrap_or("?Fun?".into())
-            },
-            DesugaredTypeTerm::TypeID(TypeID::Var(id)) => {
+            }
+            TypeTerm::Var(id) => {
                 self.get_varname(*id).unwrap_or("?Var?".into())
-            },
-            DesugaredTypeTerm::Num(n) => format!("{}", n),
-            DesugaredTypeTerm::Char(c) => match c {
+            }
+            TypeTerm::Num(n) => format!("{}", n),
+            TypeTerm::Char(c) => match c {
                 '\0' => "'\\0'".into(),
                 '\n' => "'\\n'".into(),
                 '\t' => "'\\t'".into(),
                 '\'' => "'\\''".into(),
                 c => format!("'{}'", c)
-            },
-            DesugaredTypeTerm::Ladder(rungs) => {
+            }
+            TypeTerm::Ladder(rungs) => {
                 let mut s = String::new();
                 let mut first = true;
                 for r in rungs.iter() {
@@ -35,7 +35,7 @@ impl<T: TypeDict> UnparseLadderType for T {
                 }
                 s
             }
-            DesugaredTypeTerm::App(args) => {
+            TypeTerm::Spec(args) => {
                 let mut s = String::new();
                 s.push('<');
                 let mut first = true;
@@ -48,6 +48,24 @@ impl<T: TypeDict> UnparseLadderType for T {
                 }
                 s.push('>');
                 s
+            }
+            TypeTerm::Seq { seq_repr, item } => {
+                todo!()
+            }
+            TypeTerm::Struct { struct_repr, members } => {
+                todo!()
+            }
+            TypeTerm::Enum { enum_repr, variants } => {
+                todo!()
+            }
+            TypeTerm::Univ{ Γ, bounds, τ } => {
+                todo!()
+            }
+            TypeTerm::Func(ts) => {
+                todo!()
+            }
+            TypeTerm::Morph(s, t) => {
+                todo!()
             }
         }
     }

@@ -1,8 +1,8 @@
-use crate::{dict::BimapTypeDict, parser::*};
+use crate::{Context, parser::*};
 
 #[test]
 fn test_normalize_id() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     assert_eq!(
         dict.parse("A~B~C").expect("parse error"),
@@ -17,7 +17,7 @@ fn test_normalize_id() {
 
 #[test]
 fn test_normalize_spec() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
 
     assert_eq!(
         dict.parse("<A B~C>").expect("parse error"),
@@ -42,33 +42,32 @@ fn test_normalize_spec() {
 
 #[test]
 fn test_normalize_seq() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
     assert_eq!(
-        dict.parse("<Seq Char~Ascii>").expect("parse error"),
-        dict.parse("<Seq Char>~<Seq Ascii>").expect("parse errror").normalize(),
+        dict.parse("[Char~Ascii]").expect("parse error"),
+        dict.parse("[Char]~[Ascii]").expect("parse errror").normalize(),
     );
 
     eprintln!("---------------");
     assert_eq!(
-        dict.parse("<Seq <Digit 10>~Char>").expect("parse error"),
-        dict.parse("<Seq <Digit 10>>~<Seq Char>").expect("parse errror").normalize(),
+        dict.parse("[<Digit 10>~Char]").expect("parse error"),
+        dict.parse("[<Digit 10>]~[Char]").expect("parse errror").normalize(),
     );
     eprintln!("---------------");
     assert_eq!(
-        dict.parse("<Seq~<ValueDelim '\\0'> Char~Ascii~native.UInt8>").expect("parse error"),
-        dict.parse("<Seq Char> ~ <<ValueDelim '\\0'> Char> ~ <<ValueDelim '\\0'> Ascii~native.UInt8>").expect("parse error").normalize(),
+        dict.parse("[~<ValueDelim '\\0'> Char~Ascii~native.UInt8]").expect("parse error"),
+        dict.parse("[Char] ~ <<ValueDelim '\\0'> Char> ~ <<ValueDelim '\\0'> Ascii~native.UInt8>").expect("parse error").normalize(),
     );
-
     eprintln!("---------------");
     assert_eq!(
-        dict.parse("<Seq~<ValueDelim '\\0'> Char~Ascii~native.UInt8>").expect("parse error"),
-        dict.parse("<Seq Char~Ascii> ~ <<ValueDelim '\\0'> Char~Ascii> ~ <<ValueDelim '\\0'> native.UInt8>").expect("parse error").normalize(),
+        dict.parse("[~<ValueDelim '\\0'> Char~Ascii~native.UInt8]").expect("parse error"),
+        dict.parse("[Char~Ascii] ~ <<ValueDelim '\\0'> Char~Ascii> ~ <<ValueDelim '\\0'> native.UInt8>").expect("parse error").normalize(),
     );
 }
 
 #[test]
 fn test_normalize_complex_spec() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
     assert_eq!(
         dict.parse("<A~Y <B C~D~E> F H H>").expect("parse error"),
         dict.parse("<A~Y <B C> F H H>
@@ -80,18 +79,18 @@ fn test_normalize_complex_spec() {
 
 #[test]
 fn test_normalize_struct() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
     assert_eq!(
-        dict.parse("< Struct~Aligned
-                <  a   TimePoint~<TimeSince UnixEpoch>~Seconds~native.UInt64  >
-                <  b   Angle ~ Degrees ~ ℝ ~ native.Float32 >
-            >
+        dict.parse("{~Aligned
+                a: TimePoint~<TimeSince UnixEpoch>~Seconds~native.UInt64;
+                b: Angle ~ Degrees ~ ℝ ~ native.Float32;
+            }
             ").expect("parse error"),
         dict.parse("
-            < Struct <a TimePoint> <b Angle> >
-        ~   < Struct  <a <TimeSince UnixEpoch>~Seconds> <b Angle~Degrees~ℝ> >
-        ~   < Struct~Aligned  <a native.UInt64> <b native.Float32> >
-        ").expect("parse errror")
+            { a: TimePoint; b: Angle; }
+        ~   { a: <TimeSince UnixEpoch>~Seconds; b: Angle~Degrees~ℝ; }
+        ~   {~Aligned a: native.UInt64; b: native.Float32; }
+        ").expect("parse error")
 
             .normalize(),
     );
@@ -99,7 +98,7 @@ fn test_normalize_struct() {
 
 #[test]
 fn test_normalize_enum() {
-    let mut dict = BimapTypeDict::new();
+    let mut dict = Context::new();
     assert_eq!(
         dict.parse("< Enum
                 <  a   TimePoint~<TimeSince UnixEpoch>~Seconds~native.UInt64  >
