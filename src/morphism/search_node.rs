@@ -124,7 +124,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
     }
 
     fn creates_loop(&self) -> bool {
-        eprintln!("-- is loop ? --");
+        //eprintln!("-- is loop ? --");
         let mut end_type = self.get_type().dst_type;//self.read().unwrap().ty.dst_type.clone();
         let mut cur_node = self.read().unwrap().pred.clone();
         while let Some(n) = cur_node {
@@ -156,18 +156,18 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             }.normalize();
 
             let ctx = self.read().unwrap().ctx.clone();
-            eprintln!("check for loop: {} =?= {}", prev_type.pretty(&mut ctx.clone(), 0), end_type.pretty(&mut ctx.clone(), 0));
+            //eprintln!("check for loop: {} =?= {}", prev_type.pretty(&mut ctx.clone(), 0), end_type.pretty(&mut ctx.clone(), 0));
 
             if prev_type == end_type
             //if unify(&prev_type, &end_type).is_ok()
             {
-                eprintln!("--- loop ---");
+                //eprintln!("--- loop ---");
                 return true;
             }
 
             cur_node = n.read().unwrap().pred.clone();
         }
-        eprintln!("--- no loop --");
+        //eprintln!("--- no loop --");
 
         false
     }
@@ -281,7 +281,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
                     Γ: Vec::new(),
                     bounds: Vec::new(),
                     src_type: TypeTerm::Seq{ seq_repr: seq_repr.clone(), item: Box::new(goal.src_type.clone()) },
-                    dst_type: TypeTerm::Seq{ seq_repr: seq_repr.clone(), item: Box::new(goal.src_type.clone()) }
+                    dst_type: TypeTerm::Seq{ seq_repr: seq_repr.clone(), item: Box::new(goal.dst_type.clone()) }
                 },
             step: Step::MapSeq { seq_repr, item: GraphSearch::new(ctx, goal) },
             ψ: self.read().unwrap().ψ.clone()
