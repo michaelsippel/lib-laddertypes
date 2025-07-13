@@ -1,6 +1,6 @@
 use {
     crate::{
-        dict::*, term::TypeTerm, EnumVariant, StructMember,
+        term::TypeTerm, EnumVariant, StructMember,
         ConstraintSystem, ConstraintPair, ConstraintError
     }
 };
@@ -10,20 +10,20 @@ impl ConstraintSystem {
 
     pub fn eval_equation(&mut self, unification_pair: ConstraintPair) -> Result<(), ConstraintError> {
         match (&unification_pair.lhs, &unification_pair.rhs) {
-            (TypeTerm::TypeID(TypeID::Var(varid)), t) |
-            (t, TypeTerm::TypeID(TypeID::Var(varid))) => {
+            (TypeTerm::Var(varid), t) |
+            (t, TypeTerm::Var(varid)) => {
                 if ! t.contains_var( *varid ) {
-                    self.σ.insert(TypeID::Var(*varid), t.clone());
+                    self.σ.insert(*varid, t.clone());
                     self.reapply_subst();
                     Ok(())
-                } else if t == &TypeTerm::TypeID(TypeID::Var(*varid)) {
+                } else if t == &TypeTerm::Var(*varid) {
                     Ok(())
                 } else {
-                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(*varid)), t2: t.clone() })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::Var(*varid), t2: t.clone() })
                 }
             }
 
-            (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
+            (TypeTerm::Id(a1), TypeTerm::Id(a2)) => {
                 if a1 == a2 { Ok(()) } else { Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs }) }
             }
             (TypeTerm::Num(n1), TypeTerm::Num(n2)) => {

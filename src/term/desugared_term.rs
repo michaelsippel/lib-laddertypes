@@ -78,7 +78,7 @@ impl DesugaredTypeTerm {
 
     pub fn contains_var(&self, var_id: u64) -> bool {
         match self {
-            DesugaredTypeTerm::TypeID(TypeID::Var(v)) => (&var_id == v),
+            DesugaredTypeTerm::TypeID(TypeID::Var(v)) => &var_id == v,
             DesugaredTypeTerm::App(args) |
             DesugaredTypeTerm::Ladder(args) => {
                 for a in args.iter() {

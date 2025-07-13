@@ -1,6 +1,6 @@
 use {
     crate::{
-        dict::*, term::TypeTerm, EnumVariant, StructMember,
+        term::TypeTerm, EnumVariant, StructMember,
         ConstraintSystem, ConstraintPair, ConstraintError
     }
 };
@@ -8,7 +8,7 @@ use {
 impl ConstraintSystem {
     pub fn add_lower_subtype_bound(&mut self, v: u64, new_lower_bound: TypeTerm) -> Result<(),()> {
 
-        if new_lower_bound == TypeTerm::TypeID(TypeID::Var(v)) {
+        if new_lower_bound == TypeTerm::Var(v) {
             return Ok(());
         }
 
@@ -53,7 +53,7 @@ impl ConstraintSystem {
 
 
     pub fn add_upper_subtype_bound(&mut self, v: u64, new_upper_bound: TypeTerm) -> Result<(),()> {
-        if new_upper_bound == TypeTerm::TypeID(TypeID::Var(v)) {
+        if new_upper_bound == TypeTerm::Var(v) {
             return Ok(());
         }
 
@@ -99,29 +99,29 @@ impl ConstraintSystem {
              Variables
             */
 
-            (TypeTerm::TypeID(TypeID::Var(v)), t) => {
+            (TypeTerm::Var(v), t) => {
                 //eprintln!("variable <= t");
                 if self.add_upper_subtype_bound(v, t.clone()).is_ok() {
                     Ok(TypeTerm::unit())
                 } else {
-                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(v)), t2: t })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::Var(v), t2: t })
                 }
             }
 
 
-            (t, TypeTerm::TypeID(TypeID::Var(v))) => {
+            (t, TypeTerm::Var(v)) => {
                 //eprintln!("t <= variable");
                 if self.add_lower_subtype_bound(v, t.clone()).is_ok() {
                     Ok(TypeTerm::unit())
                 } else {
-                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::TypeID(TypeID::Var(v)), t2: t })
+                    Err(ConstraintError{ addr: unification_pair.addr, t1: TypeTerm::Var(v), t2: t })
                 }
             }
 
             /*
              Atoms
             */
-            (TypeTerm::TypeID(a1), TypeTerm::TypeID(a2)) => {
+            (TypeTerm::Id(a1), TypeTerm::Id(a2)) => {
                 if a1 == a2 { Ok(TypeTerm::unit()) } else { Err(ConstraintError{ addr: unification_pair.addr, t1: unification_pair.lhs, t2: unification_pair.rhs}) }
             }
             (TypeTerm::Num(n1), TypeTerm::Num(n2)) => {
@@ -261,7 +261,7 @@ impl ConstraintSystem {
                         //eprintln!("addr = {:?}", addr);
 
                         match (lhs.clone(), rhs.clone()) {
-                            (t, TypeTerm::TypeID(TypeID::Var(v))) => {
+                            (t, TypeTerm::Var(v)) => {
 
                                 if self.add_upper_subtype_bound(v,t.clone()).is_ok() {
                                     let mut new_upper_bound_ladder = vec![ t ];

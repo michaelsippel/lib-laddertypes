@@ -1,5 +1,9 @@
 use {
-    crate::{dict::*, term::TypeTerm, desugared_term::*, EnumVariant, StructMember, Substitution}, std::collections::HashMap
+    crate::{
+        term::TypeTerm, Substitution,
+        context::*,
+    },
+    std::{collections::HashMap}
 };
 
 pub mod eval_eq;
@@ -32,7 +36,7 @@ impl ConstraintPair {
 }
 
 pub struct ConstraintSystem {
-    σ: HashMap<TypeID, TypeTerm>,
+    σ: HashMapSubst,
     upper_bounds: HashMap< u64, TypeTerm >,
     lower_bounds: HashMap< u64, TypeTerm >,
 
@@ -50,7 +54,7 @@ impl ConstraintSystem {
         parallel_pairs: Vec<ConstraintPair>
     ) -> Self {
         ConstraintSystem {
-            σ: HashMap::new(),
+            σ: HashMapSubst::new(),
 
             equal_pairs,
             subtype_pairs,
@@ -63,10 +67,10 @@ impl ConstraintSystem {
     }
 
     pub fn new_eq(eqs: Vec<ConstraintPair>) -> Self {
-        ConstraintSystem::new(  eqs, Vec::new(), Vec::new(), Vec::new() )
+        ConstraintSystem::new( eqs, Vec::new(), Vec::new(), Vec::new() )
     }
 
-    pub fn new_sub( subs: Vec<ConstraintPair>) -> Self {
+    pub fn new_sub(subs: Vec<ConstraintPair>) -> Self {
         ConstraintSystem::new( Vec::new(), subs, Vec::new(), Vec::new() )
     }
 
@@ -74,24 +78,17 @@ impl ConstraintSystem {
         ConstraintSystem::new( Vec::new(), Vec::new(), traits, Vec::new() )
     }
 
-    pub fn new_parallel( parallels: Vec<ConstraintPair>) -> Self {
-        ConstraintSystem::new(Vec::new(), Vec::new(), Vec::new(), parallels )
+    pub fn new_parallel(parallels: Vec<ConstraintPair>) -> Self {
+        ConstraintSystem::new( Vec::new(), Vec::new(), Vec::new(), parallels )
     }
 
 
     /// update all values in substitution
     pub fn reapply_subst(&mut self) {
-        let mut new_σ = HashMap::new();
-        for (v, tt) in self.σ.iter() {
-            let mut tt = tt.clone();
-            tt.apply_subst(&self.σ);
-            //eprintln!("update σ : {:?} --> {:?}", v, tt);
-            new_σ.insert(v.clone(), tt.normalize());
-        }
-        self.σ = new_σ;
+        self.σ.saturate();
     }
 
-    pub fn solve(mut self) -> Result<(Vec<TypeTerm>, HashMap<TypeID, TypeTerm>), ConstraintError> {
+    pub fn solve(mut self) -> Result<(Vec<TypeTerm>, HashMapSubst), ConstraintError> {
         // solve equations
         while let Some( mut equal_pair ) = self.equal_pairs.pop() {
             equal_pair.lhs.apply_subst(&self.σ);
@@ -110,13 +107,11 @@ impl ConstraintSystem {
 
         // add variables from subtype bounds
         for (var_id, t) in self.upper_bounds.iter() {
-//            eprintln!("VAR {} upper bound {:?}", var_id, t);
-            self.σ.insert(TypeID::Var(*var_id), t.clone().strip());
+            self.σ.insert(*var_id, t.clone().strip());
         }
 
         for (var_id, t) in self.lower_bounds.iter() {
-//            eprintln!("VAR {} lower bound {:?}", var_id, t);
-            self.σ.insert(TypeID::Var(*var_id), t.clone().strip());
+            self.σ.insert(*var_id, t.clone().strip());
         }
 
         self.reapply_subst();
@@ -145,25 +140,25 @@ impl ConstraintSystem {
 pub fn unify(
     t1: &TypeTerm,
     t2: &TypeTerm
-) -> Result<HashMap<TypeID, TypeTerm>, ConstraintError> {
-    let unification = ConstraintSystem::new_eq(vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
+) -> Result<HashMapSubst, ConstraintError> {
+    let unification = ConstraintSystem::new_eq( vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
     Ok(unification.solve()?.1)
 }
 
 pub fn subtype_unify(
     t1: &TypeTerm,
     t2: &TypeTerm
-) -> Result<(TypeTerm, HashMap<TypeID, TypeTerm>), ConstraintError> {
+) -> Result<(TypeTerm, HashMapSubst), ConstraintError> {
     let unification = ConstraintSystem::new_sub(vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
-    unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
+    unification.solve().map(|(halos, σ)| (halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
 }
 
 pub fn parallel_unify(
     t1: &TypeTerm,
     t2: &TypeTerm
-) -> Result<(TypeTerm, HashMap<TypeID, TypeTerm>), ConstraintError> {
+) -> Result<(TypeTerm, HashMapSubst), ConstraintError> {
     let unification = ConstraintSystem::new_parallel(vec![ ConstraintPair{ lhs: t1.clone(), rhs: t2.clone(), addr:vec![] } ]);
-    unification.solve().map( |(halos,σ)| ( halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
+    unification.solve().map(|(halos, σ)| (halos.first().cloned().unwrap_or(TypeTerm::unit()), σ) )
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\

@@ -1,6 +1,6 @@
 
 use {
-    crate::{desugared_term::*, dict::*, parser::*, TypeTerm}
+    crate::{desugared_term::*, dict::*, parser::*, Context, LayeredContext, TypeKind, TypeTerm}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -12,13 +12,30 @@ fn test_parser_id() {
     dict.add_varname("T".into());
 
     assert_eq!(
-        Ok(TypeTerm::TypeID(TypeID::Var(0))),
+        Ok(TypeTerm::Var(0)),
         dict.parse("T")
     );
 
     assert_eq!(
-        Ok(TypeTerm::TypeID(TypeID::Fun(0))),
+        Ok(TypeTerm::Id(0)),
         dict.parse("A")
+    );
+}
+
+#[test]
+fn test_parser_var_ctx() {
+    let mut ctx = Context::new();
+
+    ctx.add_variable("T", TypeKind::Type);
+
+    assert_eq!(
+        Ok(TypeTerm::Var(0)),
+        ctx.parse("T")
+    );
+
+    assert_eq!(
+        Ok(TypeTerm::Id(0)),
+        ctx.parse("A")
     );
 }
 
@@ -43,16 +60,16 @@ fn test_parser_app() {
     assert_eq!(
         BimapTypeDict::new().parse("<A B>"),
         Ok(TypeTerm::Spec(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
-            TypeTerm::TypeID(TypeID::Fun(1)),
+            TypeTerm::Id(0),
+            TypeTerm::Id(1),
         ]))
     );
     assert_eq!(
         BimapTypeDict::new().parse("<A B C>"),
         Ok(TypeTerm::Spec(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
-            TypeTerm::TypeID(TypeID::Fun(1)),
-            TypeTerm::TypeID(TypeID::Fun(2)),
+            TypeTerm::Id(0),
+            TypeTerm::Id(1),
+            TypeTerm::Id(2),
         ]))
     );
 }
@@ -78,16 +95,16 @@ fn test_parser_ladder() {
     assert_eq!(
         BimapTypeDict::new().parse("A~B"),
         Ok(TypeTerm::Ladder(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
-            TypeTerm::TypeID(TypeID::Fun(1)),
+            TypeTerm::Id(0),
+            TypeTerm::Id(1),
         ]))
     );
     assert_eq!(
         BimapTypeDict::new().parse("A~B~C"),
         Ok(TypeTerm::Ladder(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
-            TypeTerm::TypeID(TypeID::Fun(1)),
-            TypeTerm::TypeID(TypeID::Fun(2)),
+            TypeTerm::Id(0),
+            TypeTerm::Id(1),
+            TypeTerm::Id(2),
         ]))
     );
 }
@@ -98,10 +115,10 @@ fn test_parser_ladder_outside() {
         BimapTypeDict::new().parse("<A B>~C"),
         Ok(TypeTerm::Ladder(vec![
             TypeTerm::Spec(vec![
-                TypeTerm::TypeID(TypeID::Fun(0)),
-                TypeTerm::TypeID(TypeID::Fun(1)),
+                TypeTerm::Id(0),
+                TypeTerm::Id(1),
             ]),
-            TypeTerm::TypeID(TypeID::Fun(2)),
+            TypeTerm::Id(2),
         ]))
     );
 }
@@ -111,10 +128,10 @@ fn test_parser_ladder_inside() {
     assert_eq!(
         BimapTypeDict::new().parse("<A B~C>"),
         Ok(TypeTerm::Spec(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
+            TypeTerm::Id(0),
             TypeTerm::Ladder(vec![
-                TypeTerm::TypeID(TypeID::Fun(1)),
-                TypeTerm::TypeID(TypeID::Fun(2)),
+                TypeTerm::Id(1),
+                TypeTerm::Id(2),
             ])
         ]))
     );
@@ -125,12 +142,12 @@ fn test_parser_ladder_between() {
     assert_eq!(
         BimapTypeDict::new().parse("<A B~<C D>>"),
         Ok(TypeTerm::Spec(vec![
-            TypeTerm::TypeID(TypeID::Fun(0)),
+            TypeTerm::Id(0),
             TypeTerm::Ladder(vec![
-                TypeTerm::TypeID(TypeID::Fun(1)),
+                TypeTerm::Id(1),
                 TypeTerm::Spec(vec![
-                    TypeTerm::TypeID(TypeID::Fun(2)),
-                    TypeTerm::TypeID(TypeID::Fun(3)),
+                    TypeTerm::Id(2),
+                    TypeTerm::Id(3),
                 ])
             ])
         ]))

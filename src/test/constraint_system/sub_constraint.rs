@@ -1,11 +1,7 @@
 use {
-    crate::{dict::*, term::*, parser::*,
-        constraint_system::{
-            subtype_unify,
-            ConstraintSystem,
-            ConstraintPair,
-            ConstraintError
-        }
+    crate::{constraint_system::{
+            subtype_unify, ConstraintError, ConstraintPair, ConstraintSystem
+        }, dict::*, parser::*, term::*, HashMapSubst
     }
 };
 
@@ -17,7 +13,7 @@ use {
 #[test]
 fn test_subtype_unification1() {
     let mut dict = BimapTypeDict::new();
-    dict.add_varname(String::from("T"));
+    dict.add_varname("T");
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
@@ -29,7 +25,7 @@ fn test_subtype_unification1() {
         ]).solve(),
         Ok((
             vec![ dict.parse("A").unwrap() ],
-            vec![].into_iter().collect()
+            vec![].into_iter().collect::<HashMapSubst>(),
         ))
     );
 
@@ -58,7 +54,7 @@ fn test_subtype_unification1() {
         Ok((
             vec![ TypeTerm::unit() ],
             vec![
-                (dict.get_typeid(&"T".into()).unwrap(),
+                (0,
                     dict.parse("A ~ B ~ C").unwrap())
             ].into_iter().collect()
         ))
@@ -75,7 +71,7 @@ fn test_subtype_unification1() {
         Ok((
             vec![ dict.parse("A").unwrap() ],
             vec![
-                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("C").unwrap())
+                (0, dict.parse("C").unwrap())
             ].into_iter().collect()
         ))
     );
@@ -88,10 +84,10 @@ fn test_subtype_unification1() {
 fn test_subtype_unification2() {
     let mut dict = BimapTypeDict::new();
 
-    dict.add_varname(String::from("T"));
-    dict.add_varname(String::from("U"));
-    dict.add_varname(String::from("V"));
-    dict.add_varname(String::from("W"));
+    dict.add_varname("T");
+    dict.add_varname("U");
+    dict.add_varname("V");
+    dict.add_varname("W");
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
@@ -107,7 +103,7 @@ fn test_subtype_unification2() {
             ],
             vec![
                 // T
-                (TypeID::Var(0), dict.parse("<LengthPrefix x86.UInt64>").unwrap())
+                (0, dict.parse("<LengthPrefix x86.UInt64>").unwrap())
             ].into_iter().collect()
         ))
     );
@@ -132,10 +128,10 @@ fn test_subtype_unification2() {
             ],
             vec![
                 // T
-                (TypeID::Var(0), dict.parse("<Seq <Seq Char>>").unwrap()),
+                (0, dict.parse("<Seq <Seq Char>>").unwrap()),
 
                 // U
-                (TypeID::Var(1), dict.parse("<Seq Char>").unwrap())
+                (1, dict.parse("<Seq Char>").unwrap())
             ].into_iter().collect()
         ))
     );
@@ -160,10 +156,10 @@ fn test_subtype_unification2() {
             ],
             vec![
                 // W
-                (TypeID::Var(3), dict.parse("ℕ~<PosInt 10 BigEndian>").unwrap()),
+                (3, dict.parse("ℕ~<PosInt 10 BigEndian>").unwrap()),
 
                 // T
-                (TypeID::Var(0), dict.parse("ℕ~<PosInt 10 BigEndian>~<Seq Char>").unwrap())
+                (0, dict.parse("ℕ~<PosInt 10 BigEndian>~<Seq Char>").unwrap())
             ].into_iter().collect()
         ))
     );
@@ -290,7 +286,7 @@ fn test_reprtree_list_subtype() {
         Ok((
             TypeTerm::unit(),
             vec![
-                (dict.get_typeid(&"Item".into()).unwrap(), dict.parse("<Digit 10>~Char").unwrap())
+                (0, dict.parse("<Digit 10>~Char").unwrap())
             ].into_iter().collect()
         ))
     );
@@ -300,8 +296,8 @@ fn test_reprtree_list_subtype() {
 pub fn test_subtype_delim() {
     let mut dict = BimapTypeDict::new();
 
-    dict.add_varname(String::from("T"));
-    dict.add_varname(String::from("Delim"));
+    dict.add_varname("T");
+    dict.add_varname("Delim");
 
     assert_eq!(
         ConstraintSystem::new_sub(vec![
@@ -345,8 +341,8 @@ pub fn test_subtype_delim() {
 
             // variable substitution
             vec![
-                (dict.get_typeid(&"T".into()).unwrap(), dict.parse("Char~Ascii~UInt8").expect("")),
-                (dict.get_typeid(&"Delim".into()).unwrap(), TypeTerm::Char(':')),
+                (0, dict.parse("Char~Ascii~UInt8").expect("")),
+                (1, TypeTerm::Char(':')),
             ].into_iter().collect()
         ))
     );

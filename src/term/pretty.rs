@@ -1,5 +1,5 @@
 use {
-    crate::{dict::TypeID, term::TypeTerm, EnumVariant, StructMember, TypeDict, VariableConstraint},
+    crate::{term::TypeTerm, EnumVariant, StructMember, TypeDict, VariableConstraint},
     tiny_ansi::TinyAnsi
 };
 
@@ -31,15 +31,11 @@ impl TypeTerm {
     pub fn pretty(&self, dict: &impl TypeDict, indent: u64) -> String {
         let indent_width = 4;
         match self {
-            TypeTerm::TypeID(id) => {
-                match id {
-                    TypeID::Var(varid) => {
-                        format!("{}", dict.get_typename(id).unwrap_or("??".bright_red())).bright_magenta()
-                    },
-                    TypeID::Fun(funid) => {
-                        format!("{}", dict.get_typename(id).unwrap_or("??".bright_red())).blue().bold()
-                    }
-                }
+            TypeTerm::Id(id) => {
+                format!("{}", dict.get_typename(*id).unwrap_or("??".bright_red())).blue().bold()
+            }
+            TypeTerm::Var(id) => {
+                format!("{}({})", dict.get_varname(*id).unwrap_or("??".bright_red()).bright_magenta(), id)
             },
 
             TypeTerm::Num(n) => {
