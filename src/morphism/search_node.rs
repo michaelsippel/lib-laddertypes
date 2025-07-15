@@ -21,7 +21,7 @@ use {
     crate::{
         morphism::DecomposedMorphismType, subtype_unify, unify, AddressingMode, Context, ContextPtr, EnumVariant, GraphSearch, GraphSearchError, GraphSearchState, HashMapSubst, LayeredContext, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, Substitution, SubstitutionMut, TypeDict, TypeTerm
     },
-    std::sync::{Arc,RwLock}
+    std::{cmp::Ordering, sync::{Arc,RwLock}}
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -35,6 +35,9 @@ pub struct SearchNode<M: Morphism+Clone> {
 
     /// (measured) weight of the preceding path
     pub weight: u64,
+
+    /// (estimated) remaining weight to complete this path
+    pub est_remain: u64,
 
     pub ctx: ContextPtr,
     pub ty: MorphismType,
@@ -61,6 +64,43 @@ pub enum SolvedStep<M: Morphism+Clone> {
     MapEnum { enum_repr: Option<Box<TypeTerm>>, variants: Vec< (String, MorphismInstance<M>) > }
 }
 
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
+
+pub struct SearchNodePtr<M:Morphism+Clone>( pub Arc<RwLock<SearchNode<M>>> );
+
+//<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
+
+impl<M:Morphism+Clone> PartialEq for SearchNodePtr<M> {
+    fn eq(&self, other: &Self) -> bool {
+        let locked_self = self.0.read().unwrap();
+        let locked_other = other.0.read().unwrap();
+
+        (other.0.get_weight() + locked_other.est_remain)
+                == (self.0.get_weight() + locked_self.est_remain)
+    }
+}
+
+impl<M:Morphism+Clone> Eq for SearchNodePtr<M> {
+
+}
+
+impl<M:Morphism+Clone> Ord for SearchNodePtr<M> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let locked_self = self.0.read().unwrap();
+        let locked_other = other.0.read().unwrap();
+
+        (other.0.get_weight() + locked_other.est_remain)
+            .cmp(
+                &(self.0.get_weight() + locked_self.est_remain)
+            )
+    }
+}
+
+impl<M:Morphism+Clone> PartialOrd for SearchNodePtr<M> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
@@ -78,21 +118,47 @@ pub trait SearchNodeExt<M: Morphism+Clone> {
 
     fn is_ready(&self) -> bool;
     fn get_weight(&self) -> u64;
+    fn get_weight_step(&self) -> u64;
+    fn est_remain(&self, goal: &MorphismType) -> u64;
     fn get_type(&self) -> MorphismType;
 
     fn creates_loop(&self) -> bool;
 }
 
 impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
-    fn get_weight(&self) -> u64 {
-        self.read().unwrap().weight
-        + match &self.read().unwrap().step {
+    fn get_weight_step(&self) -> u64 {
+        match &self.read().unwrap().step {
             Step::Id { τ } => 0,
             Step::Prim { σs, m } => 10,
             Step::MapSeq { seq_repr, item } => item.best_path_weight(),
             Step::MapStruct { struct_repr, members } => members.iter().map(|(_,g)| g.best_path_weight() ).sum(),
             Step::MapEnum { enum_repr, variants } => variants.iter().map(|(_,g)| g.best_path_weight() ).max().unwrap_or(0),
         }
+    }
+
+    fn get_weight(&self) -> u64 {
+        self.read().unwrap().weight
+        + self.get_weight_step()
+    }
+
+    /*
+     * for node `search_node` , calculate the estimated cost for completing
+     * the path to fulfill the morphism type `goal`
+     */
+    fn est_remain(&self, goal: &MorphismType) -> u64 {
+        MorphismType {
+            Γ: Vec::new(),
+            bounds: Vec::new(),
+            src_type: goal.src_type.clone(),
+            dst_type: self.get_type().src_type.clone()
+        }.estimated_cost()
+        +
+        MorphismType {
+            Γ: Vec::new(),
+            bounds: Vec::new(),
+            src_type: self.get_type().dst_type.clone(),
+            dst_type: goal.dst_type.clone()
+        }.estimated_cost()
     }
 
     fn get_type(&self) -> MorphismType {
@@ -251,6 +317,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             ctx: ctx_inst.clone(),
             pred: Some(self.clone()),
             weight: self.get_weight(),
+            est_remain: 0,
             ty: MorphismType { Γ: ctx_inst.get_Γ(), bounds: Vec::new(), src_type, dst_type },
             step: Step::Prim{ σs, m },
             ψ,
@@ -277,6 +344,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             ctx: self.read().unwrap().ctx.clone(),
             pred: Some(self.clone()),
             weight: self.get_weight(),
+            est_remain: 0,
             ty: MorphismType {
                     Γ: Vec::new(),
                     bounds: Vec::new(),
@@ -299,6 +367,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             ctx: self.read().unwrap().ctx.clone(),
             pred: Some(self.clone()),
             weight: self.get_weight(),
+            est_remain: 0,
             ty: MorphismType {
                 Γ: Vec::new(),
                 bounds:Vec::new(),
@@ -323,6 +392,7 @@ impl<M: Morphism+Clone> SearchNodeExt<M> for Arc<RwLock<SearchNode<M>>> {
             ctx: self.read().unwrap().ctx.clone(),
             pred: Some(self.clone()),
             weight: self.get_weight(),
+            est_remain: 0,
             ty: MorphismType {
                 Γ: Vec::new(),
                 bounds: Vec::new(),

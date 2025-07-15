@@ -19,9 +19,10 @@
 
 use {
     crate::{
-        morphism::DecomposedMorphismType, search_node::{SearchNode, SearchNodeExt, Step}, AddressingMode, Context, ContextPtr, EnumVariant, HashMapSubst, LayeredContext, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, SubstitutionMut, TypeDict, TypeTerm
+        morphism::DecomposedMorphismType, search_node::{SearchNode, SearchNodeExt, Step}, AddressingMode, Context, ContextPtr, EnumVariant, HashMapSubst, LayeredContext, Morphism, MorphismBase, MorphismInstance, MorphismType, StructMember, SubstitutionMut, TypeDict, TypeTerm,
+        search_node::SearchNodePtr
     },
-    std::{collections::HashMap, ops::Deref, sync::{Arc,RwLock}}
+    std::{collections::{HashMap, BinaryHeap}, cmp::Ordering, ops::Deref, sync::{Arc,RwLock}},
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -35,7 +36,7 @@ pub struct GraphSearch<M: Morphism+Clone> {
     Γ: ContextPtr,
     pub goal: MorphismType,
     solution: Option< MorphismInstance<M> >,
-    explore_queue: Vec< Arc<RwLock<SearchNode<M>>> >,
+    explore_queue: BinaryHeap< SearchNodePtr<M> >,
     pub history: Vec< Arc<RwLock<SearchNode<M>>> >,
     id_count: u64
 }
@@ -73,10 +74,17 @@ impl<M: Morphism+Clone> MorphismGraph<M> {
     {
         let Γ = self.base.ctx().scope(AddressingMode::StackUp);
         eprintln!("Start search (Γ={})", Γ.get_ctxname());
+        let mut i = 0;
         let mut search = GraphSearch::<M>::new(Γ, goal);
         loop {
+            if i % 100 == 0 {
+                eprintln!("{} nodes", search.history.len());
+            }
+            i += 1;
             match search.advance(&self.base) {
-                GraphSearchState::Solved(m) => { return (Ok(m), search); }
+                GraphSearchState::Solved(m) => {
+                    eprintln!("finished with {} nodes", search.history.len());
+                    return (Ok(m), search); }
                 GraphSearchState::Continue => { continue; }
                 GraphSearchState::Err(err) => { return (Err(err), search); }
             }
@@ -93,6 +101,7 @@ impl<M: Morphism+Clone> GraphSearch<M> {
             ctx: ctx.clone(),
             pred: None,
             weight: 0,
+            est_remain:0,
             ty: MorphismType {
                 Γ: Vec::new(),
                 bounds: Vec::new(),
@@ -109,10 +118,10 @@ impl<M: Morphism+Clone> GraphSearch<M> {
             solution: None,
             Γ: ctx,
             history: Vec::with_capacity(512),
-            explore_queue: Vec::with_capacity(512),
+            explore_queue: BinaryHeap::new(),
         };
         g.history.push(start_node.clone());
-        g.explore_queue.push(start_node);
+        g.explore_queue.push(SearchNodePtr(start_node));
         g
     }
 
@@ -121,59 +130,29 @@ impl<M: Morphism+Clone> GraphSearch<M> {
     }
 
     pub fn best_path_weight(&self) -> u64 {
-        if let Some(best) = self.explore_queue.last() {
-            best.get_weight()
+        if let Some(best) = self.explore_queue.peek() {
+            best.0.get_weight()
         } else {
             0
         }
     }
 
     /*
-     * for node `search_node` , calculate the estimated cost for completing
-     * the path to fulfill the morphism type `goal`
-     */
-    pub fn est_remain(goal: &MorphismType, search_node: &Arc<RwLock<SearchNode<M>>>) -> u64 {
-        MorphismType {
-            Γ: Vec::new(),
-            bounds: Vec::new(),
-            src_type: goal.src_type.clone(),
-            dst_type: search_node.get_type().src_type.clone()
-        }.estimated_cost()
-        +
-        MorphismType {
-            Γ: Vec::new(),
-            bounds: Vec::new(),
-            src_type: search_node.get_type().dst_type.clone(),
-            dst_type: goal.dst_type.clone()
-        }.estimated_cost()
-    }
-
-    /*
      * consider the nodes in `self.explore_queue` and take the most promising node
      */
     pub fn choose_next_node(&mut self, dict: &mut impl TypeDict) -> Option<Arc<RwLock<SearchNode<M>>>> {
-        let goal= self.goal.clone();
-
-        /* sort all nodes by descending weight whereby we use the sum of the
-         * already manifested cost of the taken path
-         * plus the estimated remaining cost to complete the path
-         */
-        self.explore_queue.sort_by(
-            |a,b| {
-                (Self::est_remain(&goal, b) + b.get_weight() )
-                    .cmp(
-                        &(Self::est_remain(&goal, a) + a.get_weight())
-                    )
-            }
-        );
-
-        self.explore_queue.pop()
+        //let goal= self.goal.clone();
+        Some(self.explore_queue.pop()?.0)
     }
 
     pub fn add_search_node(&mut self, node: Arc<RwLock<SearchNode<M>>>) {
         if ! node.creates_loop() {
-            self.explore_queue.push(node.clone());
-            self.history.push(node);
+            let w = node.get_weight();
+            let r = node.est_remain(&self.goal);
+            node.write().unwrap().weight = w;
+            node.write().unwrap().est_remain = r;
+
+            self.explore_queue.push(SearchNodePtr(node.clone()));
         }
     }
 
@@ -183,6 +162,8 @@ impl<M: Morphism+Clone> GraphSearch<M> {
     pub fn advance(&mut self, base: &MorphismBase<M>) -> GraphSearchState<M> {
         if let Some(node) = self.choose_next_node(&mut self.Γ.clone()) {
             let mut nctx = node.read().unwrap().ctx.clone();
+
+            self.history.push(node.clone());
 
             /*
              * in case this node contains a sub-search graph,
@@ -198,7 +179,9 @@ impl<M: Morphism+Clone> GraphSearch<M> {
                 }
                 Ok(false) => {
                     // sub graph needs further exploration, add it back to the queue
-                    self.explore_queue.push(node);
+                    // (without history entry)
+                    node.write().unwrap().weight = node.get_weight();
+                    self.explore_queue.push(SearchNodePtr(node));
                     return GraphSearchState::Continue;
                 }
                 Err(err) => {
