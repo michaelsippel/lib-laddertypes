@@ -19,8 +19,8 @@
 
 use {
     crate::{
-        morphism::{Morphism, MorphismInstance, MorphismType}, subtype_unify, AddressingMode, Context, ContextPtr, HashMapSubst, LayeredContext, StructMember, TypeDict, TypeTerm
-    }, std::{arch::x86_64::_MM_ROUND_NEAREST, collections::HashMap, io::Write, ops::Deref, sync::{Arc, RwLock}}
+        morphism::{Morphism, MorphismInstance, MorphismType}, subtype_unify, AddressingMode, ContextPtr, HashMapSubst, LayeredContext, StructMember, TypeDict, TypeTerm
+    }, std::{ops::Deref, sync::{Arc, RwLock}}
 };
 
 pub trait MorphBase<
@@ -122,13 +122,13 @@ impl<M: Morphism + Clone> MorphismBase<M> {
                 if let Some(sr_lhs) = struct_repr_lhs {
                     if let Some(sr_rhs) = struct_repr_rhs {
                         if crate::unify(&sr_lhs, &sr_rhs).is_ok() {
-                            eprintln!("decompose: same seq-repr");
+                            //eprintln!("decompose: same seq-repr");
                         } else {
-                            eprintln!("decompose: different seq-repr. skip");
+                            //eprintln!("decompose: different seq-repr. skip");
                             return None;
                         }
                     } else {
-                        eprintln!("decompose: unspecified seq-repr on rhs. skip");
+                        //eprintln!("decompose: unspecified seq-repr on rhs. skip");
                         return None;
                     }
                 }
@@ -181,13 +181,13 @@ impl<M: Morphism + Clone> MorphismBase<M> {
                 if let Some(sr_lhs) = seq_repr_lhs {
                     if let Some(sr_rhs) = seq_repr_rhs {
                         if crate::unify(&sr_lhs, &sr_rhs).is_ok() {
-                            eprintln!("decompose: same seq-repr");
+                           // eprintln!("decompose: same seq-repr");
                         } else {
-                            eprintln!("decompose: different seq-repr. skip");
+                         //   eprintln!("decompose: different seq-repr. skip");
                             return None;
                         }
                     } else {
-                        eprintln!("decompose: unspecified seq-repr on rhs. skip");
+                       // eprintln!("decompose: unspecified seq-repr on rhs. skip");
                         return None;
                     }
                 }
