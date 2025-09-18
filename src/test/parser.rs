@@ -18,7 +18,8 @@
 */
 
 use {
-    crate::{dict::*, parser::*, ConstraintPair, Context, ContextEntry, EnumVariant, LayeredContext, StructMember, TypeKind, TypeTerm, VariableConstraint}
+    crate::{dict::*, parser::*, ConstraintPair, Context, ContextEntry, EnumVariant, LayeredContext, StructMember, TypeKind, TypeTerm, VariableConstraint},
+    tiny_diagnostics::InputRegionTag
 };
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -96,7 +97,7 @@ fn test_parser_app() {
 fn test_parser_unexpected_close() {
     assert_eq!(
         Context::new().parse(">"),
-        Err(ParseError::UnexpectedClose)
+        Err((InputRegionTag{ begin:0, end:0 }, ParseError::UnexpectedClose))
     );
 }
 
@@ -104,7 +105,7 @@ fn test_parser_unexpected_close() {
 fn test_parser_unexpected_token() {
     assert_eq!(
         Context::new().parse("A B"),
-        Err(ParseError::UnexpectedToken)
+        Err((InputRegionTag{ begin:2, end:3 }, ParseError::UnexpectedToken))
     );
 }
 
