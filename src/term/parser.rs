@@ -40,10 +40,9 @@ pub enum ParseInfoType {
     UnknownTypeName( String )
 }
 
-struct ParseInfo {
-    token_range: usize,
-    char_range: InputRegionTag,
-    info: ParseInfoType
+pub struct ParseInfo {
+    pub char_range: InputRegionTag,
+    pub info: ParseInfoType
 }
 
 type ParseLadderTypeResult = Result<(InputRegionTag, TypeTerm), (InputRegionTag, ParseError)>;
@@ -437,6 +436,13 @@ impl<T: LayeredContext> ParseLadderType for T {
 
                 Ok(LadderTypeToken::Ladder) => Err((rtok, ParseError::UnexpectedLadder)),
                 Ok(LadderTypeToken::Symbol(s)) => {
+
+                    if self.get_typeid(&s).is_none() {
+                        warnings.push(ParseInfo {
+                            char_range: rtok,
+                            info: ParseInfoType::UnknownTypeName(s.clone())
+                        });
+                    }
 
                     Ok((InputRegionTag::default(),
                         match self.get_typeid_creat(&s) {
