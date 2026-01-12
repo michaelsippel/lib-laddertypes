@@ -77,7 +77,9 @@ pub struct LadderTypeLexer<It>
 where It: std::iter::Iterator<Item = char>
 {
     chars: std::iter::Peekable<It>,
-    position: usize,
+    pub position: usize,
+    // source_iter : std::iter::Peekable<SourceIter<It>>
+
     current_region: InputRegionTag
 }
 
@@ -114,10 +116,13 @@ where It: Iterator<Item = char>
 
         while let Some(c) = self.chars.peek() {
             match &mut state {
-
                 // determine token type
                 LexerState::Any => {
                     match c {
+
+                        // terminate lexer on '=' since it must be a token of morphism-base not a ladder-type.
+                        // todo: move this termination condition a layer up to a wrapped input iterator
+                        '=' => { return None; },
                         '∀' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::Univ))); },
                         '(' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::Open))); },
                         ')' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::Close))); },
