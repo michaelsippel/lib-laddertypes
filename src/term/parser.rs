@@ -36,41 +36,39 @@ pub enum ParseError {
     UnexpectedToken,
 }
 
+
+#[derive(Debug)]
 pub enum ParseInfoType {
     UnknownTypeName( String )
 }
 
-pub struct ParseInfo {
-    pub char_range: InputRegionTag,
-    pub info: ParseInfoType
-}
 
 type ParseLadderTypeResult = Result<(InputRegionTag, TypeTerm), (InputRegionTag, ParseError)>;
 
 pub trait ParseLadderType {
     fn parse(&mut self, s: &str) -> Result<TypeTerm, (InputRegionTag, ParseError)>;
-    fn parse_warn(&mut self, s:&str, warnings: &mut Vec<ParseInfo>) -> Result<TypeTerm, (InputRegionTag, ParseError)>;
+    fn parse_warn(&mut self, s:&str, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> Result<TypeTerm, (InputRegionTag, ParseError)>;
 
-    fn parse_top<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>;
+    fn parse_top<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>;
 
-    fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>;
+    fn parse_app<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>;
 
-    fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>;
+    fn parse_rung<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>;
 
-    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>;
+    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>;
 
-    fn parse_seq<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>;
+    fn parse_seq<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>;
 
-    fn parse_struct<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>;
+    fn parse_struct<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>;
 
-    fn parse_univ<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>;
+    fn parse_univ<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>;
 }
 
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
@@ -82,12 +80,13 @@ impl<T: LayeredContext> ParseLadderType for T {
         self.parse_warn(s, &mut warnings)
     }
 
-    fn parse_warn(&mut self, s: &str, warnings: &mut Vec<ParseInfo>) -> Result<TypeTerm, (InputRegionTag, ParseError)> {
+    fn parse_warn(&mut self, s: &str, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> Result<TypeTerm, (InputRegionTag, ParseError)> {
         let mut tokens = LadderTypeLexer::from(s.chars()).peekable();
 
         match self.parse_top(&mut tokens, warnings) {
             Ok((r,t)) => {
-                if let Some((r_tok,_tok)) = tokens.peek() {
+                if let Some((r_tok,_tok)) = tokens.peek()
+                {
                     Err((*r_tok, ParseError::UnexpectedToken))
                 } else {
                     Ok(t)
@@ -97,8 +96,8 @@ impl<T: LayeredContext> ParseLadderType for T {
         }
     }
 
-    fn parse_top<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>
+    fn parse_top<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         // 1. Ladders
         let (r_t1, t1) = self.parse_ladder(tokens, warnings)?;
@@ -106,6 +105,7 @@ impl<T: LayeredContext> ParseLadderType for T {
         // 2. Arrows
         match tokens.peek() {
             Some((_range, Ok(LadderTypeToken::ArrowFunc))) => {
+                //eprintln!("detected arrow at {:?}", _range);
                 tokens.next();
                 let (r_t2, t2) = self.parse_top(tokens, warnings)?;
                 return Ok((
@@ -128,8 +128,8 @@ impl<T: LayeredContext> ParseLadderType for T {
         }
     }
 
-    fn parse_app<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>
+    fn parse_app<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         let mut args = Vec::new();
         let mut r = InputRegionTag::default();
@@ -153,8 +153,8 @@ impl<T: LayeredContext> ParseLadderType for T {
         Err((r, ParseError::UnexpectedEnd))
     }
 
-    fn parse_seq<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>
+    fn parse_seq<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         let mut seq_repr = None;
         let mut r = InputRegionTag::default();
@@ -167,7 +167,7 @@ impl<T: LayeredContext> ParseLadderType for T {
 
 
         while let Some((range, tok)) = tokens.peek() {
-            match *tok {
+            match tok {
                 (Ok(LadderTypeToken::CloseSeq)) => {
                     return Err((*range, ParseError::UnexpectedClose));
                 }
@@ -193,8 +193,8 @@ impl<T: LayeredContext> ParseLadderType for T {
         Err((r, ParseError::UnexpectedEnd))
     }
 
-    fn parse_struct<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>
+    fn parse_struct<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         let mut struct_repr = None;
         let mut is_enum = false;
@@ -287,8 +287,8 @@ impl<T: LayeredContext> ParseLadderType for T {
         Err((r, ParseError::UnexpectedEnd))
     }
 
-    fn parse_univ<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>
+    fn parse_univ<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         let mut Γ = Vec::new();
         let mut ctx = self.scope();
@@ -301,7 +301,8 @@ impl<T: LayeredContext> ParseLadderType for T {
             r = InputRegionTag::max(r, rtok);
             match tok {
                 Ok(LadderTypeToken::Symbol(symbol)) => {
-                    match tokens.peek() {
+                    match tokens.peek()
+                    {
                         Some((rtok2, Ok(LadderTypeToken::AssignType))) => {
                             tokens.next();
                             let (rt, t) = ctx.parse_top(tokens, warnings)?;
@@ -309,7 +310,8 @@ impl<T: LayeredContext> ParseLadderType for T {
                             Γ.push(ContextEntry { symbol: symbol.clone(), kind: TypeKind::Value(t.clone()) });
                             ctx.add_variable( &symbol, TypeKind::Value(t) );
 
-                            match tokens.peek() {
+                            match tokens.peek()
+                            {
                                 Some((rtok3, Ok(LadderTypeToken::Univ))) => {
                                     tokens.next();
                                     continue;
@@ -395,8 +397,8 @@ impl<T: LayeredContext> ParseLadderType for T {
         }));
     }
 
-    fn parse_rung<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>
+    fn parse_rung<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         if let Some((rtok, tok)) = tokens.next() {
             match tok {
@@ -438,7 +440,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                 Ok(LadderTypeToken::Symbol(s)) => {
 
                     if self.get_typeid(&s).is_none() {
-                        warnings.push(ParseInfo {
+                        warnings.push(tiny_diagnostics::ParseInfo {
                             char_range: rtok,
                             info: ParseInfoType::UnknownTypeName(s.clone())
                         });
@@ -460,8 +462,8 @@ impl<T: LayeredContext> ParseLadderType for T {
         }
     }
 
-    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<LadderTypeLexer<It>>, warnings: &mut Vec<ParseInfo>) -> ParseLadderTypeResult
-    where It: Iterator<Item = char>
+    fn parse_ladder<It>(&mut self, tokens: &mut Peekable<It>, warnings: &mut Vec<tiny_diagnostics::ParseInfo<ParseInfoType>>) -> ParseLadderTypeResult
+    where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         let mut rungs = Vec::new();
         let mut r = InputRegionTag::default();
@@ -474,7 +476,8 @@ impl<T: LayeredContext> ParseLadderType for T {
             Err((rt, err)) => { return Err((rt, err)); }
         }
 
-        while let Some((rtok, tok)) = tokens.peek() {
+        while let Some(t) = tokens.peek() {
+            let (rtok, tok) = t.clone();
             match tok {
                 Ok(LadderTypeToken::Ladder) => {
                     let (rtok, tok) = tokens.next().unwrap();
@@ -493,7 +496,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                     }
                 }
                 Err(lexerr) => {
-                    return Err((*rtok, ParseError::LexError(lexerr.clone())));
+                    return Err((rtok, ParseError::LexError(lexerr.clone())));
                 }
                 _ => {
                     break;
