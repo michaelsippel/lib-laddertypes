@@ -49,7 +49,7 @@ enum LexerState {
     Any,
     Assign,
     Sym( String ),
-    Num( i64 ),
+    Num{ sign: bool, val: i64 },
     Char( Option<char> ),
     Arrow( String ),
 }
@@ -59,7 +59,7 @@ impl LexerState {
         match self {
             LexerState::Any => None,
             LexerState::Sym(s) => Some(LadderTypeToken::Symbol(s)),
-            LexerState::Num(n) => Some(LadderTypeToken::Num(n)),
+            LexerState::Num{sign, val} => Some(LadderTypeToken::Num( if sign{-val} else{val})),
             LexerState::Char(c) => Some(LadderTypeToken::Char(c?)),
             LexerState::Assign => Some(LadderTypeToken::AssignType),
             LexerState::Arrow(s) => match s.as_str() {
@@ -78,9 +78,7 @@ where It: std::iter::Iterator<Item = char>
 {
     chars: std::iter::Peekable<It>,
     pub position: usize,
-    // source_iter : std::iter::Peekable<SourceIter<It>>
-
-    current_region: InputRegionTag
+    pub current_region: InputRegionTag
 }
 
 impl<It> LadderTypeLexer<It> where It: std::iter::Iterator<Item = char> {
@@ -88,7 +86,7 @@ impl<It> LadderTypeLexer<It> where It: std::iter::Iterator<Item = char> {
         self.position += 1;
         self.current_region.end += 1;
         self.chars.next()
-    }
+    }                                                                          
 }
 
 impl<It> From<It> for LadderTypeLexer<It>
@@ -98,7 +96,19 @@ where It: Iterator<Item = char>
         LadderTypeLexer {
             chars: chars.peekable(),
             position: 0,
-            current_region: InputRegionTag { begin: 0, end: 0 }
+            current_region: InputRegionTag::default()
+        }
+    }
+}
+
+impl<It> From<std::iter::Peekable<It>> for LadderTypeLexer<It>
+where It: Iterator<Item = char>
+{
+    fn from(chars: std::iter::Peekable<It>) -> Self {
+        LadderTypeLexer {
+            chars,
+            position: 0,
+            current_region: InputRegionTag::default()
         }
     }
 }
@@ -119,7 +129,7 @@ where It: Iterator<Item = char>
                 // determine token type
                 LexerState::Any => {
                     match c {
-
+                        
                         // terminate lexer on '=' since it must be a token of morphism-base not a ladder-type.
                         // todo: move this termination condition a layer up to a wrapped input iterator
                         '=' => { return None; },
@@ -148,7 +158,9 @@ where It: Iterator<Item = char>
                             } else if c.is_alphabetic() {
                                 state = LexerState::Sym( String::new() );
                             } else if c.is_digit(10) {
-                                state = LexerState::Num( 0 );
+                                state = LexerState::Num{
+                                    sign: false, val: 0
+                                };
                             }
                         }
                     }
@@ -223,12 +235,18 @@ where It: Iterator<Item = char>
                 }
 
                 LexerState::Arrow(s) => {
-                    let c = self.advance_region().unwrap();
-                    s.push(c);
-                    if c == '>' {
-                        // end of arrow
-                        if let Some(token) = state.clone().into_token() {
-                            return Some((self.current_region, Ok(token)));
+                    if c.is_digit(10) {
+                        // encountered a signed number
+                        state = LexerState::Num { sign: true, val: 0 };
+                    } else {
+                        let c = self.advance_region().unwrap();
+                        s.push(c);
+                        
+                         if c == '>' {
+                            // end of arrow
+                            if let Some(token) = state.clone().into_token() {
+                                return Some((self.current_region, Ok(token)));
+                            }
                         }
                     }
                 }
@@ -253,9 +271,9 @@ where It: Iterator<Item = char>
                             LexerState::Sym(s) => {
                                 s.push(c);
                             }
-                            LexerState::Num(n) => {
+                            LexerState::Num{ sign, val } => {
                                 if let Some(d) = c.to_digit(10) {
-                                    *n = (*n) * 10 + d as i64;
+                                    *val = (*val) * 10 + d as i64;
                                 } else {
                                     return Some((self.current_region, Err(LexError::InvalidDigit)));
                                 }
