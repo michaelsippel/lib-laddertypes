@@ -37,9 +37,9 @@ pub enum ParseError {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ParseInfoType {
-    UnknownTypeName( String )
+    UnknownTypeName( String ),
 }
 
 
