@@ -132,7 +132,12 @@ impl<T: LayeredContext> ParseLadderType for T {
     where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         let mut args = Vec::new();
-        let mut r = InputRegionTag::default();
+        let mut r =
+            if let Some((rtok,_)) = tokens.peek() {
+                *rtok
+            } else {
+                InputRegionTag::default()
+            };
 
         while let Some((r_tok, tok)) = tokens.peek() {
             match tok {
@@ -157,7 +162,12 @@ impl<T: LayeredContext> ParseLadderType for T {
     where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         let mut seq_repr = None;
-        let mut r = InputRegionTag::default();
+        let mut r =
+            if let Some((rtok,_)) = tokens.peek() {
+                *rtok
+            } else {
+                InputRegionTag::default()
+            };
 
         if let Some((range, Ok(LadderTypeToken::Ladder))) = tokens.peek() {
             r = *range;
@@ -200,8 +210,12 @@ impl<T: LayeredContext> ParseLadderType for T {
         let mut is_enum = false;
         let mut variants = Vec::new();
         let mut members = Vec::new();
-
-        let mut r = InputRegionTag::default();
+        let mut r =
+            if let Some((rtok,_)) = tokens.peek() {
+               *rtok
+            } else {
+                InputRegionTag::default()
+            };
 
         if let Some((range, Ok(LadderTypeToken::Ladder))) = tokens.peek() {
             r = *range;
@@ -293,8 +307,13 @@ impl<T: LayeredContext> ParseLadderType for T {
         let mut Γ = Vec::new();
         let mut ctx = self.scope();
         let mut bounds = Vec::new();
-
-        let mut r = InputRegionTag::default();
+        
+        let mut r =
+            if let Some((rtok,_)) = tokens.peek() {
+                *rtok
+            } else {
+                InputRegionTag::default()
+            };
 
         // at least one symbol name follows
         while let Some((rtok, tok)) = tokens.next() {
@@ -423,7 +442,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                 | Ok(LadderTypeToken::CloseSpec)
                 | Ok(LadderTypeToken::CloseSeq)
                 | Ok(LadderTypeToken::CloseStruct)
-                    => Err((InputRegionTag::default(), ParseError::UnexpectedClose)),
+                    => Err((rtok, ParseError::UnexpectedClose)),
 
                 Ok(LadderTypeToken::StructSep)
                 | Ok(LadderTypeToken::EnumSep)
@@ -446,7 +465,7 @@ impl<T: LayeredContext> ParseLadderType for T {
                         });
                     }
 
-                    Ok((InputRegionTag::default(),
+                    Ok((rtok,
                         match self.get_typeid_creat(&s) {
                             TypeID::Fun(id) => TypeTerm::Id(id),
                             TypeID::Var(id) => TypeTerm::Var(id)
@@ -466,7 +485,12 @@ impl<T: LayeredContext> ParseLadderType for T {
     where It: Iterator<Item = (InputRegionTag, Result<LadderTypeToken, LexError>)>
     {
         let mut rungs = Vec::new();
-        let mut r = InputRegionTag::default();
+        let mut r =
+            if let Some((rtok,_)) = tokens.peek() {
+                *rtok
+            } else {
+                InputRegionTag::default()
+            };
 
         match self.parse_rung(tokens, warnings) {
             Ok((rt, t)) => {
