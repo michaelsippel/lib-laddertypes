@@ -97,7 +97,7 @@ fn test_parser_app() {
 fn test_parser_unexpected_close() {
     assert_eq!(
         Context::new().parse(">"),
-        Err((InputRegionTag{ begin:0, end:0 }, ParseError::UnexpectedClose))
+        Err((InputRegionTag{ begin:0, end:1 }, ParseError::UnexpectedClose))
     );
 }
 
