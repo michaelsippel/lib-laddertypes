@@ -180,7 +180,7 @@ impl<T: TypeDict> UnparseLadderType for T {
                 let mut first = true;
                 for x in ts.iter() {
                     if !first {
-                        s.push_str("-->");
+                        s.push_str(" --> ");
                     } else {
                         first = false;
                     }
@@ -193,7 +193,7 @@ impl<T: TypeDict> UnparseLadderType for T {
             TypeTerm::Morph(s, t) => {
                 let mut st = String::new();
                 st.push_str(&self.unparse(s));
-                st.push_str("-morph->");
+                st.push_str(" -morph-> ");
                 st.push_str(&self.unparse(t));
                 st
             }
