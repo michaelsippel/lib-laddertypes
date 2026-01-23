@@ -1,6 +1,6 @@
 /*
    lib-laddertypes
-   Copyright (C) 2023-2025  Michael Sippel
+   Copyright (C) 2023-2026  Michael Sippel
  <<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>
 
  This program is free software: you can redistribute it and/or modify
@@ -69,22 +69,133 @@ impl<T: TypeDict> UnparseLadderType for T {
                 s
             }
             TypeTerm::Seq { seq_repr, item } => {
-                todo!()
+                let mut s = String::new();
+                s.push('[');
+
+                if let Some(sr) = seq_repr {
+                    s.push_str("~");
+                    s.push_str(&mut self.unparse(sr));
+                    s.push_str(" ");
+                }
+                
+
+                s.push_str(&self.unparse(&item));
+                s.push(']');
+                s
             }
             TypeTerm::Struct { struct_repr, members } => {
-                todo!()
+                let mut s = String::new();
+                s.push('{');
+
+                if let Some(sr) = struct_repr {
+                    s.push_str("~");
+                    s.push_str(&mut self.unparse(sr));
+                    s.push_str(" ");
+                }
+                
+                for m in members.iter() {
+                    s.push_str(&m.symbol);
+                    s.push_str(": ");
+                    s.push_str(&self.unparse(&m.ty));
+                    s.push_str("; ");
+                }
+
+                s.push('}');
+                s
             }
             TypeTerm::Enum { enum_repr, variants } => {
-                todo!()
+                let mut s = String::new();
+                s.push('{');
+
+                if let Some(sr) = enum_repr {
+                    s.push_str("~");
+                    s.push_str(&mut self.unparse(sr));
+                    s.push_str(" ");
+                }
+                
+                for m in variants.iter() {
+
+                    s.push_str("| ");
+                    s.push_str(&m.symbol);
+                    s.push_str(": ");
+                    s.push_str(&self.unparse(&m.ty));
+                }
+
+                s.push('}');
+                s
             }
             TypeTerm::Univ{ Γ, bounds, τ } => {
-                todo!()
+                let mut s = String::new();
+
+                for entry in Γ.iter() {
+                    s.push_str("∀");
+                    s.push_str(&entry.symbol);
+                    match &entry.kind {
+                        crate::TypeKind::Type => {},
+                        crate::TypeKind::Arrow(_type_kind, _type_kind1) => {
+                            todo!();
+                        },
+                        crate::TypeKind::Value(type_term) => {
+                            s.push_str(":");
+                            s.push_str(&self.unparse(&type_term));
+                        }
+                    }
+                    s.push_str(" ");
+                }
+
+                for bound in bounds {
+                    s.push_str("(");
+                    match bound {
+                        ConstraintPair::ValueOf(type_term, type_term1) => {
+                            s.push_str(&self.unparse(type_term));
+                            s.push_str(":");
+                            s.push_str(&self.unparse(type_term1));
+                        },
+                        ConstraintPair::Subtype(type_term, type_term1) => {
+                            s.push_str(&self.unparse(type_term));
+                            s.push_str(" <= ");
+                            s.push_str(&self.unparse(type_term1));
+                        },
+                        ConstraintPair::Trait(type_term, type_term1) => {
+                            s.push_str(&self.unparse(type_term));
+                            s.push_str(" >< ");
+                            s.push_str(&self.unparse(type_term1));
+                        },
+                        ConstraintPair::Parallel(type_term, type_term1) => {
+                            s.push_str(&self.unparse(type_term));
+                            s.push_str(" || ");
+                            s.push_str(&self.unparse(type_term1));
+                        },
+                    }
+                    s.push_str(") ");
+                }
+
+                s.push_str(&self.unparse(&τ));
+
+                s
             }
             TypeTerm::Func(ts) => {
-                todo!()
+                let mut s = String::new();
+
+                let mut first = true;
+                for x in ts.iter() {
+                    if !first {
+                        s.push_str("-->");
+                    } else {
+                        first = false;
+                    }
+                    s.push_str(&self.unparse(x));
+                }
+
+                s
+
             }
             TypeTerm::Morph(s, t) => {
-                todo!()
+                let mut st = String::new();
+                st.push_str(&self.unparse(s));
+                st.push_str("-morph->");
+                st.push_str(&self.unparse(t));
+                st
             }
         }
     }
