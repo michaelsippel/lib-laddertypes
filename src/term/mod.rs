@@ -30,7 +30,8 @@ mod pretty;
 use {
     crate::{
         parser::ParseLadderType, ConstraintPair, ContextEntry, MorphismType, Substitution, TypeDict, TypeID, CP2},
-    std::ops::Deref
+    std::ops::Deref,
+    tiny_diagnostics::InputRegionTag
 };
 
 

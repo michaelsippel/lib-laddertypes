@@ -17,6 +17,8 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+use tiny_diagnostics::InputRegionTag;
+
 //<<<<>>>><<>><><<>><<<*>>><<>><><<>><<<<>>>>\\
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -47,7 +49,7 @@ enum LexerState {
     Any,
     Assign,
     Sym( String ),
-    Num( i64 ),
+    Num{ sign: bool, val: i64 },
     Char( Option<char> ),
     Arrow( String ),
 }
@@ -57,7 +59,7 @@ impl LexerState {
         match self {
             LexerState::Any => None,
             LexerState::Sym(s) => Some(LadderTypeToken::Symbol(s)),
-            LexerState::Num(n) => Some(LadderTypeToken::Num(n)),
+            LexerState::Num{sign, val} => Some(LadderTypeToken::Num( if sign{-val} else{val})),
             LexerState::Char(c) => Some(LadderTypeToken::Char(c?)),
             LexerState::Assign => Some(LadderTypeToken::AssignType),
             LexerState::Arrow(s) => match s.as_str() {
@@ -75,6 +77,16 @@ pub struct LadderTypeLexer<It>
 where It: std::iter::Iterator<Item = char>
 {
     chars: std::iter::Peekable<It>,
+    pub position: usize,
+    pub current_region: InputRegionTag
+}
+
+impl<It> LadderTypeLexer<It> where It: std::iter::Iterator<Item = char> {
+    fn advance_region(&mut self) -> Option<char> {
+        self.position += 1;
+        self.current_region.end += 1;
+        self.chars.next()
+    }                                                                          
 }
 
 impl<It> From<It> for LadderTypeLexer<It>
@@ -82,7 +94,21 @@ where It: Iterator<Item = char>
 {
     fn from(chars: It) -> Self {
         LadderTypeLexer {
-            chars: chars.peekable()
+            chars: chars.peekable(),
+            position: 0,
+            current_region: InputRegionTag::default()
+        }
+    }
+}
+
+impl<It> From<std::iter::Peekable<It>> for LadderTypeLexer<It>
+where It: Iterator<Item = char>
+{
+    fn from(chars: std::iter::Peekable<It>) -> Self {
+        LadderTypeLexer {
+            chars,
+            position: 0,
+            current_region: InputRegionTag::default()
         }
     }
 }
@@ -90,42 +116,51 @@ where It: Iterator<Item = char>
 impl<It> Iterator for LadderTypeLexer<It>
 where It: Iterator<Item = char>
 {
-    type Item = Result<LadderTypeToken, LexError>;
+    type Item = (InputRegionTag, Result<LadderTypeToken, LexError>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut state = LexerState::Any;
 
+        self.current_region.begin = self.position;
+        self.current_region.end   = self.position;
+
         while let Some(c) = self.chars.peek() {
             match &mut state {
-
                 // determine token type
                 LexerState::Any => {
                     match c {
-                        '∀' => { self.chars.next(); return Some(Ok(LadderTypeToken::Univ)); },
-                        '(' => { self.chars.next(); return Some(Ok(LadderTypeToken::Open)); },
-                        ')' => { self.chars.next(); return Some(Ok(LadderTypeToken::Close)); },
-                        '<' => { self.chars.next(); return Some(Ok(LadderTypeToken::OpenSpec)); },
-                        '>' => { self.chars.next(); return Some(Ok(LadderTypeToken::CloseSpec)); },
-                        '[' => { self.chars.next(); return Some(Ok(LadderTypeToken::OpenSeq)); },
-                        ']' => { self.chars.next(); return Some(Ok(LadderTypeToken::CloseSeq)); },
-                        '{' => { self.chars.next(); return Some(Ok(LadderTypeToken::OpenStruct)); },
-                        '}' => { self.chars.next(); return Some(Ok(LadderTypeToken::CloseStruct)); },
-                        ';' => { self.chars.next(); return Some(Ok(LadderTypeToken::StructSep)); },
-                        '|' => { self.chars.next(); return Some(Ok(LadderTypeToken::EnumSep)); },
-                        '~' => { self.chars.next(); return Some(Ok(LadderTypeToken::Ladder)); },
-                        '\'' => { self.chars.next(); state = LexerState::Char(None); },
+                        
+                        // terminate lexer on '=' since it must be a token of morphism-base not a ladder-type.
+                        // todo: move this termination condition a layer up to a wrapped input iterator
+                        '=' => { return None; },
+                        '∀' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::Univ))); },
+                        '(' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::Open))); },
+                        ')' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::Close))); },
+                        '<' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::OpenSpec))); },
+                        '>' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::CloseSpec))); },
+                        '[' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::OpenSeq))); },
+                        ']' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::CloseSeq))); },
+                        '{' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::OpenStruct))); },
+                        '}' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::CloseStruct))); },
+                        ';' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::StructSep))); },
+                        '|' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::EnumSep))); },
+                        '~' => { self.advance_region(); return Some((self.current_region, Ok(LadderTypeToken::Ladder))); },
+                        '\'' => { self.advance_region(); state = LexerState::Char(None); },
                         ':' => {
-                            self.chars.next();
+                            self.advance_region();
                             state = LexerState::Assign;
                         },
                         '-' => { state = LexerState::Arrow(String::new()); },
                         c => {
                             if c.is_whitespace() {
-                                self.chars.next();
+                                self.advance_region();
+                                self.current_region.begin += 1;
                             } else if c.is_alphabetic() {
                                 state = LexerState::Sym( String::new() );
                             } else if c.is_digit(10) {
-                                state = LexerState::Num( 0 );
+                                state = LexerState::Num{
+                                    sign: false, val: 0
+                                };
                             }
                         }
                     }
@@ -133,32 +168,32 @@ where It: Iterator<Item = char>
 
                 LexerState::Char(val) => {
                     *val = Some(
-                        match self.chars.next() {
+                        match self.advance_region() {
                             Some('\\') => {
-                                match self.chars.next() {
+                                match self.advance_region() {
                                     Some('0') => '\0',
                                     Some('n') => '\n',
                                     Some('t') => '\t',
                                     Some(c) => c,
                                     None => {
-                                        return Some(Err(LexError::InvalidChar));
+                                        return Some((self.current_region, Err(LexError::InvalidChar)));
                                     }
                                 }
                             }
                             Some(c) => c,
                             None => {
-                                return Some(Err(LexError::InvalidChar));
+                                return Some((self.current_region, Err(LexError::InvalidChar)));
                             }
                         });
 
-                    match self.chars.next() {
+                    match self.advance_region() {
                         Some('\'') => {
                             if let Some(token) = state.clone().into_token() {
-                                return Some(Ok(token));
+                                return Some((self.current_region, Ok(token)));
                             }
                         }
                         _ => {
-                            return Some(Err(LexError::InvalidChar));
+                            return Some((self.current_region, Err(LexError::InvalidChar)));
                         }
                     }
                 }
@@ -167,45 +202,51 @@ where It: Iterator<Item = char>
                     match c {
                         '<' => {
                             // subtype
-                            self.chars.next();
-                            match self.chars.next() {
-                                Some('=') => { return Some(Ok(LadderTypeToken::SubType)); },
-                                Some(_) => { return Some(Err(LexError::InvalidChar)); },
-                                None => { return Some(Err(LexError::InvalidChar)); }
+                            self.advance_region();
+                            match self.advance_region() {
+                                Some('=') => { return Some((self.current_region, Ok(LadderTypeToken::SubType))); },
+                                Some(_) => { return Some((self.current_region, Err(LexError::InvalidChar))); },
+                                None => { return Some((self.current_region, Err(LexError::InvalidChar))); }
                             }
                         }
                         '>' => {
                             // traittype
-                            self.chars.next();
-                            match self.chars.next() {
-                                Some('<') => { return Some(Ok(LadderTypeToken::TraitType)); },
-                                Some(_) => { return Some(Err(LexError::InvalidChar)); },
-                                None => { return Some(Err(LexError::InvalidChar)); }
+                            self.advance_region();
+                            match self.advance_region() {
+                                Some('<') => { return Some((self.current_region, Ok(LadderTypeToken::TraitType))); },
+                                Some(_) => { return Some((self.current_region, Err(LexError::InvalidChar))); },
+                                None => { return Some((self.current_region, Err(LexError::InvalidChar))); }
                             }
                         }
                         '|' => {
                             // paralleltype
-                            self.chars.next();
+                            self.advance_region();
 
-                            match self.chars.next() {
-                                Some('|') => { return Some(Ok(LadderTypeToken::ParallelType)); },
-                                Some(_) => { return Some(Err(LexError::InvalidChar)); },
-                                None => { return Some(Err(LexError::InvalidChar)); }
+                            match self.advance_region() {
+                                Some('|') => { return Some((self.current_region, Ok(LadderTypeToken::ParallelType))); },
+                                Some(_) => { return Some((self.current_region, Err(LexError::InvalidChar))); },
+                                None => { return Some((self.current_region, Err(LexError::InvalidChar))); }
                             }
                         }
                         _ => {
-                            return Some(Ok(LadderTypeToken::AssignType));
+                            return Some((self.current_region, Ok(LadderTypeToken::AssignType)));
                         }
                     }
                 }
 
                 LexerState::Arrow(s) => {
-                    let c = self.chars.next().unwrap();
-                    s.push(c);
-                    if c == '>' {
-                        // end of arrow
-                        if let Some(token) = state.clone().into_token() {
-                            return Some(Ok(token));
+                    if c.is_digit(10) {
+                        // encountered a signed number
+                        state = LexerState::Num { sign: true, val: 0 };
+                    } else {
+                        let c = self.advance_region().unwrap();
+                        s.push(c);
+                        
+                         if c == '>' {
+                            // end of arrow
+                            if let Some(token) = state.clone().into_token() {
+                                return Some((self.current_region, Ok(token)));
+                            }
                         }
                     }
                 }
@@ -219,22 +260,22 @@ where It: Iterator<Item = char>
                         // finish the current token
 
                         if let Some(token) = state.clone().into_token() {
-                            return Some(Ok(token));
+                            return Some((self.current_region, Ok(token)));
                         }
                     } else {
                         // append to the current token
 
-                        let c = self.chars.next().unwrap();
+                        let c = self.advance_region().unwrap();
 
                         match &mut state {
                             LexerState::Sym(s) => {
                                 s.push(c);
                             }
-                            LexerState::Num(n) => {
+                            LexerState::Num{ sign, val } => {
                                 if let Some(d) = c.to_digit(10) {
-                                    *n = (*n) * 10 + d as i64;
+                                    *val = (*val) * 10 + d as i64;
                                 } else {
-                                    return Some(Err(LexError::InvalidDigit));
+                                    return Some((self.current_region, Err(LexError::InvalidDigit)));
                                 }
                             }
 
@@ -246,7 +287,7 @@ where It: Iterator<Item = char>
         }
 
         if let Some(token) = state.into_token() {
-            Some(Ok(token))
+            Some((self.current_region, Ok(token)))
         } else {
             None
         }
